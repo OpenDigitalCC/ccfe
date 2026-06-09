@@ -16,15 +16,31 @@ lines of global state, and `local`-based dynamic scoping. It drives a curses UI
 through the **low-level `libform` / `libmenu` C bindings** of the `Curses` module.
 
 The "segfault on forms" reported in issue #1 is **not** a defect in the `Curses`
-module that requires static recompilation. It is a concrete, reproducible **logic
-bug**: a curses menu is built from an **empty item list**, and the code then calls
-`item_index(current_item($cmenu))` on a menu that has no current item. `current_item`
-returns NULL, and the `item_index(NULL)` call produces exactly the reported error —
+module that requires static recompilation. It is a pair of concrete, reproducible
+**Perl logic bugs**, both fixed in v1.60:
 
-> `argument 0 to Curses function 'item_index' is not a Curses item at … line 2539`
+1. **Dangling items/fields buffer (the primary crash).** `new_menu()` and
+   `new_form()` store the caller's packed `ITEM**` / `FIELD**` array pointer
+   **without copying it** — the array must stay valid for the entire life of the
+   menu/form (that is how the underlying ncurses `libmenu`/`libform` work). CCFE
+   built the array inline as `new_menu( pack 'L!*', @fset )`, so the packed string
+   was a Perl **temporary that was freed/reused the moment the statement ended**,
+   leaving ncurses holding a dangling pointer. With ≥ 3 items the freed buffer
+   happened to survive long enough to limp along; with **1–2 items** (the `demo`
+   and `ccfe` install menus, and every short form) the memory was reused
+   immediately and the first menu/form operation dereferenced freed memory — a
+   hard **SIGSEGV before a single character was painted**. This is why the demo
+   menu crashed on startup and forms "segfaulted". Fixed by holding the packed
+   buffer in a lexical that outlives the menu/form at all four call sites.
 
-— which, depending on the ncurses build, surfaces as a Perl die or a hard segfault
-in the C layer.
+2. **`item_index(NULL)` on an empty menu.** Separately, a curses menu built from an
+   **empty item list** then calls `item_index(current_item($cmenu))`; `current_item`
+   returns NULL and `item_index(NULL)` produces exactly the reported error —
+
+   > `argument 0 to Curses function 'item_index' is not a Curses item at … line 2539`
+
+   — which, depending on the ncurses build, surfaces as a Perl die or a hard
+   segfault. Fixed by an empty-list guard plus a NULL-current-item guard.
 
 **Therefore the entire custom Docker toolchain (custom GCC + binutils + statically
 compiled ncurses) built to "fix" this is the wrong remedy and should be retired.**
@@ -41,7 +57,36 @@ file-format contract is preserved verbatim for backward compatibility.
 
 ## 2. Root cause of issue #1 (the crash)
 
-### 2.1 The crash site
+### 2.0 The primary crash: a dangling items/fields buffer
+
+All four menu/form constructions used the same idiom:
+
+```perl
+$cmenu = new_menu( pack 'L!*', @fset );   # do_menu:2133, do_list:2491
+$cform = new_form( pack 'L!*', @fset );   # ask_string:831, do_form:3230
+```
+
+`new_menu()`/`new_form()` keep the **pointer** to that packed array; ncurses does
+**not** copy it. The `pack 'L!*', @fset` expression is an anonymous temporary, so
+Perl is free to reclaim its buffer as soon as the statement completes — after which
+ncurses is dereferencing freed memory on every subsequent menu/form call.
+
+Whether it crashes is pure allocation luck: with ≥ 3 items the buffer survived long
+enough to work; with 1 or 2 items the freed memory was reused immediately and the
+**first** operation (`set_menu_mark`, `set_menu_format`, …) segfaulted, before any
+output was painted. That is exactly the demo (1 item) and ccfe (2 item) menus, and
+every short form — so the program crashed on its very first screen. Confirmed with a
+minimal pure-`Curses` reproducer (1–2 items crash, 3+ survive) and pinned by the
+pty-driven `t/03-tty-smoke.t`.
+
+**Fix:** keep the packed buffer in a lexical that lives until `free_menu`/`free_form`:
+
+```perl
+my $items_buf = pack 'L!*', @fset;   # MUST outlive the menu/form
+$cmenu = new_menu($items_buf);
+```
+
+### 2.1 The secondary crash site (empty list)
 
 `src/ccfe.pl:2541` (inside `do_list`):
 

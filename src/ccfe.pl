@@ -828,7 +828,11 @@ sub ask_string {
     push @fset, ${$field};
 
     push @fset, 0;
-    $cform = new_form( pack 'L!*', @fset );
+    # new_form() stores this pointer WITHOUT copying the array (ncurses
+    # behaviour), so the packed buffer must outlive the form (freed below).
+    # An inline pack() temporary left a dangling pointer -- see do_menu().
+    my $fields_buf = pack 'L!*', @fset;
+    $cform = new_form($fields_buf);
     if ( $cform eq '' ) { fatal("ask_string.new_form() failed") }
     set_form_win( $cform, $win );
     set_form_sub( $cform, $swin );
@@ -2130,7 +2134,16 @@ sub do_menu {
         }
         push @fset, 0;
 
-        $cmenu = new_menu( pack 'L!*', @fset );
+        # new_menu() keeps this pointer WITHOUT copying the array (documented
+        # ncurses behaviour: the items array must stay valid for the life of
+        # the menu).  Passing an inline `pack 'L!*'` temporary left ncurses
+        # holding a dangling pointer; on small menus (1-2 items) the freed
+        # Perl buffer was reused immediately, so the first menu operation
+        # segfaulted -- this crashed the demo/ccfe menus on startup.  Keeping
+        # the buffer in a lexical that lives until free_menu() below fixes it.
+        # Regression-guarded by t/03-tty-smoke.t.
+        my $items_buf = pack 'L!*', @fset;
+        $cmenu = new_menu($items_buf);
         if ( $cmenu eq '' ) { fatal("do_menu.new_menu() failed") }
 
         $mwinr =
@@ -2488,7 +2501,11 @@ sub do_list {
     }
     push @fset, 0;
 
-    $cmenu = new_menu( pack 'L!*', @fset );
+    # Keep the packed items buffer alive for the menu's lifetime: new_menu()
+    # stores the pointer without copying it (see do_menu() for the full
+    # explanation).  Freed implicitly when this sub returns, after free_menu().
+    my $items_buf = pack 'L!*', @fset;
+    $cmenu = new_menu($items_buf);
     if ( $cmenu eq '' ) { fatal("do_list.new_menu() failed") }
 
     set_menu_mark( $cmenu, $mark );
@@ -3227,7 +3244,11 @@ sub do_form {
         }
         push @fset, 0;
 
-        $cform = new_form( pack 'L!*', @fset );
+        # Keep the packed fields buffer alive for the form's lifetime:
+        # new_form() stores the pointer without copying it (see do_menu() for
+        # the full explanation).  Freed when this sub returns, after free_form().
+        my $fields_buf = pack 'L!*', @fset;
+        $cform = new_form($fields_buf);
         if ( $cform eq '' ) { fatal("do_form.new_form() failed") }
 
         scale_form( $cform, $rows, $cols );

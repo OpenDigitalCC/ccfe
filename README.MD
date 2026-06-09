@@ -18,9 +18,15 @@ and begins the modernisation described in [`REFACTOR.md`](REFACTOR.md).
 
 The segfault was **not** a defect in the `Curses` module that needed a
 statically compiled ncurses (which is what the old build tooling tried to
-provide). It was a logic bug: a curses menu was built from an empty item
-list, after which `item_index(current_item(...))` dereferenced a NULL item.
-That is fixed, so CCFE now depends on **standard packages only**.
+provide). It was two Perl logic bugs. The main one: `new_menu()`/`new_form()`
+keep the caller's packed pointer array without copying it, but CCFE built it
+as an inline `pack` temporary that Perl freed immediately — leaving ncurses
+with a dangling pointer that crashed on small menus and forms (the demo menu
+crashed on startup). The second: building a menu from an empty list and then
+calling `item_index(current_item(...))` on a NULL item. Both are fixed, so
+CCFE now depends on **standard packages only**. See [`REFACTOR.md`](REFACTOR.md)
+§2 for the full analysis and `src/t/03-tty-smoke.t` for the regression test
+that drives the real program on a pseudo-terminal.
 
 ## Dependencies
 
@@ -70,9 +76,15 @@ prove t/
 
 The suite covers: that the program compiles (`t/00-compile.t`); that the
 `.menu` / `.form` / `.item` plugin file formats still parse against the
-demo and `sysmon` fixtures (`t/01-parsers.t`); and a regression guard for
-issue #1 (`t/02-issue1-regression.t`). The parser tests load the program
-headlessly via the `CCFE_TESTING` guard, so no terminal is required.
+demo and `sysmon` fixtures (`t/01-parsers.t`); a source-level regression
+guard for issue #1 (`t/02-issue1-regression.t`); and an end-to-end terminal
+smoke test that batch-installs CCFE into a temp prefix and drives the demo
+menu, the install menu, the sample plugin and the recursive form on a real
+pseudo-terminal, asserting none of them crash (`t/03-tty-smoke.t`). The
+parser tests load the program headlessly via the `CCFE_TESTING` guard, so no
+terminal is required; the tty test brings its own pty (pure core Perl, see
+`t/lib/CCFE/Test/Pty.pm`) and skips itself if no Linux pty / `Curses` is
+available.
 
 ## Plugins
 
