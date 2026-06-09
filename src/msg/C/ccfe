@@ -13,6 +13,12 @@
 NULL_LIST_TITLE  = "WARNING"
 NULL_LIST_MSG    = "Sorry, list not available for this field!"
 
+# Title and message string for pop-up window displayed when the
+# command behind a field's list_cmd fails without writing any error
+# text to stderr (issue #1):
+LIST_CMD_ERR_TITLE = "WARNING"
+LIST_CMD_ERR_MSG   = "Sorry, the command building this list failed!"
+
 # Title and message string for pop-up window displayed when
 # a form is without action{} block or with wrong select-item{} block:
 NULL_FACTION_TITLE = "ERROR"

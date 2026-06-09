@@ -36,9 +36,9 @@ use IO::Select;
 use File::Temp qw(tempfile);
 use Digest::MD5 qw(md5_hex);
 
-$VERSION      = '1.58';
-$VERSION_DATE = '04/09/2016';
-$VERSION_YEAR = '2009, 2016';
+$VERSION      = '1.60';
+$VERSION_DATE = '09/06/2026';
+$VERSION_YEAR = '2009, 2026';
 
 $PREFIX = "/usr/local/ccfe";
 
@@ -353,6 +353,8 @@ sub load_msgs {
 
     my @msg_id = qw(NULL_LIST_MSG
       NULL_LIST_TITLE
+      LIST_CMD_ERR_MSG
+      LIST_CMD_ERR_TITLE
       NULL_FACTION_MSG
       NULL_FACTION_TITLE
       SAVE_FIELDVAL_MSG
@@ -2185,7 +2187,7 @@ sub do_menu {
             elsif ( $ch == KEY_END ) {
                 menu_driver( $cmenu, REQ_LAST_ITEM );
             }
-            elsif ( $ch == $keys{redraw}{code} ) {
+            elsif ( $ch == $keys{redraw}{code} or $ch == KEY_RESIZE ) {
                 refresh(curscr);
             }
             elsif ( $ch == $keys{back}{code} or ord($ch) == 27 ) {
@@ -2426,6 +2428,20 @@ sub do_list {
             return $es, undef;
         }
     }
+
+    # --- issue #1 hotfix ---------------------------------------------------
+    # Never build a curses menu from an empty item list.  With no items
+    # current_item() returns NULL and the item_index(current_item(...))
+    # call further down dies with "argument 0 to Curses function
+    # 'item_index' is not a Curses item" -- a hard segfault on some ncurses
+    # builds.  Show the standard "list not available" pop-up and bail.
+    unless (@$ilist_ref) {
+        trace( "do_list: empty item list for type \"$type\"", $LOG_LIST_CMD );
+        disp_msg( $pwin, $NULL_LIST_MSG, $NULL_LIST_TITLE );
+        return $ES_CANCEL, ();
+    }
+    # -----------------------------------------------------------------------
+
     my $y0 = $LW_ROW0;
     my $y1 = $LINES;
     my $x0 = int( ( $COLS - $LW_COLS ) / 2 );
@@ -2537,8 +2553,13 @@ sub do_list {
         $rflag = $lflag = ' ';
         $rflag = '>' if $mlmargin + $cols - $LW_COLS - $px >= 0;
         $lflag = '<' if $px > 0;
+        # issue #1: guard against a NULL current item -- item_index(undef)
+        # segfaults.  The empty-list check at the top of do_list should make
+        # this unreachable, but keep the call site defensive.
+        my $cur_item = current_item($cmenu);
+        my $cur_idx  = $cur_item ? item_index($cur_item) : -1;
         $pos_msg = sprintf( "  %s%d/%d%s%s",
-            $lflag, item_index( current_item($cmenu) ) + 1,
+            $lflag, $cur_idx + 1,
             item_count($cmenu),
             ( $type eq 'multi-val' ) ? ":$nselected" : '', $rflag );
         getyx( $mwin, $saveY, $saveX );
@@ -2586,7 +2607,7 @@ sub do_list {
         elsif ( $ch eq 'n' and in( 'find_next', @lw_keys ) ) {
             menu_driver( $cmenu, REQ_NEXT_MATCH );
         }
-        elsif ( $ch == $keys{redraw}{code} ) {
+        elsif ( $ch == $keys{redraw}{code} or $ch == KEY_RESIZE ) {
             refresh(curscr);
         }
         elsif ( ( $ch == $keys{back}{code} or ord($ch) == 27 )
@@ -3568,8 +3589,17 @@ sub do_form {
                             trace( "error generating list:", $LOG_LIST_CMD );
                             trace( "\"" . join( "\"\n\"", @err ) . "\"",
                                 $LOG_LIST_CMD );
-                            ($es) =
-                              do_list( $win, 'Error', 'display', \@err, undef );
+                            if (@err) {
+                                ($es) = do_list( $win, 'Error', 'display',
+                                    \@err, undef );
+                            }
+                            else {
+                                # issue #1: a failed list_cmd that wrote
+                                # nothing to stderr must not be handed to
+                                # do_list as an empty list.
+                                disp_msg( $win, $LIST_CMD_ERR_MSG,
+                                    $LIST_CMD_ERR_TITLE );
+                            }
                             @list = ();
                         }
                         close_wait_msg( $wpan, $wwin, $win );
@@ -3696,7 +3726,7 @@ sub do_form {
                     disp_msg( $win, $BAD_SHELL_MSG, $BAD_SHELL_TITLE );
                 }
             }
-            elsif ( $ch == $keys{redraw}{code} ) {
+            elsif ( $ch == $keys{redraw}{code} or $ch == KEY_RESIZE ) {
                 refresh(curscr);
             }
             elsif ( $ch == $keys{exit}{code} ) {
@@ -4100,7 +4130,7 @@ sub run_browse {
             $es = $ES_EXIT;
             last;
         }
-        elsif ( $ch == $keys{redraw}{code} ) {
+        elsif ( $ch == $keys{redraw}{code} or $ch == KEY_RESIZE ) {
             refresh(curscr);
         }
         elsif ( $ch == $keys{save}{code} ) {
@@ -4361,6 +4391,13 @@ sub HELP_MESSAGE {
 sub VERSION_MESSAGE {
     usage;
 }
+
+# When loaded with CCFE_TESTING set (e.g. `require`d from the test suite)
+# stop here, before the interactive curses program runs, so the pure
+# parser/utility subs above can be exercised headlessly.  Harmless in
+# normal use: the condition is false, so the (otherwise illegal at file
+# scope) return is never executed.
+return 1 if $ENV{CCFE_TESTING};
 
 $Getopt::Std::STANDARD_HELP_VERSION = $TRUE;
 $Getopt::Std::OUTPUT_HELP_VERSION   = '';
