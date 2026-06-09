@@ -1,337 +1,310 @@
-# CCFE — Refactor Analysis & Recommendation
+# CCFE — Modernisation Recommendations
 
-**Subject:** `src/ccfe.pl` (4593 lines, single-file Perl/Curses TUI, v1.58, 2009–2016)
-**Issue:** [#1 — segfault on forms](https://github.com/OpusVL/perl-ccfe/issues/1)
-**Date:** 2026-06-09
-**Goal:** Bring CCFE up to modern Perl, fix the form/screen-drawing crashes, and
-depend on **standard packages only** — while preserving the plugin system and the
-`.menu` / `.form` / `.item` file formats.
-
----
-
-## 1. Executive summary
-
-CCFE is a single 4593-line Perl script with no `use strict`/`use warnings`, ~200
-lines of global state, and `local`-based dynamic scoping. It drives a curses UI
-through the **low-level `libform` / `libmenu` C bindings** of the `Curses` module.
-
-The "segfault on forms" reported in issue #1 is **not** a defect in the `Curses`
-module that requires static recompilation. It is a pair of concrete, reproducible
-**Perl logic bugs**, both fixed in v1.60:
-
-1. **Dangling items/fields buffer (the primary crash).** `new_menu()` and
-   `new_form()` store the caller's packed `ITEM**` / `FIELD**` array pointer
-   **without copying it** — the array must stay valid for the entire life of the
-   menu/form (that is how the underlying ncurses `libmenu`/`libform` work). CCFE
-   built the array inline as `new_menu( pack 'L!*', @fset )`, so the packed string
-   was a Perl **temporary that was freed/reused the moment the statement ended**,
-   leaving ncurses holding a dangling pointer. With ≥ 3 items the freed buffer
-   happened to survive long enough to limp along; with **1–2 items** (the `demo`
-   and `ccfe` install menus, and every short form) the memory was reused
-   immediately and the first menu/form operation dereferenced freed memory — a
-   hard **SIGSEGV before a single character was painted**. This is why the demo
-   menu crashed on startup and forms "segfaulted". Fixed by holding the packed
-   buffer in a lexical that outlives the menu/form at all four call sites.
-
-2. **`item_index(NULL)` on an empty menu.** Separately, a curses menu built from an
-   **empty item list** then calls `item_index(current_item($cmenu))`; `current_item`
-   returns NULL and `item_index(NULL)` produces exactly the reported error —
-
-   > `argument 0 to Curses function 'item_index' is not a Curses item at … line 2539`
-
-   — which, depending on the ncurses build, surfaces as a Perl die or a hard
-   segfault. Fixed by an empty-list guard plus a NULL-current-item guard.
-
-**Therefore the entire custom Docker toolchain (custom GCC + binutils + statically
-compiled ncurses) built to "fix" this is the wrong remedy and should be retired.**
-The fix is in the Perl. The runtime dependency reduces to a **single standard Debian
-package**: `libcurses-perl`. Everything else CCFE uses is in the Perl core.
-
-Recommended path: a **staged in-place modernisation** (not a rewrite-from-scratch),
-keeping the `Curses` module for raw window drawing/input but **hardening or replacing
-the fragile `libform`/`libmenu` usage** that is the actual crash surface, plus the
-standard modernisation hygiene (strict/warnings, packaging, tests). The plugin and
-file-format contract is preserved verbatim for backward compatibility.
+**Subject:** `src/ccfe.pl` — single-file Perl/Curses TUI (≈4.6k lines).
+**Date:** 2026-06-09 (recommendations refreshed after the v1.60 work).
+**Goal:** keep CCFE on **standard packages only** (Perl core + `libcurses-perl`)
+and the `.menu`/`.form`/`.item` plugin contract intact, while making it safer to
+deploy, easier to maintain, and nicer to use.
 
 ---
 
-## 2. Root cause of issue #1 (the crash)
+## 1. Where things stand
 
-### 2.0 The primary crash: a dangling items/fields buffer
+**Already shipped in v1.60** (see the git log for the detail):
 
-All four menu/form constructions used the same idiom:
+- The historical "segfault on forms"/startup crash is fixed — it was a Perl
+  lifetime bug in how the menu/form item arrays were handed to ncurses, plus an
+  empty-menu guard. No static recompilation was ever needed.
+- The custom GCC/ncurses build apparatus was retired in favour of a slim
+  Debian image; the runtime dependency is now just `perl` + `libcurses-perl`.
+- A `Test::More` suite was added: compile check, plugin-format parser
+  conformance, a source-level regression guard, and a pty-driven tty smoke
+  test (`t/`), all core-only.
 
-```perl
-$cmenu = new_menu( pack 'L!*', @fset );   # do_menu:2133, do_list:2491
-$cform = new_form( pack 'L!*', @fset );   # ask_string:831, do_form:3230
-```
+**What this document covers:** the next steps — security hardening (restricting
+what a menu user can do), a modular/functional restructure for maintainability,
+automated quality gates (`perlcritic`/`perltidy`/CI), optional colour, and a set
+of further value-adding ideas. None of these change the on-disk file formats.
 
-`new_menu()`/`new_form()` keep the **pointer** to that packed array; ncurses does
-**not** copy it. The `pack 'L!*', @fset` expression is an anonymous temporary, so
-Perl is free to reclaim its buffer as soon as the statement completes — after which
-ncurses is dereferencing freed memory on every subsequent menu/form call.
-
-Whether it crashes is pure allocation luck: with ≥ 3 items the buffer survived long
-enough to work; with 1 or 2 items the freed memory was reused immediately and the
-**first** operation (`set_menu_mark`, `set_menu_format`, …) segfaulted, before any
-output was painted. That is exactly the demo (1 item) and ccfe (2 item) menus, and
-every short form — so the program crashed on its very first screen. Confirmed with a
-minimal pure-`Curses` reproducer (1–2 items crash, 3+ survive) and pinned by the
-pty-driven `t/03-tty-smoke.t`.
-
-**Fix:** keep the packed buffer in a lexical that lives until `free_menu`/`free_form`:
-
-```perl
-my $items_buf = pack 'L!*', @fset;   # MUST outlive the menu/form
-$cmenu = new_menu($items_buf);
-```
-
-### 2.1 The secondary crash site (empty list)
-
-`src/ccfe.pl:2541` (inside `do_list`):
-
-```perl
-$pos_msg = sprintf( "  %s%d/%d%s%s",
-    $lflag, item_index( current_item($cmenu) ) + 1,   # <-- line 2541
-    item_count($cmenu), ... );
-```
-
-If `$cmenu` has **no items**, `current_item($cmenu)` is NULL, and `item_index(NULL)`
-throws/segfaults. The menu is built a few lines earlier from `@fset`:
-
-```perl
-# src/ccfe.pl:2450-2475
-foreach $i ( 0 .. $#$ilist_ref ) { ... push @fset, ${$item}; }
-push @fset, 0;
-$cmenu = new_menu( pack 'L!*', @fset );   # empty when $ilist_ref is empty
-```
-
-When `$ilist_ref` is empty, `@fset` is just the terminating `0`, the menu has zero
-items, and line 2541 detonates.
-
-### 2.2 How an empty list reaches `do_list`
-
-`do_form` guards the **normal** select path against an empty list
-(`src/ccfe.pl:3585` `if (@list) { … do_list(…) }`), but the **error** path does not:
-
-```perl
-# src/ccfe.pl:3565-3574
-unless ( exec_command( $args, $form{path}, \@list, \@err ) ) {
-    ...
-    ($es) = do_list( $win, 'Error', 'display', \@err, undef );  # @err may be EMPTY
-    @list = ();
-}
-```
-
-When a field's `list_cmd` (`command:single-val:…`) exits non-zero **but writes
-nothing to stderr**, `@err` is empty, yet `do_list` is still invoked to "show the
-error" — building a zero-item menu and crashing at line 2541.
-
-This precisely explains every symptom in the issue:
-
-| Issue symptom | Explanation |
-|---|---|
-| "dropdowns sometimes fail to populate" | the `list_cmd` command failed / produced no rows |
-| "F2/F5 on select fields frequently cause crashes" | F2 = `list`, which runs the list_cmd path above |
-| "behaviour varies across systems" | whether a failing command emits stderr depends on locale / coreutils version — so `@err` is empty on some boxes and not others |
-| `item_index … is not a Curses item` | `current_item` of an empty menu is NULL |
-
-### 2.3 Secondary fragilities on the same surface
-
-These don't all crash today but are the same class of "low-level binding misuse"
-and should be cleaned up together:
-
-- **Pointer packing.** `new_menu( pack 'L!*', @fset )` / `new_form( pack 'L!*', @fset )`
-  hand-pack C pointers as `unsigned long`. Correct on LP64 Linux, but brittle and
-  the root reason the project feared a "needs static compilation" problem.
-- **Truthiness checks.** `if ( $item eq '' )` (`:2465`) and `if ( $cmenu eq '' )`
-  (`:2476`) string-compare what are really blessed/undef values; they do not reliably
-  detect allocation failure.
-- **No empty-menu guard** anywhere `current_item`/`item_index` are called
-  (`:2166`, `:2211`, `:2541`, `:2606`, `:2626`).
-- **No `KEY_RESIZE` / SIGWINCH handling.** `$LINES`/`$COLS` are read once at
-  `initscr` (`:4477`) and never refreshed; resizing the terminal corrupts the
-  drawing. This is the "screen drawing" half of the report.
-
-### 2.4 Minimal hotfix (independent of the full refactor)
-
-Two small changes stop the crash immediately and can ship before any restructuring:
-
-1. In `do_list`, return early when the item list is empty (show a message via
-   `disp_msg` instead of building a menu); never call `item_index`/`current_item`
-   on a zero-item menu.
-2. In `do_form`'s error branch (`:3571`), only call `do_list` when `@err` is
-   non-empty; otherwise use `disp_msg` with a generic "command failed" message.
+CCFE remains a single 4.6k-line script with no `use strict`/`use warnings`,
+~200 lines of global state, and `local`-based dynamic scope. The parsing layer
+(`load_menu`/`load_form`) is already curses-free — the v1.60 parser tests load
+it headlessly — which is the seam the restructure below builds on.
 
 ---
 
-## 3. Dependency analysis — "standard packages only"
+## 2. Security — preventing escape from the menu
 
-Every `use`/`require` in `ccfe.pl:23-37`:
+CCFE is frequently deployed as a **constrained front-end**: a kiosk, an
+operator console, or a restricted login (symlink the binary to a name and give
+an account that menu tree as its shell). In that role the security goal is
+simple — **a menu user must only be able to do what the menus allow** — but the
+current code has several ways out. Treat **menu/form/config files as trusted**
+(the administrator authors them) and **everything the end-user types as
+untrusted**. The gaps below all break that boundary.
 
-| Module | Source | Debian package | Action |
-|---|---|---|---|
-| `Curses` | XS / ncurses | **`libcurses-perl`** | **only non-core runtime dep — keep** |
-| `Sys::Hostname` | core | (perl) | keep |
-| `File::Basename` | core | (perl) | keep |
-| `POSIX` | core | (perl) | keep |
-| `Getopt::Std` | core | (perl) | keep |
-| `IPC::Open3` | core | (perl) | keep |
-| `Symbol` | core | (perl) | keep |
-| `IO::File` | core | (perl) | keep |
-| `Term::ANSIColor` | core | (perl) | keep (barely used; candidate to drop) |
-| `Text::Balanced` | core | (perl) | keep (the `.menu`/`.form` parser) |
-| `IO::Select` | core | (perl) | **imported but unused — drop** |
-| `File::Temp` | core | (perl) | keep |
-| `Digest::MD5` | core | (perl) | **effectively unused — drop** |
+### 2.1 Escape vectors in the current code
 
-**Conclusion:** the complete dependency footprint is **`libcurses-perl` plus the
-Perl core** (shipped by `perl` / `perl-modules-5.NN`). That already satisfies
-"standard packages only" — no CPAN-only modules, no custom-built libraries.
+| # | Vector | Where | Risk |
+|---|--------|-------|------|
+| E1 | **Shell-escape key (F7)** drops to a full interactive shell: `system("PS1=… $USER_SHELL")` | `call_shell` ≈`:659`, bound in `@MSKeys`/`@FSKeys`/`@RSKeys` | Total escape — the user gets a shell. Gated only by `valid_shell()`. |
+| E2 | **Command injection via field values.** A field's value is substituted **raw** into a command string that is then run by `sh -c`: `$$action_ref =~ s/%\{$id\}/$val/g` then `open3(…, $OPEN3_SHELL, '-c', $cmd)` | subst ≈`:2842`; exec ≈`:510`,`:3956`; `system($cmd)` ≈`:674` | A field value of `; sh`, `$(…)`, or `` `…` `` runs arbitrary commands even inside an otherwise locked-down menu. |
+| E3 | **`exec:` / `system:` verbs** run arbitrary commands by design; the final `exec($exec_args)` replaces CCFE with a shell-parsed string | `:4636`, dispatch in `do_menu`/`do_form` | Any menu/form that uses these (or a user-editable one) is an exit. |
+| E4 | **Save-to-script** writes a runnable `#!$OPEN3_SHELL` script into `$HOME` | `:4225` | Combined with E1/E3, a way to stage and run code. |
+| E5 | **Inherited environment / PATH.** `PATH` is rebuilt from `$MAIN_PATH:$PATH`; `IFS`, `LD_*`, etc. are inherited | `call_system` ≈`:670` | Untrusted env can redirect which binaries `run:`/`system:` resolve. |
 
-`libcurses-perl` on current Debian (trixie) is built against the system
-`libncursesw6` (6.5) and provides the `Curses`, form, menu and panel bindings CCFE
-needs. It is **not currently installed on this host** — installing it requires apt:
+### 2.2 Recommendations
 
-> **Action for the user:** `sudo apt-get install libcurses-perl`
-> (needed to run/test CCFE at all; Claude cannot install it — no sudo on this host.)
+1. **Add an explicit "restricted" policy (opt-in lockdown).** A single
+   `RESTRICTED` switch in `.conf` (and/or keyed off the call-name, so a
+   symlinked `kiosk` binary is locked while `ccfe` is not) that, when on:
+   - removes `shell_escape` from `@MSKeys`/`@FSKeys`/`@RSKeys` (no F7),
+   - disables `save`-to-script,
+   - refuses the `exec:`/`system:` verbs unless the target is on an
+     **allowlist**, and
+   - optionally confines `run:` to an allowlisted set of commands.
+   Centralise this in a `CCFE::Restrict` policy object consulted at every
+   dispatch and key-handling site, so the rule lives in one place.
 
-For building a `.deb` and tests (dev-time only, all standard Debian):
-`dh-make-perl` / `debhelper`, `libtest-simple-perl` (core), optionally `perltidy`
-and `libperl-critic-perl`.
+2. **Never interpolate untrusted input into a shell string (fixes E2).** Stop
+   building `sh -c "$cmd"` out of `%{FIELD}` substitutions. Instead:
+   - run actions with **`system`/`open3` LIST form** (`@argv`), so each field
+     value is a distinct argument the shell never re-parses; or
+   - export field values as **environment variables** (`CCFE_FIELD_<ID>`) that
+     the command reads, rather than concatenating them into a command line.
+   Where templating into a single string is genuinely required, **shell-quote
+   by default** with a small core helper (single-quote + escape) — opt-out, not
+   opt-in. This is the highest-value change: it closes injection even for menus
+   that are *meant* to run commands.
 
-### 3.1 Retire the custom toolchain
+3. **Harden the trusted edges.** Sanitise the environment before any exec
+   (reset `IFS`, drop `LD_*`/`BASH_ENV`/`ENV`, set an absolute `PATH` from
+   config), keep the existing `umask 0077`, and let the administrator **pin**
+   `USER_SHELL`/`OPEN3_SHELL` in config and forbid user override (config
+   precedence). Validate the shell against `/etc/shells` as well as
+   `valid_shell()`.
 
-`Dockerfile` / `Dockerfile.initial` build a bespoke GCC 7.5 + binutils + mpc +
-2020-era Perl + statically compiled ncurses, purely to chase the segfault via static
-linking. Since the crash is a Perl logic bug (§2), this apparatus is unnecessary and
-a maintenance liability. Replace it (if a container is still wanted) with a trivial:
+4. **Audit trail.** In restricted mode, log every command actually executed
+   (CCFE already has `trace()`; route it to an append-only, admin-owned file)
+   so deployments have accountability for what ran.
 
-```dockerfile
-FROM debian:stable-slim
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        perl libcurses-perl ncurses-base ncurses-term && \
-    rm -rf /var/lib/apt/lists/*
-COPY src/ /opt/ccfe/
-ENTRYPOINT ["/opt/ccfe/ccfe"]
-```
+5. **Make the trust boundary explicit in code and docs.** A short "Security &
+   trust model" section in the man page and README: who may edit menus vs. who
+   merely uses them, and the guarantee restricted mode does (and does not)
+   provide. Add tests that assert F7/`exec:`/`save` are inert under
+   `RESTRICTED=1`.
 
-Keep the old Dockerfiles in git history; remove them from the working tree.
-
----
-
-## 4. Code-quality findings (modernisation targets)
-
-| # | Finding | Location | Recommendation |
-|---|---|---|---|
-| 1 | No `use strict` / `use warnings` | top of file | add both; fix the fallout incrementally per package |
-| 2 | ~200 lines of unscoped globals | `:43-206`, `:4509-4545` | move into a config object / `Readonly`-style constants block |
-| 3 | `local @fp/$cform/%form/%field_vals` dynamic scope shared into nested subs | `do_form` `:2658-` | make these explicit state passed as a `$ctx` hashref |
-| 4 | Shell-string command execution | `exec_command` `:482`, `call_system` `:662`, `exec($exec_args)` `:4578` | document trust model; prefer `system LIST` / `open3 LIST` where the action is a single program; field-value substitution into `list_cmd` is unescaped (`:3558`) — quote or pass via env |
-| 5 | Typo: `'pwd'` string instead of `` `pwd` `` | `:650` | fix or replace with `Cwd::getcwd` (core) |
-| 6 | No terminal-resize handling | event loops in `do_menu`/`do_form`/`do_list` | handle `KEY_RESIZE`: tear down + rebuild windows from fresh `$LINES`/`$COLS` |
-| 7 | Fragile `pack 'L!*'` pointer arrays | `:2131`,`:2475`,`:3209` | encapsulate in one helper; long-term, replace libform/libmenu (see §5 Option B) |
-| 8 | Zero automated tests | — | add parser + smoke tests (§6) |
-
-None of the above changes the on-disk `.menu`/`.form`/`.item` formats.
+> These are defensive measures for operators who *want* to constrain a menu.
+> They don't make CCFE a security boundary on their own (a determined local
+> user has many avenues); pair restricted mode with OS-level controls
+> (a real restricted shell, containerisation, or seccomp/AppArmor) for
+> untrusted users.
 
 ---
 
-## 5. Recommended refactor strategy
+## 3. Modular, more functional structure
 
-Two viable shapes. **Recommendation: Option A now, with Option B as an optional
-later phase** — A fixes the crash and modernises with the least risk to existing
-plugins; B removes the fragile C-binding surface entirely if the project wants to
-fully de-risk the menu/form layer.
+The single file is the main maintainability cost. The target shape is the
+**"functional core, imperative shell"** pattern: pure, terminal-free logic that
+is trivial to unit-test, wrapped by a thin layer that does curses I/O and runs
+commands.
 
-### Option A — Modernise in place, keep `Curses`, harden the bindings  ✅ recommended
+### 3.1 Split into a package tree
 
-Smallest blast radius, preserves behaviour and plugins exactly.
+`bin/ccfe` (thin entry point) + `lib/CCFE/`:
 
-1. **Package the program.** Split `ccfe.pl` into a thin `bin/ccfe` plus
-   `lib/CCFE/*.pm` modules along the existing seams the analysis already found:
-   - `CCFE::Config`   — config/`.conf` parsing, paths, constants
-   - `CCFE::MenuFile` — `.menu` / `.item` parsing (the `Text::Balanced` parser)
-   - `CCFE::FormFile` — `.form` parsing
-   - `CCFE::UI::Menu`, `CCFE::UI::Form`, `CCFE::UI::List` — the curses widgets
-   - `CCFE::Exec`     — `exec_command` / `call_system` / action dispatch
-   - `CCFE::Action`   — the `menu:` / `form:` / `run:` / `system:` / `exec:` dispatcher
-   Keep the installer's `sed`-based path templating working, or replace it with a
-   config file read at runtime.
-2. `use strict; use warnings;` per module; convert globals to `my`/state passed in
-   a context object; keep a compatibility shim for the handful of values the
-   installer rewrites.
-3. **Fix the crash (§2.4)** and add a single guarded accessor used everywhere:
-   `current_index($menu)` returns `undef` (not a die) on an empty menu.
-4. Wrap the pointer packing in one `_pack_ptrs(@objs)` helper so the `L!*` assumption
-   lives in exactly one place.
-5. Add `KEY_RESIZE` handling to the three event loops.
-6. Replace the custom Docker toolchain with the slim image (§3.1).
+| Module | Responsibility | Purity |
+|---|---|---|
+| `CCFE::Config`  | `.conf` parsing, paths, constants, defaults | pure |
+| `CCFE::MenuFile`| `.menu` / `.item` parsing (the `Text::Balanced` parser) | **pure** (already curses-free) |
+| `CCFE::FormFile`| `.form` parsing | **pure** |
+| `CCFE::Action`  | resolve `menu:`/`form:`/`run:`/`system:`/`exec:` + modifiers | pure |
+| `CCFE::Layout`  | window geometry, pagination, column maths | **pure** (extract from `do_menu`/`do_form`) |
+| `CCFE::Exec`    | `exec_command`/`call_system`/dispatch (the effectful edge) | effectful |
+| `CCFE::Restrict`| the §2 security policy | pure decisions |
+| `CCFE::Theme`   | attribute/colour mapping (the §5 colour work) | pure |
+| `CCFE::UI::Menu`, `::Form`, `::List` | the curses widgets / event loops | effectful |
 
-### Option B — Replace `libform`/`libmenu` with hand-rolled widgets (optional, later)
+Keep the installer's path templating working (or, better, **drop the `sed`
+templating** and read paths from config at runtime — see §6).
 
-Keep `Curses` only for raw windows, input, and attributes; reimplement the menu,
-list and form widgets in plain Perl (a scrollable list with a cursor index, fields
-as `(label,value,type)` structs you draw and edit yourself). This **eliminates the
-entire unsafe C-binding surface** that issue #1 lives on, still depends on nothing
-beyond `libcurses-perl`, and gives full control over resize and edge cases. More
-work, but it permanently removes the segfault class. Do this only after Option A
-ships and is stable.
+### 3.2 Make the core functional
 
-> Not recommended: migrating to `Curses::UI`. It also depends on `Curses`, is itself
-> lightly maintained, and would force a rewrite of the rendering without removing the
-> underlying binding risk — no net dependency or safety win.
+- **Separate pure from effectful.** Parsing and action-resolution are already
+  nearly pure (the headless parser tests prove it). Push the remaining global
+  reads/writes out of them so `MenuFile`/`FormFile`/`Action`/`Layout` are
+  referentially transparent and unit-testable with no terminal.
+- **Return immutable data, don't mutate globals.** `load_menu` currently fills
+  package globals (`%menu`, `@mf_path` side effects); have parsers *return* a
+  data structure the caller owns.
+- **Replace globals and `local` dynamic scope with an explicit `$ctx`.** The
+  ~200 lines of globals (`:43-206`, `:4509-4545`) and the `local %form/@fp/…`
+  threaded into nested subs (`do_form`) become one state object passed
+  explicitly. This removes the spookiest action-at-a-distance in the code.
+- **Pure layout helpers.** Pagination, scaling and column maths are inline in
+  the event loops; extract them as pure functions and unit-test the edge cases
+  (1-item menus, over-long labels, narrow terminals) that have historically
+  bitten CCFE.
+- **Thin event loops.** The `do_menu`/`do_form`/`do_list` loops become small
+  imperative shells calling the pure helpers, which is also where `KEY_RESIZE`
+  reflow (started in v1.60) belongs.
+
+The `ccfe-plugin-sysmon` plugin is the **conformance fixture** throughout: the
+restructure is "done" only when it installs and runs unchanged and the parser
+tests still pass against it.
 
 ---
 
-## 6. Plugin system & file formats — preserve verbatim
+## 4. Automated quality gates
 
-The extension mechanism is the project's value and must survive the refactor
-unchanged. Contract to keep:
+Add the standard Perl quality tooling (all available as Debian packages — no
+CPAN required) and wire it into CI so regressions are caught mechanically.
 
-- **Discovery:** `ccfe <name>` resolves `<name>.menu` / `<name>.form` along
-  `@mf_path` = `$LIBDIR/$CALLNAME`, `~/.ccfe/$CALLNAME` (`:169`).
+1. **`use strict; use warnings;`** in every new module — the single biggest
+   correctness win, and `perlcritic`'s first rule. Introduce per-module as the
+   split in §3 lands (turning it on wholesale in the legacy file at once would
+   bury you in fixups).
+2. **`perlcritic`** (`libperl-critic-perl`). Add a `.perlcriticrc` that starts
+   **lenient** and tightens over time:
+   - enforce **strictly on `lib/CCFE/`** (target severity 3 "harsh", aiming for
+     2),
+   - exempt the legacy `ccfe.pl` initially (severity 5 "gentle") so it doesn't
+     block work,
+   so the new code is held to a high bar while the old code is migrated.
+3. **`perltidy`** (`libperl-tidy-perl`) with a checked-in `.perltidyrc` for
+   consistent formatting; add a `make tidy` / pre-commit check. The code is
+   already fairly uniform, so this is low-friction.
+4. **CI workflow** (GitHub Actions or equivalent) on Debian:
+   `perl -c`, `prove -lr t/`, `perlcritic lib/`, `podchecker src/man/*`. The
+   pty tty test skips itself in headless CI automatically, so the suite is
+   green without a TTY.
+5. **Coverage (optional):** `Devel::Cover` (`libdevel-cover-perl`) to track how
+   much of the pure core the tests exercise — most useful once §3 makes the
+   core testable.
+
+---
+
+## 5. Colour & theming
+
+CCFE is **monochrome today**: it uses only attribute constants
+(`A_NORMAL`/`A_REVERSE`/`A_BOLD`) and never calls `start_color()`. The good
+news is that those attributes are already funnelled through **named variables**
+(`$menu_fg_attr`, `$menu_bg_attr`, `$win_bg_attr`, `$RS_STDOUT_ATTR`,
+`$RS_STDERR_ATTR`, `$RS_INFO_ATTR`, … around `:2471` and `:4556`), so colour is
+a contained, additive change rather than a rewrite.
+
+**How to add it:**
+
+1. After `initscr`, guard on capability:
+   `if (has_colors()) { start_color(); use_default_colors(); }`
+   (`use_default_colors` lets `-1` mean "the terminal's own background", which
+   looks right on themed terminals).
+2. Define a small **palette of `COLOR_PAIR`s** for roles — title, menu item,
+   selected item, footer/keys, field label, field value, info, stderr/error —
+   with `init_pair($n, $fg, $bg)`.
+3. Route the existing `*_attr` variables through `COLOR_PAIR($n)` (OR-able with
+   `A_BOLD`/`A_REVERSE` for emphasis). Because they're already centralised,
+   this is essentially one mapping table in `CCFE::Theme`.
+4. Make the palette **configurable in `.conf`** (a `colors { title=cyan/-,
+   selected=black/cyan, error=red/- }` block), so operators can theme a deployed
+   menu without code changes.
+5. **Fall back cleanly:** when `has_colors()` is false, in `$LAYOUT == $SIMPLE`,
+   when `NO_COLOR` is set, or with a `--no-color` flag, keep today's monochrome
+   attributes exactly. Colour must never be required.
+6. The Debian build links `ncursesw`, so 256-colour and default-background are
+   available; theming and a couple of shipped presets (e.g. "classic",
+   "high-contrast") add real polish at low risk.
+
+Keeping it gated and attribute-driven means monochrome terminals and the
+existing SIMPLE layout are untouched.
+
+---
+
+## 6. Further value-adding recommendations
+
+Beyond the above, ordered roughly by value-to-effort:
+
+1. **Wide-char / UTF-8 correctness.** Width maths use byte `length()`/`substr()`
+   (e.g. label/column truncation), which mis-aligns non-ASCII menus and forms.
+   Move to display-column counting (core `Encode` + careful column logic, or a
+   small width helper) now that `ncursesw` is the runtime. Important for
+   internationalised menus and the existing `msg/` i18n.
+2. **Finish resize reflow.** v1.60 made `KEY_RESIZE` trigger a redraw; complete
+   it by tearing down and rebuilding windows from fresh `$LINES`/`$COLS` on
+   `SIGWINCH`, so resizing reflows instead of just repainting the old geometry.
+3. **Drop the `sed` path-templating; configure at runtime.** The installer
+   rewrites `$LIBDIR`/`$MSGDIR`/… into the script. Reading those from config
+   (with sane defaults relative to the binary) removes a fragile install step,
+   makes the program runnable straight from the source tree, and simplifies
+   packaging.
+4. **A `ccfe --check <file>` linter and machine-readable `--dump`.** Validate
+   `.conf`/`.menu`/`.form` with clear errors (fail fast on malformed plugins),
+   and emit the parsed structure as JSON/text for tooling, docs generation and
+   tests. The `CCFE_TESTING` headless hook already shows the parsers run without
+   a terminal — this productises that.
+5. **Versioned plugin manifest.** A small `plugin.meta` declaring the CCFE
+   version a plugin targets, so the loader can warn on mismatch — useful as the
+   plugin surface evolves.
+6. **Graceful in-curses errors.** Replace `fatal()`/`die`-to-raw-terminal with
+   an in-curses error dialog plus a logged diagnostic, so a bad plugin doesn't
+   dump a Perl stack over the screen.
+7. **Proper packaging.** Ship a Debian package (`dh-make-perl`/`debhelper`) and
+   a CPAN-style dist, so installation isn't a hand-rolled `install.sh`. Pairs
+   naturally with §6.3.
+8. **Mouse support (optional).** `Curses` exposes `mousemask`; clickable items
+   and footer keys would modernise the UX without breaking keyboard use. Gate it
+   behind config.
+9. **Configurable keybindings & accessibility.** Keys are already partly
+   configurable; expose them fully in `.conf`, and add a high-contrast theme
+   (ties into §5) and a documented screen-reader-friendly mode.
+10. **Docs refresh & a plugin tutorial.** Refresh the man pages, add a
+    step-by-step "write your first plugin" guide, and document the §2 security
+    model. Ship one extra `msg/` locale as a worked i18n example.
+
+---
+
+## 7. Suggested sequencing
+
+The hotfix and tooling phases are **done** (v1.60). Remaining work, in
+dependency order:
+
+1. **Security (§2).** Field-value quoting/argv execution and restricted mode are
+   high-value and can land on the current single-file program before the
+   restructure. Add the inert-under-lockdown tests.
+2. **Modularise (§3).** Split into `bin/` + `lib/CCFE/`, `strict`/`warnings`,
+   de-globalise to a `$ctx`, extract the pure layout/parse core. Gate on the
+   sysmon conformance test and the existing parser tests.
+3. **Quality gates (§4).** Land `perlcritic`/`perltidy`/CI alongside the
+   modular code so the new modules are held to standard from day one.
+4. **Colour & UX (§5, §6).** Additive, lower-risk polish once the core is
+   modular and tested: theming, wide-char correctness, resize reflow, the
+   `--check`/`--dump` tooling, packaging.
+
+**Net dependency throughout:** `perl` (core) + **`libcurses-perl`**. Nothing
+else — the "standard packages only" constraint holds at every step.
+
+---
+
+## 8. Plugin system & file formats — preserve verbatim
+
+The extension mechanism is the project's value and must survive every change
+above unchanged. Contract to keep:
+
+- **Discovery:** `ccfe <name>` resolves `<name>.menu` / `<name>.form` along the
+  search path (`$LIBDIR/$CALLNAME`, `~/.ccfe/$CALLNAME`), keyed off the
+  invoked name so symlinked front-ends get their own tree + `<name>.conf`.
 - **Static menu** = a `.menu` file; **dynamic menu** = a `.menu` *directory* of
-  `definition` + `*.item` files, globbed at `:959`.
+  `definition` + `*.item` files merged together.
 - **Forms** = `.form` files, optionally grouped in a `.d` directory.
-- **`.item` injection** — a plugin drops a `*.item` into another menu's directory
-  (how `ccfe-plugin-sysmon` adds itself to `demo.menu`).
-- **Block syntax** parsed via `Text::Balanced::extract_bracketed` — `title { }`,
+- **`.item` injection** — a plugin drops a `*.item` into another menu's
+  directory to graft itself on (how `ccfe-plugin-sysmon` adds itself to `demo`).
+- **Block syntax** via `Text::Balanced::extract_bracketed` — `title { }`,
   `top { }`, `item { id=… descr=… action=… }`, `field { … }`, `action { … }`.
 - **Action verbs:** `menu:` / `form:` / `run:` / `system:` / `exec:` with
   modifiers `(confirm,log,wait_key)`.
 - **`list_cmd`:** `command:single-val:…` / `command:multi-val:…` /
-  `const:single-val:…` / `const:multi-val:…`, with `%{FIELD_ID}` substitution.
+  `const:single-val:…` / `const:multi-val:…` with `%{FIELD_ID}` substitution
+  (whose *execution* is hardened per §2.2, while the *syntax* is unchanged).
 
-`ccfe-plugin-sysmon/` (its `install.sh`, `sysmon.item`, `sysmon.menu`, `sysmon.d/`)
-becomes the **conformance fixture**: the refactor is "done" when that plugin installs
-and runs unchanged.
-
-### Suggested tests (all `Test::More`, core)
-
-1. **Parser tests** — feed the demo/sysmon `.menu`/`.form`/`.item` files to the
-   parser modules, assert the resulting data structures (no curses needed).
-2. **Regression test for #1** — a `list_cmd` whose command exits non-zero with empty
-   stderr must show a message, not build a zero-item menu / die.
-3. **Smoke test** — `ccfe -h` / `ccfe -c` exit 0 and print expected keys.
-4. **Plugin conformance** — install `ccfe-plugin-sysmon` into a temp prefix and
-   assert menu/form resolution.
-
----
-
-## 7. Phased plan
-
-1. **Phase 0 — Hotfix (½ day):** apply §2.4; add the empty-menu guard and the
-   resize handler. Ship; closes issue #1.
-2. **Phase 1 — Tooling (½ day):** slim Dockerfile (§3.1); remove custom toolchain
-   from the tree; add `Test::More` harness + parser/regression tests; document
-   `apt-get install libcurses-perl`.
-3. **Phase 2 — Modularise (Option A):** split into `bin/` + `lib/CCFE/`,
-   `strict`/`warnings`, de-globalise, one pointer-packing helper. Keep formats and
-   the installer working; gate on the sysmon conformance test.
-4. **Phase 3 — Harden exec & docs:** safer command execution, escape `list_cmd`
-   substitutions, refresh the man pages.
-5. **Phase 4 (optional) — Option B:** retire `libform`/`libmenu` for hand-rolled
-   widgets to remove the segfault class permanently.
-
-**Net dependency after refactor:** `perl` (core) + **`libcurses-perl`**. Nothing else.
+`ccfe-plugin-sysmon/` is the conformance fixture: any refactor is "done" only
+when that plugin installs and runs unchanged.
