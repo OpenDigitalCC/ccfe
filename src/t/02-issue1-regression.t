@@ -18,7 +18,7 @@
 #
 use strict;
 use warnings;
-use Test::More tests => 6;
+use Test::More tests => 9;
 use FindBin qw($Bin);
 
 my $src = "$Bin/..";
@@ -67,3 +67,25 @@ like( $msgs, qr/^LIST_CMD_ERR_MSG\s*=/m,
     'LIST_CMD_ERR_MSG is defined in msg/C/ccfe' );
 like( $msgs, qr/^LIST_CMD_ERR_TITLE\s*=/m,
     'LIST_CMD_ERR_TITLE is defined in msg/C/ccfe' );
+
+# 5. The dangling-items-buffer crash (the broader root cause of issue #1).
+#    new_menu()/new_form() keep the packed pointer without copying it, so the
+#    buffer must be held in a lexical that outlives the menu/form.  Guard that
+#    no call site reverts to building the menu/form from an inline pack()
+#    temporary, and that the retained-buffer form is what's used.  t/03 proves
+#    the runtime effect; this fails fast at the source level.
+unlike(
+    $code,
+    qr/new_(?:menu|form)\(\s*pack\b/,
+    'no menu/form is built from an inline pack() temporary (dangling pointer)'
+);
+like(
+    $code,
+    qr/\$items_buf\s*=\s*pack\s+'L!\*'.*?new_menu\(\s*\$items_buf\s*\)/s,
+    'menus keep the packed items buffer alive (new_menu($items_buf))'
+);
+like(
+    $code,
+    qr/\$fields_buf\s*=\s*pack\s+'L!\*'.*?new_form\(\s*\$fields_buf\s*\)/s,
+    'forms keep the packed fields buffer alive (new_form($fields_buf))'
+);
