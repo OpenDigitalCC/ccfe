@@ -33,6 +33,7 @@ use Text::Balanced qw(extract_bracketed);
 use IO::Select;
 use File::Temp qw(tempfile);
 use Digest::MD5 qw(md5_hex);
+use Cwd qw(getcwd);    # robust CWD; avoids fork()ing `pwd`, which fails on small/odd terminals
 
 # Locate CCFE's own Perl modules relative to this file, so they are found both
 # from the source tree (src/lib) and when installed (bin/../lib/perl5).  Using
@@ -561,9 +562,9 @@ sub exec_command {
 
     my ( $prev_path, $prev_wdir );
 
-    chomp( $prev_wdir = `pwd` );
+    $prev_wdir = getcwd();
     chdir "$SCREEN_DIR";
-    trace( "Changed CWD from $prev_wdir to " . substr( `pwd`, 0, -1 ) );
+    trace( "Changed CWD from $prev_wdir to " . getcwd() );
     $prev_path = $ENV{PATH};
     $ENV{PATH} = sprintf "%s%s:%s", $MAIN_PATH, $MAIN_PATH ? ":$PATH" : '',
       $SCREEN_DIR;
@@ -593,7 +594,7 @@ sub exec_command {
     }
     $ENV{PATH} = $prev_path;
     chdir "$prev_wdir";
-    trace( "Restored CWD to " . substr( `pwd`, 0, -1 ) );
+    trace( "Restored CWD to " . getcwd() );
     @$stdout_ref = map { s/\n//; $_ } @$stdout_ref;
     @$stderr_ref = map { s/\n//; $_ } @$stderr_ref;
     @$stdout_ref = map { s/\r//; $_ } @$stdout_ref;
@@ -727,7 +728,7 @@ sub init_footer {
 sub call_shell {
     my ( $prompt, $prev_cwd );
 
-    chomp( $prev_cwd = 'pwd' );
+    $prev_cwd = getcwd();
     chdir $ENV{HOME};
     $prompt = sprintf( "%s%s ", $CALLNAME, $> ? '$' : '#' );
     def_prog_mode();
@@ -4181,9 +4182,9 @@ sub run_browse {
     }
 
     $prev_path = $ENV{PATH};
-    chomp( $prev_wdir = `pwd` );
+    $prev_wdir = getcwd();
     chdir "$SCREEN_DIR";
-    trace( "Changed CWD from $prev_wdir to " . substr( `pwd`, 0, -1 ) );
+    trace( "Changed CWD from $prev_wdir to " . getcwd() );
     $ENV{PATH} = sprintf "%s%s:.", $MAIN_PATH, $MAIN_PATH ? ":$PATH" : '';
     if ($extra_path) {
         my @dirs = split /:/, $extra_path;
@@ -4317,7 +4318,7 @@ sub run_browse {
     trace( "----END OUTPUT" . '-' x 56, $LOG_ACTION_OUT );
     $ENV{PATH} = $prev_path;
     chdir "$prev_wdir";
-    trace( "Restored CWD to " . substr( `pwd`, 0, -1 ) );
+    trace( "Restored CWD to " . getcwd() );
     if ($END_MARKER) {
         print $tmpfh "$RS_INFO_ID:$END_MARKER";
         $pad_lines++;
@@ -4864,7 +4865,7 @@ if ( $@ =~ /not defined by your vendor/ ) {
 }
 
 umask 0077;
-chomp( $ENV{'CCFE_IWD'} = `pwd` );
+$ENV{'CCFE_IWD'} = getcwd();
 $ENV{'CCFE_LIB_DIR'} = $LIBDIR;    # kept for pre-v2 plugins
 $ENV{'CCFE_OBJ_DIR'} = $OBJDIR;    # menus/forms (objects) dir
 $ENV{'CCFE_BIN_DIR'} = $BINDIR;    # so actions can find sibling tools (ccfe-build)
@@ -4876,7 +4877,7 @@ trace(
 );
 
 chdir "$WRKDIR";
-trace( 'Changed CWD to ' . substr( `pwd`, 0, -1 ) );
+trace( 'Changed CWD to ' . getcwd() );
 
 $HIDE_CURSOR      = $YES;
 $SHOW_SCREEN_NAME = $YES;
@@ -4986,7 +4987,7 @@ if ( $shcut_type = get_shortcut($shcut) ) {
     system("clear") if $es == $ES_NO_ERR or $es >= $ES_USER_REQ;
     if ( defined($exec_args) ) {
         chdir "$SCREEN_DIR";
-        trace( "Changed CWD from $prev_wdir to " . substr( `pwd`, 0, -1 ) );
+        trace( "Changed CWD from $prev_wdir to " . getcwd() );
         trace("exec \"$exec_args\"");
         exec($exec_args);
     }
