@@ -10,3 +10,6 @@ debian/*.debhelper.log
 /*.deb
 /*.buildinfo
 /*.changes
+
+# Local-only working notes (feeds the ROADMAP)
+FEATURE-REQUESTS.md
