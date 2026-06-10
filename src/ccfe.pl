@@ -3475,29 +3475,60 @@ sub do_form {
         refresh($win);
         curs_set($ON) if $HIDE_CURSOR;
 
-        # On a terminal resize, rebuild the window and re-post the form at the
-        # new $LINES/$COLS.  Field values are kept in their buffers and field
-        # positions are preserved within the resized form area (a full
-        # horizontal re-layout of fields is left to a future change).
+        # On a terminal resize, re-paginate the fields for the new height and
+        # rebuild the window/form at the new $LINES/$COLS.  Field values are
+        # preserved (the fields are never freed -- only re-laid-out).  Each
+        # logical field is 7 curses fields sharing a row; move_field/
+        # set_new_page need the fields disconnected, so the form is freed and
+        # re-created around them.  Columns are kept (a horizontal re-layout of
+        # right-aligned values is left to a future change).
         my $resize_form = sub {
-            unpost_form($cform);
-            del_panel($pan) if $pan;
-            delwin($fsub)   if $fsub;
-            delwin($win)    if $win;
-            # Clamp to the layout minimum so a tiny terminal can't make the
-            # sub-window invalid (ncurses clips the oversize window).
             my $eff_lines = $LINES < 24 ? 24 : $LINES;
             my $eff_cols  = $COLS < 80  ? 80 : $COLS;
             $mwinr =
               $eff_lines -
               ( $FS_HEADER_ROWS + $FS_TOP_ROWS + $FS_BOTTOM_ROWS
                   + $FS_FOOTER_ROWS );
+
+            # Commit the field currently being edited to its buffer so the
+            # value survives the free_form/new_form cycle below.
+            form_driver( $cform, REQ_VALIDATION );
+            unpost_form($cform);
+            free_form($cform);
+
+            # Re-run the vertical page layout (mirrors the build loop): a field
+            # starts a new page when the running row reaches the page height.
+            my $yy = 0;
+            $npages = 0;
+            foreach my $li ( 0 .. $#{ $form{fields} } ) {
+                $yy += ( $form{fields}[$li]{vtab} || 0 );
+                $yy = 0 if $yy >= $mwinr;
+                my $page_start = ( $yy == 0 ) ? 1 : 0;
+                $npages++ if $page_start;
+                foreach my $k ( 0 .. 6 ) {
+                    my $cf = $fp[ $li * 7 + $k ];
+                    # field_info() fills its output parameters; keep the column,
+                    # only the row changes when the page layout reflows.
+                    my ( $frows, $fcols, $frow, $fcol, $fnrow, $fnbuf );
+                    field_info( $cf, $frows, $fcols, $frow, $fcol, $fnrow,
+                        $fnbuf );
+                    move_field( $cf, $yy, $fcol );
+                }
+                set_new_page( $fp[ $li * 7 ], $page_start );
+                $yy++;
+            }
+
+            del_panel($pan) if $pan;
+            delwin($fsub)   if $fsub;
+            delwin($win)    if $win;
             $win  = newwin( $eff_lines, $eff_cols, 0, 0 );
             $pan  = new_panel($win);
             $fsub = derwin( $win, $mwinr, $eff_cols,
                 $FS_HEADER_ROWS + $FS_TOP_ROWS, 0 );
+            $cform = new_form($fields_buf);
             set_form_win( $cform, $win );
             set_form_sub( $cform, $fsub );
+            form_opts_off( $cform, O_BS_OVERLOAD );
             keypad( $win, $ON );
             init_title( $win, $FS_HEADER_ROWS, $title );
             disp_page( $win, form_page($cform) + 1, $npages, 'form',
@@ -3506,6 +3537,8 @@ sub do_form {
                 @{ $form{top} } );
             init_footer( $win, $NO, $FS_FOOTER_ROWS, @FSKeys );
             post_form($cform);
+            form_driver( $cform, $ovl_mode ? REQ_OVL_MODE : REQ_INS_MODE );
+            form_driver( $cform, REQ_END_LINE );
             clearok( $win, 1 );
             refresh($win);
         };

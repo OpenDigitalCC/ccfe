@@ -26,7 +26,7 @@ my $prefix = tempdir( CLEANUP => 1 );
 my $log    = `cd "$src" && sh install.sh -b -p "$prefix" 2>&1`;
 plan skip_all => "install failed: $log" unless $? == 0 && -x "$prefix/bin/ccfe";
 
-plan tests => 4;
+plan tests => 7;
 
 use constant SIGSEGV => 11;
 
@@ -56,3 +56,49 @@ cmp_ok( $a, '>', $b, '  menu repaints after the resize' );
 ( $sig, $b, $a ) = drive_resize( 'demo.d/recursive', 'Form recursivity test' );
 isnt( $sig, SIGSEGV, 'form survives a terminal resize' );
 cmp_ok( $a, '>', $b, '  form repaints after the resize' );
+
+# A long form re-paginates when the terminal grows (uses the new vertical
+# space instead of leaving it blank).
+my $objs = "$prefix/share/ccfe/objects/ccfe";
+open( my $fh, '>', "$objs/long.form" ) or die "write: $!";
+print {$fh} "title { Long }\n";
+print {$fh}
+  "field {\n  id    = F$_\n  len   = 5\n  type  = STRING\n  label = Field $_\n}\n"
+  for 1 .. 40;
+print {$fh} "action { run:true }\n";
+close($fh);
+sub last_pages {    # the M of the latest "Pg:N/M"
+    my @m = $_[0]->screen =~ m{Pg:\d+/(\d+)}g;
+    return $m[-1] // 0;
+}
+{
+    my $pty = CCFE::Test::Pty->spawn( 80, 24, "$prefix/bin/ccfe", 'long' );
+    $pty->pump(1.3);
+    my $pages_small = last_pages($pty);
+    $pty->resize( 80, 46 );    # much taller
+    $pty->pump(1.3);
+    my $pages_big = last_pages($pty);
+    $pty->send("\033");
+    $pty->pump(0.3);
+    $pty->send("\033");
+    my ( undef, $s ) = $pty->wait(3);
+    isnt( $s, SIGSEGV, 'long form survives a grow resize' );
+    cmp_ok( $pages_big, '<', $pages_small,
+        "  form re-paginates to fewer pages when taller ($pages_small -> $pages_big)"
+    );
+}
+
+# Shrinking to a tiny terminal (below the 80x24 minimum) must not crash.
+{
+    my $pty = CCFE::Test::Pty->spawn( 80, 24, "$prefix/bin/ccfe", 'sysmon' );
+    $pty->pump(1.2);
+    $pty->resize( 40, 10 );
+    $pty->pump(0.9);
+    $pty->resize( 100, 30 );
+    $pty->pump(0.9);
+    $pty->send("\033");
+    $pty->pump(0.3);
+    $pty->send("\033");
+    my ( undef, $s ) = $pty->wait(3);
+    isnt( $s, SIGSEGV, 'shrinking below the minimum size does not crash' );
+}

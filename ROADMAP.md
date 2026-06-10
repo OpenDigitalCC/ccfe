@@ -74,9 +74,10 @@ look), wide-char/UTF-8 correctness, machine-readable `--dump`, graceful
 in-curses errors, mouse, plugin manifest.
 
 ✅ **Resize reflow** (done): `do_menu` rebuilds its windows/menu and `do_form`
-its window+post on `KEY_RESIZE` at the new `$LINES`/`$COLS`; regression test
-`t/10-resize.t`. Open: full horizontal re-layout of form fields, and
-`do_list`/`run_browse` reflow.
+re-paginates its fields and rebuilds its window on `KEY_RESIZE` (values
+preserved); builds clamped to 80x24 (no crash on a tiny terminal) and an
+`END{}` restores the terminal on any die. `t/10-resize.t`. Open: horizontal
+re-layout of right-aligned field values, and `do_list`/`run_browse` reflow.
 
 ## M7 — De-globalisation / full modularisation  _(REFACTOR §3 — deferred to end)_
 Extract `MenuFile`/`FormFile`/`Action`/`Layout`/`Exec`/`UI::*` into
