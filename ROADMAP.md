@@ -76,8 +76,15 @@ in-curses errors, mouse, plugin manifest.
 ✅ **Resize reflow** (done): `do_menu` rebuilds its windows/menu and `do_form`
 re-paginates its fields and rebuilds its window on `KEY_RESIZE` (values
 preserved); builds clamped to 80x24 (no crash on a tiny terminal) and an
-`END{}` restores the terminal on any die. `t/10-resize.t`. Open: horizontal
-re-layout of right-aligned field values, and `do_list`/`run_browse` reflow.
+`END{}` restores the terminal on any die. `t/10-resize.t`. A narrow resize used
+to crash a form (value fields are right-aligned to the launch width → once the
+terminal is narrower than the value column, `post_form` returned `E_NO_ROOM`,
+the form was left unposted and the loop faulted, surfacing as exit 245);
+`do_form` now widens the rebuilt window to hold every field so `post_form`
+always succeeds. Open: a **true** horizontal re-layout that re-right-aligns the
+values to the *visible* width (so narrow terminals still show them, rather than
+the values sitting off-screen in an over-sized window), and `do_list` /
+`run_browse` reflow.
 
 ## M7 — De-globalisation / full modularisation  _(REFACTOR §3 — deferred to end)_
 Extract `MenuFile`/`FormFile`/`Action`/`Layout`/`Exec`/`UI::*` into
