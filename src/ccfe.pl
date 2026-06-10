@@ -2880,7 +2880,7 @@ sub do_form {
     my @actopts;
     my ($pan);
     my ( $win, $mwinr, $dots, $c );
-    my ( @page_vcol, $cur_pg );
+    my ($value_col);
     my ( $exit_id, $exit_descr );
     my (
         $id,     $all_ids, $label,  $len, $type, $default,
@@ -3222,35 +3222,27 @@ sub do_form {
         $lflags_size = $FIELD_LMARGIN;
         $rflags_size = $FIELD_RMARGIN;
 
-        # Pre-pass (NORMAL layout, auto value position): work out the value
-        # column for each page = the longest label end on that page + a small
-        # gap, so values are grouped just right of the labels instead of being
-        # right-aligned to the screen edge (short dot runs, compact width, and
-        # values that stay visible on a narrow terminal).  This mirrors the
-        # build loop's page/$y bookkeeping exactly so page boundaries line up;
-        # separators span the full width and do not constrain the column.
-        @page_vcol = ();
+        # Pre-pass (NORMAL layout, auto value position): the value column for
+        # the whole form = the longest label end + a small gap, so values are
+        # grouped just right of the labels instead of being right-aligned to
+        # the screen edge (short dot runs, compact width, values that stay
+        # visible on a narrow terminal).  A single form-wide column keeps the
+        # values aligned across page flips and -- crucially -- lets the build
+        # and resize passes agree on pagination even when a long label wraps
+        # (a per-page column would depend on a pagination that depends on the
+        # wrapping that depends on the column).  Separators span the full
+        # width and do not constrain the column.
+        $value_col = $FIELD_LMARGIN + $FIELD_VALUE_GAP;
         if ( $LAYOUT == $NORMAL and $FIELD_VALUE_POS == -1 ) {
-            my $py = 0;
-            my $pg = -1;
             foreach my $fld ( @{ $form{fields} } ) {
                 next if in( $fld->{id}, @fields_to_remove );
-                $py += ( $fld->{vtab} || 0 );
-                $py = 0 if $py >= $mwinr;
-                $pg++ if $py == 0;
-                $pg = 0 if $pg < 0;    # first field with a leading vtab
-                unless ( $fld->{type} == $SEPARATOR ) {
-                    my $lx = $FIELD_LMARGIN + ( $fld->{htab} || 0 ) * $HTAB_COLS;
-                    my $le = $lx + length( $fld->{label} // '' );
-                    $page_vcol[$pg] = $le
-                      if !defined $page_vcol[$pg] || $le > $page_vcol[$pg];
-                }
-                $py++;
+                next if $fld->{type} == $SEPARATOR;
+                my $lx = $FIELD_LMARGIN + ( $fld->{htab} || 0 ) * $HTAB_COLS;
+                my $le =
+                  $lx + length( $fld->{label} // '' ) + $FIELD_VALUE_GAP;
+                $value_col = $le if $le > $value_col;
             }
-            $_ = ( defined $_ ? $_ : $FIELD_LMARGIN ) + $FIELD_VALUE_GAP
-              for @page_vcol;
         }
-        $cur_pg = -1;
 
         $i           = 0;
         $nfields     = $#{ $form{fields} };
@@ -3298,23 +3290,20 @@ sub do_form {
                   if ( $hscroll == $NO )
                   and ( length($val) > $len );
 
-                $y += $form{fields}[$i]{vtab};
-                $y = 0 if ( $y >= $mwinr );
-                $cur_pg++ if !$y;    # new page: track it for the value column
-
-                # Value/flag columns, now that this field's page is known.  In
-                # NORMAL layout with auto placement the value sits just right of
-                # the page's longest label (the pre-pass shared column); a value
-                # too wide to fit there starts as far right as it fits instead
-                # (a wide value naturally fills the right of the row).  Otherwise
-                # keep the explicit position / the SIMPLE right-aligned column.
+                # Value/flag columns and wrapping (NORMAL, auto placement): the
+                # value sits at the form's shared column, just right of the
+                # longest label; a value too wide to fit there slides right as
+                # far as it fits.  If the label still cannot fit beside the
+                # (possibly slid) value, the label wraps onto its own full-width
+                # line(s) and the value drops to the row after the last label
+                # line.  Otherwise honour the explicit / SIMPLE column.
                 my $auto = ( $LAYOUT == $NORMAL and $FIELD_VALUE_POS == -1 );
                 my $val_x = $FIELD_VALUE_POS;
                 if ( $val_x == -1 ) {
                     if ( $LAYOUT == $NORMAL ) {
-                        my $shared    = $page_vcol[ $cur_pg < 0 ? 0 : $cur_pg ];
                         my $rightmost = $COLS - $len - 1 - $rflags_size;
-                        $val_x = ( $shared <= $rightmost ) ? $shared : $rightmost;
+                        $val_x =
+                          ( $value_col <= $rightmost ) ? $value_col : $rightmost;
                         $val_x = $label_x + 1 if $val_x < $label_x + 1;
                     }
                     else {
@@ -3322,24 +3311,40 @@ sub do_form {
                     }
                 }
 
-                # Keep at least the gap between label and value.  If a label is
-                # genuinely too long for this width even after the value slid
-                # right, truncate it so it cannot overlap the value (a proper
-                # wrap is the planned refinement); recompute the dot-run start.
-                if ($auto) {
-                    my $label_end_max = $val_x - $FIELD_VALUE_GAP;
-                    if ( $label_x + length($label) > $label_end_max ) {
-                        my $room = $label_end_max - $label_x;
-                        $room   = 1 if $room < 1;
-                        $label  = substr( $label, 0, $room );
-                        $dots_x = $label_x + length($label);
-                    }
+                # Wrap the label when it would otherwise collide with the value.
+                my $label_w   = length($label);
+                my $wrap_rows = 0;
+                if ( $auto
+                    and $label_x + length($label) + $FIELD_VALUE_GAP > $val_x )
+                {
+                    $label_w = $COLS - $label_x - $rflags_size - 1;
+                    $label_w = 1 if $label_w < 1;
+                    $wrap_rows =
+                      int( ( length($label) + $label_w - 1 ) / $label_w );
+                    $wrap_rows = 1 if $wrap_rows < 1;
+                    $dots_x    = $label_x;    # value row: dots run from the margin
+                    trace( "do_form: wrapped label \"$id\" over $wrap_rows line(s)",
+                        $LOG_NORMAL );
                 }
+                $form{fields}[$i]{wrap_rows} = $wrap_rows;
+
                 my $lvald_x  = $val_x - 1;
                 my $rvald_x  = $val_x + $len;
                 my $rflags_x = $auto ? $val_x + $len + 1 : $COLS - $rflags_size;
 
-                $field = new_field( 1, length($label), $y, $label_x, 0, 0 );
+                # Advance to this field's top row, breaking to a new page if the
+                # whole (possibly multi-row) block would not fit on this one.
+                my $block_h = $wrap_rows ? $wrap_rows + 1 : 1;
+                $y += $form{fields}[$i]{vtab};
+                $y = 0
+                  if $y >= $mwinr
+                  or ( $y > 0 and $y + $block_h > $mwinr );
+                my $vr = $y + $wrap_rows;    # row of the value and its markers
+
+                $field =
+                  $wrap_rows
+                  ? new_field( $wrap_rows, $label_w, $y, $label_x, 0, 0 )
+                  : new_field( 1, length($label), $y, $label_x, 0, 0 );
                 if ( $field eq '' ) { fatal("new_field(LABEL $label) failed") }
                 set_field_buffer( $field, 0, $label );
                 field_opts_off( $field, O_ACTIVE );
@@ -3354,7 +3359,7 @@ sub do_form {
                 push @fp,   $field;
                 push @fset, ${$field};
 
-                $field = new_field( 1, $lflags_size, $y, $lflags_x, 0, 0 );
+                $field = new_field( 1, $lflags_size, $vr, $lflags_x, 0, 0 );
                 if ( $field eq '' ) {
                     fatal("new_field(PRE_FLAGS $label) failed");
                 }
@@ -3368,7 +3373,7 @@ sub do_form {
                 push @fp,   $field;
                 push @fset, ${$field};
 
-                $field = new_field( 1, $rflags_size, $y, $rflags_x, 0, 0 );
+                $field = new_field( 1, $rflags_size, $vr, $rflags_x, 0, 0 );
                 if ( $field eq '' ) {
                     fatal("new_field(POST_FLAGS $label) failed");
                 }
@@ -3386,7 +3391,7 @@ sub do_form {
                 push @fp,   $field;
                 push @fset, ${$field};
 
-                $field = new_field( 1, 1, $y, $lvald_x, 0, 0 );
+                $field = new_field( 1, 1, $vr, $lvald_x, 0, 0 );
                 if ( $field eq '' ) {
                     fatal("new_field(BEGIN_DELIMITER $label) failed");
                 }
@@ -3403,7 +3408,7 @@ sub do_form {
                 field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
                 push @fp,   $field;
                 push @fset, ${$field};
-                $field = new_field( 1, 1, $y, $rvald_x, 0, 0 );
+                $field = new_field( 1, 1, $vr, $rvald_x, 0, 0 );
 
                 if ( $field eq '' ) {
                     fatal("new_field(END_DELIMITER $label) failed");
@@ -3437,7 +3442,7 @@ sub do_form {
                 else {
                     $dots = ' ';
                 }
-                $field = new_field( 1, length($dots), $y, $dots_x, 0, 0 );
+                $field = new_field( 1, length($dots), $vr, $dots_x, 0, 0 );
                 if ( $field eq '' ) { fatal("new_field(DOTS $label) failed") }
                 set_field_buffer( $field, 0, $dots );
                 field_opts_off( $field, O_ACTIVE );
@@ -3446,7 +3451,7 @@ sub do_form {
                 push @fp,   $field;
                 push @fset, ${$field};
 
-                $field = new_field( 1, $len, $y, $val_x, 0, 1 );
+                $field = new_field( 1, $len, $vr, $val_x, 0, 1 );
                 if ( $field eq '' ) { fatal("new_field(VAL $label) failed") }
                 field_opts_off( $field, O_AUTOSKIP );
                 unless ( $form{fields}[$i]{enabled} ) {
@@ -3482,7 +3487,7 @@ sub do_form {
                     set_field_fore( $field, $labelFg );
                     set_field_back( $field, $labelBg );
                 }
-                $y++;
+                $y = $vr + 1;    # next field starts below the value row
                 field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
                 push @fp, $field;
                 $form{fields}[$i]{ptr} = $field;
@@ -3563,24 +3568,28 @@ sub do_form {
             free_form($cform);
 
             # Re-run the vertical page layout (mirrors the build loop): a field
-            # starts a new page when the running row reaches the page height.
-            # While here, measure the form's widest field: the value fields are
-            # right-aligned to the launch-time width, so on a narrower terminal
-            # they sit outside an 80-column window and post_form() fails with
-            # E_NO_ROOM, leaving the form unposted -- which then crashes the
-            # event loop (current_field() is NULL).  ncurses permits an
-            # over-sized window on a smaller screen (just as the 24-row vertical
-            # clamp relies on), so we widen the rebuilt window to hold every
-            # field instead.  (A true horizontal reflow that re-right-aligns the
-            # values to the visible width is the remaining ROADMAP M6 polish.)
+            # starts a new page when its (possibly multi-row) block no longer
+            # fits.  The 7 curses fields of a logical field keep their columns;
+            # only their rows change.  A wrapped field's label spans wrap_rows
+            # rows starting at $yy and its value/markers sit on the row below the
+            # last label line ($vr); the others share $yy.  While here, measure
+            # the widest field so the rebuilt window is never narrower than the
+            # fields need (ncurses permits an over-sized window on a smaller
+            # screen -- the same property the 24-row vertical clamp relies on),
+            # so post_form() can never fail with E_NO_ROOM and crash the loop.
             my $yy        = 0;
             my $max_right = 0;
             $npages = 0;
             foreach my $li ( 0 .. $#{ $form{fields} } ) {
+                my $wr = $form{fields}[$li]{wrap_rows} || 0;
+                my $bh = $wr ? $wr + 1 : 1;
                 $yy += ( $form{fields}[$li]{vtab} || 0 );
-                $yy = 0 if $yy >= $mwinr;
+                $yy = 0
+                  if $yy >= $mwinr
+                  or ( $yy > 0 and $yy + $bh > $mwinr );
                 my $page_start = ( $yy == 0 ) ? 1 : 0;
                 $npages++ if $page_start;
+                my $vr = $yy + $wr;
                 foreach my $k ( 0 .. 6 ) {
                     my $cf = $fp[ $li * 7 + $k ];
                     # field_info() fills its output parameters; keep the column,
@@ -3588,11 +3597,11 @@ sub do_form {
                     my ( $frows, $fcols, $frow, $fcol, $fnrow, $fnbuf );
                     field_info( $cf, $frows, $fcols, $frow, $fcol, $fnrow,
                         $fnbuf );
-                    move_field( $cf, $yy, $fcol );
+                    move_field( $cf, ( $k == 0 ? $yy : $vr ), $fcol );
                     $max_right = $fcol + $fcols if $fcol + $fcols > $max_right;
                 }
                 set_new_page( $fp[ $li * 7 ], $page_start );
-                $yy++;
+                $yy = $vr + 1;
             }
             $eff_cols = $max_right if $eff_cols < $max_right;
             trace(

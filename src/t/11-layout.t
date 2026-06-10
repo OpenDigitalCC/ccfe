@@ -27,7 +27,7 @@ my $ilog   = `cd "$src" && sh install.sh -b -p "$prefix" 2>&1`;
 plan skip_all => "install failed: $ilog"
   unless $? == 0 && -x "$prefix/bin/ccfe";
 
-plan tests => 4;
+plan tests => 7;
 
 my $objs   = "$prefix/share/ccfe/objects/ccfe";
 my $logf   = "$prefix/log/" . ( $ENV{USER} || getpwuid($<) ) . ".log";
@@ -93,4 +93,27 @@ sub run_form {
     is( ( scalar grep { $_ != 0 } @posts ),
         0,
         '  long label + wide value still posts at 80 cols (no E_NO_ROOM)' );
+}
+
+# --- a label too long to sit beside its value wraps -------------------------
+# A 43-col label with a 40-wide value cannot fit side by side on 80 columns, so
+# the label wraps onto its own line(s) and the value drops to the row below.
+# The form must still post (no E_NO_ROOM), and survive a resize.
+{
+    open( my $fh, '>', "$objs/wrap.form" ) or die "write: $!";
+    print {$fh} "title { Wrap }\n";
+    print {$fh}
+      "field {\n  id    = HOST\n  len   = 40\n  type  = STRING\n  label = Fully qualified primary DNS server hostname\n}\n";
+    print {$fh}
+      "field {\n  id    = PORT\n  len   = 6\n  type  = NUMERIC\n  label = Port\n}\n";
+    print {$fh} "action { run:true }\n";
+    close($fh);
+
+    my ( $screen, $log ) = run_form( 'wrap', 80, 24, [ 110, 30 ] );
+    like( $log, qr/wrapped label "HOST"/,
+        'a label too long to fit beside its value wraps' );
+    my @posts = $log =~ /post_form => (-?\d+)/g;
+    ok( scalar @posts, '  wrapped form posts (build and resize)' );
+    is( ( scalar grep { $_ != 0 } @posts ),
+        0, '  wrapped form never fails post_form, before or after resize' );
 }
