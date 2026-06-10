@@ -1,0 +1,63 @@
+# The Curses Command Front-end sample configuration file:
+# a colour theme that gives CCFE an AIX SMIT-like appearance.
+#
+# CCFE was modelled on the IBM AIX System Management Interface Tool (SMIT).
+# Drop this in as your ccfe.conf, or use it as an instance config: symlink the
+# binary to "smit" and save this as smit.conf, so `smit` reads it and looks
+# for its menus under $PREFIX/lib/smit/ (see ccfe.conf(5), "Configuration
+# overrides").
+#
+# Colour needs a colour terminal; on a monochrome one (or with NO_COLOR set,
+# or screen_layout = Simple) CCFE falls back to its plain look automatically.
+# The standard foreground colour pairs are pre-created:
+#   1=red 2=green 3=yellow 4=blue 5=magenta 6=cyan 7=white
+# over the terminal's own background.
+
+global {
+  screen_layout = Normal
+  hide_cursor   = YES
+  shell         = /bin/sh
+  log_level     = 1
+  key_f2        = list
+  key_f3        = sel_items
+  key_f4        = back
+  key_f5        = show_action
+  key_f6        = save
+  key_f7        = shell_escape
+  key_f8        = redraw
+  key_f9        = exit
+}
+
+menu_global {
+  mark_noaction_items = YES
+  # Cyan menu text with a bold reverse-yellow highlight bar, SMIT style.
+  screen_attr   = COLOR_PAIR(6)
+  item_attr     = COLOR_PAIR(6)
+  selected_attr = COLOR_PAIR(3) | A_REVERSE | A_BOLD
+}
+
+browser_global {
+  max_rows    = 5000
+  stdout_attr = A_NORMAL
+  stderr_attr = COLOR_PAIR(1) | A_BOLD       # errors in bold red
+  info_attr   = COLOR_PAIR(6) | A_REVERSE    # cyan status bar
+  end_marker  = **** end of output ****
+}
+
+field_attr {
+  label_fg         = COLOR_PAIR(6)
+  label_bg         = A_NORMAL
+  value_fg         = A_NORMAL
+  value_bg         = A_UNDERLINE
+  changed_value_fg = COLOR_PAIR(3) | A_BOLD
+  changed_value_bg = A_UNDERLINE
+}
+
+active_field_attr {
+  label_fg         = COLOR_PAIR(3) | A_BOLD
+  label_bg         = A_NORMAL
+  value_fg         = A_NORMAL
+  value_bg         = A_REVERSE
+  changed_value_fg = A_NORMAL
+  changed_value_bg = A_REVERSE
+}

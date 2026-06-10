@@ -2130,6 +2130,18 @@ sub load_config {
                                         $MS_FOOTER_ROWS = 1 + $attrv;
                                         last ASWITCH;
                                     }
+                                    if (/^SCREEN_ATTR$/) {
+                                        eval "\$MENU_SCREEN_ATTR = $attrv";
+                                        last ASWITCH;
+                                    }
+                                    if (/^ITEM_ATTR$/) {
+                                        eval "\$MENU_ITEM_ATTR = $attrv";
+                                        last ASWITCH;
+                                    }
+                                    if (/^SELECTED_ATTR$/) {
+                                        eval "\$MENU_SEL_ATTR = $attrv";
+                                        last ASWITCH;
+                                    }
                                     else {
                                         trace(
 "$gs: unknown parameter \"$attrk\" in configuration section $key\{\}"
@@ -2216,8 +2228,11 @@ sub do_menu {
               $MS_FOOTER_ROWS );
         $win = newwin( $LINES, $COLS, 0, 0 );
         $pan = new_panel($win);
+        bkgd( $win, $MENU_SCREEN_ATTR );
 
         set_menu_mark( $cmenu, ' ' );
+        set_menu_fore( $cmenu, $MENU_SEL_ATTR );
+        set_menu_back( $cmenu, $MENU_ITEM_ATTR );
         set_menu_format( $cmenu, $mwinr, 1 );
         scale_menu( $cmenu, $rows, $cols );
 
@@ -2228,6 +2243,7 @@ sub do_menu {
             $mlmargin );
         set_menu_win( $cmenu, $win );
         set_menu_sub( $cmenu, $msub );
+        bkgd( $msub, $MENU_SCREEN_ATTR );
         keypad( $win, $ON );
         clear($win);
 
@@ -4724,6 +4740,12 @@ $FIELD_VALUE_POS  = -1;
 $RESTRICTED       = $NO;
 @RESTRICTED_ALLOW = ();
 $HAS_COLOR        = $NO;
+# Menu theme attributes.  Defaults preserve the historical monochrome look
+# (overall screen normal, selected item reversed); a config (e.g. a SMIT-style
+# instance) can set these to COLOR_PAIR(n) expressions for a colour menu UI.
+$MENU_SCREEN_ATTR = A_NORMAL;
+$MENU_ITEM_ATTR   = A_NORMAL;
+$MENU_SEL_ATTR    = A_REVERSE;
 
 if ( $res = load_config ) {
     trace("$es_str[$res] loading configuration file");

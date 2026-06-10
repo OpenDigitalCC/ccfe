@@ -35,36 +35,41 @@ is_deeply(
     'standard pair order'
 );
 
-# ---- end-to-end: a configured colour attribute paints in colour --------
+# ---- end-to-end: configured colour attributes paint in colour ----------
 SKIP: {
+    my $n = 3;
     eval { require CCFE::Test::Pty; 1 }
-      or skip( 'pty helper unavailable', 2 );
-    skip( 'no Linux pseudo-terminal', 2 ) unless CCFE::Test::Pty->available;
-    skip( 'Curses not installed', 2 ) unless eval { require Curses; 1 };
+      or skip( 'pty helper unavailable', $n );
+    skip( 'no Linux pseudo-terminal', $n ) unless CCFE::Test::Pty->available;
+    skip( 'Curses not installed', $n ) unless eval { require Curses; 1 };
     my $src = "$Bin/..";
-    skip( 'no installer', 2 ) unless -f "$src/install.sh";
+    skip( 'no installer', $n ) unless -f "$src/install.sh";
 
     my $prefix = tempdir( CLEANUP => 1 );
     my $log    = `cd "$src" && sh install.sh -b -p "$prefix" 2>&1`;
-    skip( "install failed: $log", 2 ) unless $? == 0 && -x "$prefix/bin/ccfe";
+    skip( "install failed: $log", $n ) unless $? == 0 && -x "$prefix/bin/ccfe";
 
-    # Colour the run-output's stdout lines green (COLOR_PAIR(2)).
+    # Colour the run-output's stdout lines green, and give the menu screen a
+    # colour theme (cyan items, a bold-reverse yellow selection) -- the
+    # mechanism a SMIT-style instance config would use.
     my $conf = "$prefix/etc/ccfe.conf";
     my $txt  = do { local ( @ARGV, $/ ) = $conf; <> };
     $txt =~ s/^\s*stdout_attr\s*=.*$/  stdout_attr = COLOR_PAIR(2)/m;
-    open( my $fh, '>', $conf ) or skip( "rewrite conf: $!", 2 );
+    $txt =~ s/^menu_global \{/menu_global {\n  screen_attr   = COLOR_PAIR(6)\n  selected_attr = COLOR_PAIR(3) | A_REVERSE | A_BOLD/m;
+    open( my $fh, '>', $conf ) or skip( "rewrite conf: $!", $n );
     print {$fh} $txt;
     close($fh);
 
-    # `ccfe ccfe` opens the install-test menu whose first item is
-    # run:cat it_works.txt -- press Enter to show that output in colour.
+    # An ANSI foreground-colour SGR: ESC [ ... 3X (m|;)  -- 32 = green.
+    my $colour_re = qr/\x1b\[[0-9;]*3[0-7][;m]/;
+
+    # Open a shortcut, optionally press Enter, return the raw terminal bytes.
     my $drive = sub {
-        my (%env) = @_;
-        local $ENV{NO_COLOR} = $env{NO_COLOR} if exists $env{NO_COLOR};
-        my $pty = CCFE::Test::Pty->spawn( 80, 24, "$prefix/bin/ccfe", 'ccfe' );
+        my ( $name, %opt ) = @_;
+        local $ENV{NO_COLOR} = $opt{NO_COLOR} if exists $opt{NO_COLOR};
+        my $pty = CCFE::Test::Pty->spawn( 80, 24, "$prefix/bin/ccfe", $name );
         $pty->pump(1.2);
-        $pty->send("\n");
-        $pty->pump(1.2);
+        if ( $opt{enter} ) { $pty->send("\n"); $pty->pump(1.2); }
         my $raw = $pty->raw;
         $pty->send("\033");
         $pty->pump(0.3);
@@ -75,15 +80,16 @@ SKIP: {
         return $raw;
     };
 
-    # An ANSI foreground-colour SGR: ESC [ ... 3X (m|;)  -- 32 = green.
-    my $colour_re = qr/\x1b\[[0-9;]*3[0-7][;m]/;
+    # run: output painted via stdout_attr
+    like( $drive->( 'ccfe', enter => 1 ), $colour_re,
+        'a configured COLOR_PAIR paints run output in colour' );
 
-    my $raw_colour = $drive->();
-    like( $raw_colour, $colour_re,
-        'a configured COLOR_PAIR paints the output in colour' );
+    # the menu screen itself painted via the menu_global theme
+    like( $drive->('sysmon'), $colour_re,
+        'a menu_global colour theme paints the menu in colour' );
 
-    my $raw_mono = $drive->( NO_COLOR => 1 );
-    unlike( $raw_mono, $colour_re,
+    # NO_COLOR forces monochrome
+    unlike( $drive->( 'ccfe', enter => 1, NO_COLOR => 1 ), $colour_re,
         'NO_COLOR disables colour (monochrome output)' );
 }
 

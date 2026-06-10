@@ -107,19 +107,33 @@ environment variables, so menus can consume input safely (e.g.
 `run:grep -- "$CCFE_FIELD_PATTERN" /var/log/syslog`) instead of interpolating
 `%{PATTERN}` into a shell string.
 
-## Colour
+## Colour and styles
 
 CCFE is monochrome by default. When the terminal supports colour (and
 `NO_COLOR` is unset and the layout is not `Simple`), it pre-creates the
 standard foreground colour pairs, so any `*_attr` setting in the config may
 reference `COLOR_PAIR(n)` — `1`=red, `2`=green, `3`=yellow, `4`=blue,
 `5`=magenta, `6`=cyan, `7`=white — over the terminal's own background,
-combinable with `A_BOLD` etc. For example, in `browser_global { }`:
+combinable with `A_BOLD` etc.
+
+This themes the run-output (`browser_global`), the form fields (`field_attr`
+/ `active_field_attr`), and the **menus** themselves (`menu_global`):
 
 ```
-stderr_attr = COLOR_PAIR(1) | A_BOLD
-info_attr   = COLOR_PAIR(6)
+menu_global {
+  screen_attr   = COLOR_PAIR(6)                       # menu text
+  selected_attr = COLOR_PAIR(3) | A_REVERSE | A_BOLD  # highlight bar
+}
+browser_global {
+  stderr_attr = COLOR_PAIR(1) | A_BOLD                # errors in red
+}
 ```
+
+CCFE was modelled on AIX's SMIT, and a ready-made SMIT-like colour theme
+ships as **`ccfe.conf.smit`** (installed under `doc/samples/`). Drop it in as
+your `ccfe.conf`, or use it as an instance config: symlink the binary to
+`smit` and save it as `smit.conf`, so `smit` gets its own colour scheme and
+menu tree (see *One binary, many menu trees* above).
 
 ## Docker
 
