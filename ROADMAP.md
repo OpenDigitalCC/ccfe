@@ -96,6 +96,11 @@ documentation**. Produce a short report, fix what's cheap, file the rest.
   location (FindBin), so it installs **byte-identical** (no `sed` templating),
   is **relocatable**, runs via `PATH`, and supports `CCFE_*_DIR` env overrides
   for split/FHS layouts. Verified by moving an install and invoking by name.
+- ✅ **M3** — packaging: a **Debian package** (`debian/`) built and verified
+  here (`dpkg-buildpackage` → `ccfe_2.0_all.deb`; staged via `install.sh`,
+  `/usr/bin/ccfe` symlink, runs from the packaged tree). RPM spec and Alpine
+  `APKBUILD` provided under `packaging/` (mirror the deb; not built here — no
+  `rpmbuild`/`abuild`). Fixed `use lib` to resolve a symlinked invocation.
 
 ### Done before this roadmap (post-v1.60)
 Security/restricted mode, the `CCFE::Restrict`/`CCFE::Theme` module

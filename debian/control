@@ -1,0 +1,19 @@
+Source: ccfe
+Section: admin
+Priority: optional
+Maintainer: CCFE maintainers <ccfedevel@gmail.com>
+Build-Depends: debhelper-compat (= 13), perl, libcurses-perl
+Standards-Version: 4.6.2
+Rules-Requires-Root: no
+
+Package: ccfe
+Architecture: all
+Depends: ${misc:Depends}, perl, libcurses-perl
+Description: Curses Command Front-end
+ CCFE puts an interactive, screen-oriented front-end on command-line scripts
+ and commands: it prompts for the information a command needs, driven by plain
+ declarative menu and form files, and runs the result.
+ .
+ Modelled on AIX's SMIT, it can present a guided, optionally colourful menu
+ interface, be themed, and run in a restricted mode suitable for constrained
+ logins. It depends only on Perl and libcurses-perl.

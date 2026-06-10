@@ -1,0 +1,32 @@
+# Contributor: CCFE maintainers <ccfedevel@gmail.com>
+# Maintainer: CCFE maintainers <ccfedevel@gmail.com>
+#
+# Alpine package for CCFE. Mirrors the Debian/RPM packages: a self-contained
+# tree under /usr/lib/ccfe staged by the upstream installer, with a PATH
+# symlink. Paths resolve at runtime, so nothing is templated.
+#
+# Build (needs alpine-sdk / abuild):  abuild -r
+#
+# NOTE: not built/tested in this environment (no abuild available here).
+pkgname=ccfe
+pkgver=2.0
+pkgrel=0
+pkgdesc="Curses Command Front-end"
+url="https://github.com/OpusVL/perl-ccfe"
+arch="noarch"
+license="GPL-2.0-or-later"
+depends="perl perl-curses"
+makedepends="perl"
+source="$pkgname-$pkgver.tar.gz"
+builddir="$srcdir/$pkgname-$pkgver"
+
+build() {
+	perl -c src/ccfe.pl
+}
+
+package() {
+	cd "$builddir"/src
+	sh install.sh -b -p "$pkgdir"/usr/lib/ccfe
+	mkdir -p "$pkgdir"/usr/bin
+	ln -sf ../lib/ccfe/bin/ccfe "$pkgdir"/usr/bin/ccfe
+}

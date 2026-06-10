@@ -1,0 +1,13 @@
+ccfe (2.0) unstable; urgency=medium
+
+  * CCFE 2.0.
+  * Reorganised install layout: menus/forms under share/ccfe/objects, themes
+    under share/ccfe/themes; per-user files follow the XDG base directories.
+  * Paths resolved at runtime from the program location (relocatable; no
+    install-time templating).
+  * Restricted mode and command-execution hardening.
+  * Optional colour, including menu/header/control-key theming and the classic
+    and colour SMIT themes.
+  * "ccfe -k NAME" parse-check linter.
+
+ -- CCFE maintainers <ccfedevel@gmail.com>  Tue, 10 Jun 2026 00:00:00 +0000

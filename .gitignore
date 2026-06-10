@@ -1,0 +1,12 @@
+# Debian package build artifacts
+debian/ccfe/
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/*.substvars
+debian/*.debhelper.log
+
+# Built packages (produced in the parent directory by dpkg-buildpackage)
+/*.deb
+/*.buildinfo
+/*.changes

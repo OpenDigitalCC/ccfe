@@ -1,0 +1,24 @@
+#!/usr/bin/make -f
+# CCFE is interpreted Perl that resolves its paths at runtime, so the package
+# stages a self-contained tree under /usr/lib/ccfe using the upstream
+# installer and exposes it on PATH via a symlink (see debian/ccfe.links).
+
+DESTTREE = $(CURDIR)/debian/ccfe/usr/lib/ccfe
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	perl -c src/ccfe.pl
+
+override_dh_auto_test:
+	# Headless tests only; the pty-driven and install-driven tests
+	# (t/03, t/06, t/07) need a terminal that a build chroot may lack.
+	cd src && prove -l t/00-compile.t t/01-parsers.t \
+	    t/02-issue1-regression.t t/04-restricted.t t/05-lib-restrict.t
+
+override_dh_auto_install:
+	cd src && sh install.sh -b -p $(DESTTREE)
+
+override_dh_auto_clean:
+	rm -rf debian/ccfe

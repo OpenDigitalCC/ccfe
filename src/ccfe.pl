@@ -38,7 +38,11 @@ use Digest::MD5 qw(md5_hex);
 # from the source tree (src/lib) and when installed (bin/../lib/perl5).  Using
 # __FILE__ (not $0/FindBin) keeps this correct even when the program is
 # require()d headlessly from the test suite.
-use lib do { my $d = dirname(__FILE__); ( "$d/lib", "$d/../lib/perl5" ) };
+use lib do {
+    require Cwd;    # resolve a symlinked invocation (e.g. /usr/bin/ccfe -> ...)
+    my $d = dirname( Cwd::abs_path(__FILE__) );
+    ( "$d/lib", "$d/../lib/perl5" );
+};
 use CCFE::Restrict ();
 use CCFE::Theme    ();
 use FindBin ();    # to locate the program at runtime (see the path block below)
