@@ -31,9 +31,10 @@ MYNAME='sysmon plugin'
 # Check if CCFE is in the $PATH:
 $INSTANCE -h > /dev/null 2>&1 || { echo "CCFE instance \"$INSTANCE\" not found or not in \$PATH - abort" ; exit 1; }
 
-# Get CCFE library directory:
-eval $($INSTANCE -c 2>&1 | grep LIB_DIR)
-prefix=$LIB_DIR/$INSTANCE
+# Get CCFE objects directory (where menus & forms live; OBJ_DIR since v2,
+# falling back to LIB_DIR for older CCFE):
+eval $($INSTANCE -c 2>&1 | grep -E '^(OBJ_DIR|LIB_DIR)=')
+prefix=${OBJ_DIR:-$LIB_DIR}/$INSTANCE
 
 if [ -d $prefix/demo.menu ]
 then

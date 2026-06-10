@@ -85,6 +85,14 @@ documentation**. Produce a short report, fix what's cheap, file the rest.
 
 ---
 
+### Progress
+- ✅ **M0** — `LICENSE`, `CHANGELOG.md` (git-history policy), config backup/VCS docs.
+- ✅ **M1** — layout reorganised and **v2.0 cut**: menus/forms in
+  `share/ccfe/objects/`, themes in `share/ccfe/themes/`, per-user files on XDG
+  dirs (with `~/.ccfe` fallback); installer, search paths, `print_config`
+  (`OBJ_DIR`/`THEME_DIR`), the sysmon plugin installer and the docs updated;
+  `MIGRATION.md` added. 106 tests green.
+
 ### Done before this roadmap (post-v1.60)
 Security/restricted mode, the `CCFE::Restrict`/`CCFE::Theme` module
 foundation, perlcritic/perltidy/CI gates, optional colour incl. menu/header/

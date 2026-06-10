@@ -15,12 +15,16 @@ the manual pages are under `src/man/`.
 
 ## Status
 
-`src/ccfe.pl` is the single-file program (currently version **1.60**). The
-ongoing modernisation — packaging, security hardening, optional colour and a
-move to a modular, more functional structure — is described in
-[`REFACTOR.md`](REFACTOR.md). CCFE depends on **standard packages only**
-(Perl core plus `libcurses-perl`); see the change log / git history for the
-detail of past fixes.
+`src/ccfe.pl` is the program (currently version **2.0**). The ongoing
+modernisation — packaging, security hardening, optional colour and a move to a
+modular, more functional structure — is described in
+[`REFACTOR.md`](REFACTOR.md) and [`ROADMAP.md`](ROADMAP.md). CCFE depends on
+**standard packages only** (Perl core plus `libcurses-perl`); see the git
+history for the detail of past fixes.
+
+**v2.0 reorganises the install layout** (menus/forms moved out of `lib/` into
+`share/ccfe/objects/`; per-user files follow the XDG base directories). See
+[`MIGRATION.md`](MIGRATION.md) if you are upgrading from a 1.x install.
 
 ## Dependencies
 
@@ -80,8 +84,8 @@ self-contained front-end with its own menus and its own `<name>.conf`:
 
 ```sh
 ln -s "$HOME/.ccfe/bin/ccfe" "$HOME/.ccfe/bin/ops"
-mkdir -p "$HOME/.ccfe/lib/ops"      # drop ops's *.menu / *.form here
-ops                                 # runs the "ops" menu tree, reads ops.conf
+mkdir -p "$HOME/.local/share/ccfe/ops"   # drop ops's *.menu / *.form here
+ops                                      # runs the "ops" tree, reads ops.conf
 ```
 
 This makes CCFE a natural way to give a team (or a constrained login) a
@@ -135,7 +139,8 @@ browser_global {
 screen — menus, forms and the output browser.
 
 CCFE was modelled on AIX's SMIT, and two ready-made themes ship under
-`doc/samples/`: **`ccfe.conf.smit`** (the classic monochrome original) and
+`<prefix>/share/ccfe/themes/`: **`ccfe.conf.smit`** (the classic monochrome
+original) and
 **`ccfe.conf.smit-color`** (the colour version, including the header and
 control keys). Drop one in as your `ccfe.conf`, or use it as an instance
 config: symlink the binary to `smit` and save it as `smit.conf`, so `smit`
@@ -154,10 +159,11 @@ docker run -it ccfe sysmon   # jump straight to a menu/form
 ## Plugins
 
 CCFE is extended purely by dropping declarative files onto its **search
-path**, which for a binary invoked as `ccfe` is:
+path**, which for a binary invoked as `ccfe` is, in order:
 
-1. `$LIBDIR/ccfe/`            — system-wide (e.g. `~/.ccfe/lib/ccfe/`)
-2. `~/.ccfe/ccfe/`            — per-user overrides and additions
+1. `<prefix>/share/ccfe/objects/ccfe/`  — system-wide
+2. `~/.local/share/ccfe/ccfe/`          — your XDG data dir
+3. `~/.ccfe/ccfe/`                       — legacy fallback
 
 The building blocks:
 
@@ -195,7 +201,8 @@ ccfe sysmon          # or pick "System resources..." from `ccfe demo`
 
 ### Writing your own
 
-The quickest start is a per-user menu. Create `~/.ccfe/ccfe/mytools.menu`:
+The quickest start is a per-user menu. Create
+`~/.local/share/ccfe/ccfe/mytools.menu`:
 
 ```
 title { My tools }
@@ -219,14 +226,14 @@ ccfe -k sysmon.d/sar     # checks a form; exits non-zero on a parse error
 ## Backing up & version-controlling your setup
 
 Your CCFE setup is just text files: the config (`ccfe.conf`, plus any instance
-`<name>.conf`) and your menus/forms. They live under your install prefix and,
-for personal additions, under `~/.ccfe/`:
+`<name>.conf`) and your menus/forms. The system copies sit under your install
+prefix; your **personal** additions follow the XDG base directories:
 
 ```
-$PREFIX/etc/ccfe.conf            system config
-$PREFIX/lib/ccfe/                system menus & forms
-~/.ccfe/<name>/                  your per-user menus & forms
-~/.ccfe/<name>.conf              your per-user config (if used)
+<prefix>/etc/ccfe.conf               system config
+<prefix>/share/ccfe/objects/<name>/  system menus & forms
+~/.config/ccfe/<name>.conf           your per-user config
+~/.local/share/ccfe/<name>/          your per-user menus & forms
 ```
 
 Because they're plain text, put them under version control — keep a small git
@@ -235,8 +242,8 @@ repo of just your config and menus so changes are reviewable and reversible:
 ```sh
 mkdir -p ~/ccfe-config && cd ~/ccfe-config
 git init
-cp "$PREFIX/etc/ccfe.conf" .
-cp -r ~/.ccfe/ccfe ./menus        # your per-user menus, if any
+cp -r ~/.config/ccfe ./config        # your per-user config, if any
+cp -r ~/.local/share/ccfe ./menus    # your per-user menus, if any
 git add . && git commit -m "My CCFE config and menus"
 ```
 

@@ -42,17 +42,19 @@ use lib do { my $d = dirname(__FILE__); ( "$d/lib", "$d/../lib/perl5" ) };
 use CCFE::Restrict ();
 use CCFE::Theme    ();
 
-$VERSION      = '1.60';
-$VERSION_DATE = '09/06/2026';
+$VERSION      = '2.0';
+$VERSION_DATE = '10/06/2026';
 $VERSION_YEAR = '2009, 2026';
 
 $PREFIX = "/usr/local/ccfe";
 
-$ETCDIR = "$PREFIX/etc";
-$BINDIR = "$PREFIX/bin";
-$LIBDIR = "$PREFIX/lib";
-$LOGDIR = "$PREFIX/log";
-$MSGDIR = "$PREFIX/msg";
+$ETCDIR   = "$PREFIX/etc";
+$BINDIR   = "$PREFIX/bin";
+$LIBDIR   = "$PREFIX/lib";
+$LOGDIR   = "$PREFIX/log";
+$MSGDIR   = "$PREFIX/msg";
+$OBJDIR   = "$PREFIX/share/ccfe/objects";
+$THEMEDIR = "$PREFIX/share/ccfe/themes";
 
 $REALNAME        = 'ccfe';
 $DESCR           = 'The Curses Command Front-end';
@@ -62,8 +64,14 @@ $HOSTNAME        = ( split /\./, hostname )[0];
 $MENUEXT         = '.menu';
 $FORMEXT         = '.form';
 $DMENU_DEF_FNAME = 'definition';
-$PRIV_DIR        = "$ENV{HOME}/.$REALNAME";
-$PERS_DIR        = "$PRIV_DIR/persistent";
+
+# Per-user locations follow the XDG base-directory spec, with the legacy
+# ~/.ccfe kept as a fallback so existing setups keep working.
+$USR_CFG    = ( $ENV{XDG_CONFIG_HOME} || "$ENV{HOME}/.config" ) . "/$REALNAME";
+$USR_OBJ    = ( $ENV{XDG_DATA_HOME} || "$ENV{HOME}/.local/share" ) . "/$REALNAME";
+$LEGACY_DIR = "$ENV{HOME}/.$REALNAME";
+$PRIV_DIR   = $USR_OBJ;
+$PERS_DIR   = "$PRIV_DIR/persistent";
 
 $NO  = $OFF = $FALSE = 0;
 $YES = $ON  = $TRUE  = 1;
@@ -171,10 +179,21 @@ $RS_STDERR_ID = 'E';
 
 $SR_BUFF_SIZE = 512;
 
-@cnf_path = ("$ETCDIR/$REALNAME.conf");
-@mf_path = ( "$LIBDIR/$CALLNAME", "$ENV{HOME}/.$REALNAME/$CALLNAME" );
+# Menus/forms: system objects dir, then the user's XDG data dir, then the
+# legacy ~/.ccfe.  Config: system etc, then XDG config, then legacy.
+@mf_path = (
+    "$OBJDIR/$CALLNAME",
+    "$USR_OBJ/$CALLNAME",
+    "$LEGACY_DIR/$CALLNAME",
+);
+@cnf_path = (
+    "$ETCDIR/$REALNAME.conf",
+    "$USR_CFG/$REALNAME.conf",
+    "$LEGACY_DIR/$REALNAME.conf",
+);
 if ( $CALLNAME ne $REALNAME ) {
-    push @cnf_path, "$ETCDIR/$CALLNAME.conf";
+    push @cnf_path, "$ETCDIR/$CALLNAME.conf", "$USR_CFG/$CALLNAME.conf",
+      "$LEGACY_DIR/$CALLNAME.conf";
 }
 
 %bool_vals = (
@@ -275,6 +294,8 @@ sub print_config {
     print << "EOF";
 ETC_DIR=$ETCDIR
 LIB_DIR=$LIBDIR
+OBJ_DIR=$OBJDIR
+THEME_DIR=$THEMEDIR
 MSG_DIR=$MSGDIR
 EOF
     exit;
@@ -1774,10 +1795,16 @@ sub load_config {
                                           )
                                         {
                                             if ( $bool_vals{ lc($attrv) } ) {
+
+                                                # v2 searches the user dirs by
+                                                # default; kept so existing
+                                                # configs still parse.
                                                 push @mf_path,
-"$ENV{HOME}/.$REALNAME/$CALLNAME";
+                                                  "$USR_OBJ/$CALLNAME",
+                                                  "$LEGACY_DIR/$CALLNAME";
                                                 push @cnf_path,
-"$ENV{HOME}/.$REALNAME/$CALLNAME.conf";
+                                                  "$USR_CFG/$CALLNAME.conf",
+                                                  "$LEGACY_DIR/$CALLNAME.conf";
                                             }
                                         }
                                         else {
@@ -4599,14 +4626,21 @@ EOT
     exit 0;
 }
 if ( defined( $options{l} ) ) {
-    $LIBDIR  = $options{l};
-    $WRKDIR  = "$LIBDIR";
-    @mf_path = ("$LIBDIR");
+    $OBJDIR  = $options{l};
+    $WRKDIR  = $OBJDIR;
+    @mf_path = ($OBJDIR);
 }
-if ( defined( $ENV{'CCFE_LIB_DIR'} ) ) {
-    $LIBDIR  = $ENV{'CCFE_LIB_DIR'};
-    $WRKDIR  = "$LIBDIR";
-    @mf_path = ("$LIBDIR");
+# CCFE_OBJ_DIR overrides the objects (menus/forms) dir; CCFE_LIB_DIR is the
+# pre-v2 name, still honoured for compatibility.
+if ( defined( $ENV{'CCFE_OBJ_DIR'} ) ) {
+    $OBJDIR  = $ENV{'CCFE_OBJ_DIR'};
+    $WRKDIR  = $OBJDIR;
+    @mf_path = ($OBJDIR);
+}
+elsif ( defined( $ENV{'CCFE_LIB_DIR'} ) ) {
+    $OBJDIR  = $ENV{'CCFE_LIB_DIR'};
+    $WRKDIR  = $OBJDIR;
+    @mf_path = ($OBJDIR);
 }
 usage()        if defined $options{h};
 list_shortcuts if defined $options{s};
@@ -4719,8 +4753,9 @@ if ( $@ =~ /not defined by your vendor/ ) {
 
 umask 0077;
 chomp( $ENV{'CCFE_IWD'} = `pwd` );
-$ENV{'CCFE_LIB_DIR'} = $LIBDIR;
-$WRKDIR = "$LIBDIR/$CALLNAME" if !defined($WRKDIR);
+$ENV{'CCFE_LIB_DIR'} = $LIBDIR;    # kept for pre-v2 plugins
+$ENV{'CCFE_OBJ_DIR'} = $OBJDIR;    # menus/forms (objects) dir
+$WRKDIR = "$OBJDIR/$CALLNAME" if !defined($WRKDIR);
 my $shcut = $ARGV[0] ? $ARGV[0] : $REALNAME;
 trace(
     sprintf "Starting $REALNAME called as \"$CALLNAME\", PID $$; Fastpath: %s",

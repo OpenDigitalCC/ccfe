@@ -50,7 +50,7 @@ like( $o, qr/^OK: form /, '  recognised as a form' );
 is( $rc, 2, 'missing name: exit 2' );
 
 # malformed menu (unbalanced braces -> no items)
-my $broken = "$prefix/lib/ccfe/broken.menu";
+my $broken = "$prefix/share/ccfe/objects/ccfe/broken.menu";
 open( my $fh, '>', $broken ) or die "write $broken: $!";
 print {$fh} "title { Broken\nitem { id=X descr=Y action=run:ls\n";
 close($fh);

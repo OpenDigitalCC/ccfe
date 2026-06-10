@@ -30,6 +30,8 @@ LOGDIR="$PREFIX/log"
 MSGDIR="$PREFIX/msg"
 MANDIR="$PREFIX/man"
 DOCDIR="$PREFIX/doc"
+OBJDIR="$PREFIX/share/ccfe/objects"
+THEMEDIR="$PREFIX/share/ccfe/themes"
 
 PREFIX_DESCR='Destination prefix'
 ETCDIR_DESCR='Configuration directory'
@@ -134,11 +136,13 @@ install ()
     mkdir -p $MANDIR/man5
     mkdir -p $DOCDIR
     mkdir -p $DOCDIR/samples
+    mkdir -p $OBJDIR
+    mkdir -p $THEMEDIR
     chmod 1777 $LOGDIR
   fi
   
   echo "Copying program files..."
-  sed -e "/^\$PREFIX = /d ; s/^\$ETCDIR = .*$/\$ETCDIR = '$exp_etcdir';/ ; s/^\$BINDIR = .*$/\$BINDIR = '$exp_bindir';/ ;s/^\$LIBDIR = .*$/\$LIBDIR = '$exp_libdir';/ ;s/^\$LOGDIR = .*$/\$LOGDIR = '$exp_logdir';/ ;s/^\$MSGDIR = .*$/\$MSGDIR = '$exp_msgdir';/ ;" ccfe.pl > $BINDIR/ccfe
+  sed -e "/^\$PREFIX = /d ; s/^\$ETCDIR   = .*$/\$ETCDIR   = '$exp_etcdir';/ ; s/^\$BINDIR   = .*$/\$BINDIR   = '$exp_bindir';/ ;s/^\$LIBDIR   = .*$/\$LIBDIR   = '$exp_libdir';/ ;s/^\$LOGDIR   = .*$/\$LOGDIR   = '$exp_logdir';/ ;s/^\$MSGDIR   = .*$/\$MSGDIR   = '$exp_msgdir';/ ;s/^\$OBJDIR   = .*$/\$OBJDIR   = '$exp_objdir';/ ;s/^\$THEMEDIR = .*$/\$THEMEDIR = '$exp_themedir';/ ;" ccfe.pl > $BINDIR/ccfe
   chmod 755 $BINDIR/ccfe
 
   # CCFE's own Perl modules; ccfe finds them at bin/../lib/perl5 (see the
@@ -148,17 +152,21 @@ install ()
 
   if [ $update -eq 0 ]; then
     cp ccfe.conf $ETCDIR/
+
+    # Shipped colour/style themes:
+    cp ccfe.conf.smit ccfe.conf.smit-color ccfe.conf.console $THEMEDIR/
+
     cp msg/C/ccfe $MSGDIR/C/ccfe
 
-    # Test main menu:
-    mkdir -p $LIBDIR/ccfe
-    cp ccfe.menu $LIBDIR/ccfe
-    echo "Creating sample file $LIBDIR/ccfe/it_works.txt..."
-    mk_welcome > $LIBDIR/ccfe/it_works.txt
+    # Test main menu (menus/forms live under the objects dir):
+    mkdir -p $OBJDIR/ccfe
+    cp ccfe.menu $OBJDIR/ccfe
+    echo "Creating sample file $OBJDIR/ccfe/it_works.txt..."
+    mk_welcome > $OBJDIR/ccfe/it_works.txt
 
     # Demos:
-    cp -r demo.menu $LIBDIR/ccfe
-    cp -r demo.d $LIBDIR/ccfe
+    cp -r demo.menu $OBJDIR/ccfe
+    cp -r demo.d $OBJDIR/ccfe
     PATH=$BINDIR:$PATH
     export PATH
     cd ccfe-plugin-sysmon
@@ -175,9 +183,7 @@ install ()
   echo "Copying release documentation and samples..."
   cp README COPYING AUTHORS ChangeLog $DOCDIR/
   cp -rp ccfe-plugin-sysmon $DOCDIR/samples
-  cp -p ccfe.conf.console $DOCDIR/samples
-  cp -p ccfe.conf.smit $DOCDIR/samples
-  cp -p ccfe.conf.smit-color $DOCDIR/samples
+  # The .conf themes are installed under $THEMEDIR (see above).
 
   if [ $update -eq 0 ]; then
     # Save subdirs for future uninstall option:
@@ -215,6 +221,8 @@ while getopts p:c:l:e:o:m:d:a:u:hb a ; do
 	   MSGDIR="$PREFIX/msg"
 	   MANDIR="$PREFIX/man"
 	   DOCDIR="$PREFIX/doc"
+	   OBJDIR="$PREFIX/share/ccfe/objects"
+	   THEMEDIR="$PREFIX/share/ccfe/themes"
            ;;
         c) ETCDIR=$OPTARG
            ;;
@@ -286,6 +294,8 @@ EOT
          MSGDIR="$PREFIX/msg"
          MANDIR="$PREFIX/man"
          DOCDIR="$PREFIX/doc"
+         OBJDIR="$PREFIX/share/ccfe/objects"
+         THEMEDIR="$PREFIX/share/ccfe/themes"
          ;;
       2) input "New $ETCDIR_DESCR" $ETCDIR
          ETCDIR="$keybuff"
@@ -346,5 +356,7 @@ then
   exp_logdir=$(echo $LOGDIR | sed -e 's/\//\\\//g')
   exp_msgdir=$(echo $MSGDIR | sed -e 's/\//\\\//g')
   exp_docdir=$(echo $DOCDIR | sed -e 's/\//\\\//g')
+  exp_objdir=$(echo $OBJDIR | sed -e 's/\//\\\//g')
+  exp_themedir=$(echo $THEMEDIR | sed -e 's/\//\\\//g')
   install
 fi
