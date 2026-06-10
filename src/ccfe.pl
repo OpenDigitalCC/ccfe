@@ -50,6 +50,7 @@ use CCFE::MenuFile ();    # pure .menu/.item parser (see load_menu)
 use CCFE::FormFile ();    # pure .form parser (see load_form)
 use CCFE::Config   ();    # pure .conf section tokenizer (see load_config)
 use CCFE::Action   ();    # pure action-string parser (see do_menu/do_form)
+use CCFE::Layout   ();    # pure form value-column/page geometry (see do_form)
 use FindBin ();    # to locate the program at runtime (see the path block below)
 
 # Optional display-width support.  In a UTF-8 locale a label/title can occupy
@@ -3021,8 +3022,7 @@ sub do_form {
                   $lflags_x +
                   $lflags_size +
                   $form{fields}[$i]{htab} * $HTAB_COLS;
-                my $lw     = disp_width($label);    # label width in columns
-                my $dots_x = $label_x + $lw;
+                my $lw = disp_width($label);    # label width in columns
                 $val = '';
                 $val = $default if defined($default);
                 $val = $field_vals{$id} if defined( $field_vals{$id} );
@@ -3037,41 +3037,45 @@ sub do_form {
                 # label on a narrow terminal -- the label wraps onto its own
                 # full-width line(s) and the value drops to the row after the
                 # last label line, so it is never pushed off-screen or truncated.
+                # The geometry is pure (CCFE::Layout); resize_form reuses it.
                 my $auto = ( $LAYOUT == $NORMAL and $FIELD_VALUE_POS == -1 );
-                my $val_x = $FIELD_VALUE_POS;
-                if ( $val_x == -1 ) {
-                    $val_x = $COLS - $len - 1 - $rflags_size;
-                    $val_x = $label_x + 1 if $val_x < $label_x + 1;
-                }
-
-                # Wrap the label when it would otherwise collide with the value.
-                my $label_w   = $lw;
-                my $wrap_rows = 0;
-                if ( $auto
-                    and $label_x + $lw + $FIELD_VALUE_GAP > $val_x )
-                {
-                    $label_w = $COLS - $label_x - $rflags_size - 1;
-                    $label_w = 1 if $label_w < 1;
-                    $wrap_rows = int( ( $lw + $label_w - 1 ) / $label_w );
-                    $wrap_rows = 1 if $wrap_rows < 1;
-                    $dots_x    = $label_x;    # value row: dots run from the margin
-                    trace( "do_form: wrapped label \"$id\" over $wrap_rows line(s)",
-                        $LOG_NORMAL );
-                }
+                my $geom = CCFE::Layout::field_geometry(
+                    {
+                        cols        => $COLS,
+                        len         => $len,
+                        label_x     => $label_x,
+                        label_w     => $lw,
+                        rflags_size => $rflags_size,
+                        value_pos   => $FIELD_VALUE_POS,
+                        gap         => $FIELD_VALUE_GAP,
+                        auto        => $auto,
+                    }
+                );
+                my $val_x     = $geom->{val_x};
+                my $label_w   = $geom->{label_w};
+                my $wrap_rows = $geom->{wrap_rows};
+                my $dots_x    = $geom->{dots_x};
+                my $lvald_x   = $geom->{lvald_x};
+                my $rvald_x   = $geom->{rvald_x};
+                my $rflags_x  = $geom->{rflags_x};
+                trace(
+                    "do_form: wrapped label \"$id\" over $wrap_rows line(s)",
+                    $LOG_NORMAL
+                ) if $wrap_rows;
                 $form{fields}[$i]{wrap_rows} = $wrap_rows;
-
-                my $lvald_x  = $val_x - 1;
-                my $rvald_x  = $val_x + $len;
-                my $rflags_x = $COLS - $rflags_size;
 
                 # Advance to this field's top row, breaking to a new page if the
                 # whole (possibly multi-row) block would not fit on this one.
-                my $block_h = $wrap_rows ? $wrap_rows + 1 : 1;
-                $y += $form{fields}[$i]{vtab};
-                $y = 0
-                  if $y >= $mwinr
-                  or ( $y > 0 and $y + $block_h > $mwinr );
-                my $vr = $y + $wrap_rows;    # row of the value and its markers
+                my $pg = CCFE::Layout::page_advance(
+                    {
+                        y         => $y,
+                        vtab      => $form{fields}[$i]{vtab},
+                        wrap_rows => $wrap_rows,
+                        mwinr     => $mwinr,
+                    }
+                );
+                $y = $pg->{y};
+                my $vr = $pg->{vr};    # row of the value and its markers
 
                 $field =
                   $wrap_rows
@@ -3341,31 +3345,41 @@ sub do_form {
                 my $lw = disp_width($label);    # label width in columns
                 my ( $val_x, $dots_x, $lvald_x, $rvald_x, $rflags_x, $label_w );
                 if ($reflow) {
-                    $val_x = $COLS - $len - 1 - $rflags_size;
-                    $val_x = $label_x + 1 if $val_x < $label_x + 1;
-                    $wr      = 0;
-                    $label_w = $lw;
-                    if ( $label_x + $lw + $FIELD_VALUE_GAP > $val_x ) {
-                        $label_w = $COLS - $label_x - $rflags_size - 1;
-                        $label_w = 1 if $label_w < 1;
-                        $wr = int( ( $lw + $label_w - 1 ) / $label_w );
-                        $wr = 1 if $wr < 1;
-                    }
+                    # Same pure geometry do_form first laid the field out with.
+                    my $geom = CCFE::Layout::field_geometry(
+                        {
+                            cols        => $COLS,
+                            len         => $len,
+                            label_x     => $label_x,
+                            label_w     => $lw,
+                            rflags_size => $rflags_size,
+                            value_pos   => $FIELD_VALUE_POS,
+                            gap         => $FIELD_VALUE_GAP,
+                            auto        => 1,
+                        }
+                    );
+                    $val_x          = $geom->{val_x};
+                    $label_w        = $geom->{label_w};
+                    $wr             = $geom->{wrap_rows};
+                    $dots_x         = $geom->{dots_x};
+                    $lvald_x        = $geom->{lvald_x};
+                    $rvald_x        = $geom->{rvald_x};
+                    $rflags_x       = $geom->{rflags_x};
                     $f->{wrap_rows} = $wr;
-                    $dots_x   = $wr ? $label_x : $label_x + $lw;
-                    $lvald_x  = $val_x - 1;
-                    $rvald_x  = $val_x + $len;
-                    $rflags_x = $COLS - $rflags_size;
                 }
 
-                my $bh = $wr ? $wr + 1 : 1;
-                $yy += ( $f->{vtab} || 0 );
-                $yy = 0
-                  if $yy >= $mwinr
-                  or ( $yy > 0 and $yy + $bh > $mwinr );
-                my $page_start = ( $yy == 0 ) ? 1 : 0;
+                my $pg = CCFE::Layout::page_advance(
+                    {
+                        y         => $yy,
+                        vtab      => $f->{vtab} || 0,
+                        wrap_rows => $wr,
+                        mwinr     => $mwinr,
+                    }
+                );
+                $yy = $pg->{y};
+                my $page_start = $pg->{page_start} ? 1 : 0;
                 $npages++ if $page_start;
-                my $vr = $yy + $wr;
+                my $vr = $pg->{vr};
 
                 if ($reflow) {
                     # Recreate the label (its height/width follow the wrap) ...

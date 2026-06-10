@@ -192,7 +192,17 @@ the conformance tests.
   verb, prompting for `confirm`, honouring `log`/`wait_key`, spawning commands)
   stays in `ccfe.pl` as it draws lists and runs processes. Unit-tested in
   `t/16-action.t` (23 cases); the menu/form tty tests and full suite (275 tests)
-  stay green. Next: the pure `Layout` helpers, and finally the `$ctx` threading.
+  stay green.
+- 🔄 **`CCFE::Layout`** (done): the M6 value-column geometry (right-aligned
+  value that expands on a wide screen; long labels wrap onto their own line(s)
+  when they would collide with the value) and the page-advance arithmetic were
+  written out *twice* -- in `do_form`'s initial layout and again, byte for byte,
+  in `resize_form`'s reflow. That maths is pure (numbers in, numbers out), so it
+  is now `field_geometry()` / `page_advance()` in a module both sites share; the
+  `new_field`/`move_field` calls and tracing stay in `ccfe.pl`. Unit-tested with
+  hand-computed expectations in `t/17-layout.t` (27 cases); the resize/layout/
+  multipage tty tests and full suite (302 tests) stay green. Next: the `$ctx`
+  threading to retire the remaining globals.
 
 ## M8 — Non-functional close-out audit  _(final gate)_
 Five dimensions: **test coverage, code quality, performance, security,
