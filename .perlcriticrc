@@ -26,3 +26,13 @@ severity = 3
 # callers use scalar context.  `return;` would yield an empty list in list
 # context and misbehave, so an explicit `return undef` is correct here.
 [-Subroutines::ProhibitExplicitReturnUndef]
+
+# Our modules use `use v5.36` subroutine SIGNATURES, e.g. `sub color_number
+# ($name)` and `sub pair_for ($fg, $bg = undef)` -- not C-style prototypes.
+# The signatures are load-bearing (the bodies use the named params directly)
+# and are the deliberate modern idiom here (see the ProhibitVersionStrings note
+# above).  Older Perl::Critic / PPI -- as shipped in the CI image -- predates
+# signature awareness and reports every signature as a prototype, so exempt the
+# policy rather than abandon signatures.  (We do not use real prototypes
+# anywhere; a newer Perl::Critic already passes these files clean.)
+[-Subroutines::ProhibitSubroutinePrototypes]
