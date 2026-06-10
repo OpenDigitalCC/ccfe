@@ -14,6 +14,11 @@ ccfe (2.1) unstable; urgency=medium
     can switch the dot run off.
   * F8 / redraw and resize now force a full repaint; uncaught errors restore
     the terminal with a clean message.
+  * New `ccfe --dump NAME` (-D) prints a menu/form as JSON for scripting.
+  * Opt-in mouse (`mouse = YES`): click a menu item to select, double-click to
+    activate.
+  * New `ccfe --plugins` (-P) lists installed plugin manifests; plugins may
+    ship a `<name>.plugin` file (sample sysmon plugin does).
 
  -- CCFE maintainers <ccfedevel@gmail.com>  Wed, 11 Jun 2026 00:00:00 +0000
 
