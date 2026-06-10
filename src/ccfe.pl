@@ -47,6 +47,7 @@ use lib do {
 use CCFE::Restrict ();
 use CCFE::Theme    ();
 use CCFE::MenuFile ();    # pure .menu/.item parser (see load_menu)
+use CCFE::FormFile ();    # pure .form parser (see load_form)
 use FindBin ();    # to locate the program at runtime (see the path block below)
 
 # Optional display-width support.  In a UTF-8 locale a label/title can occupy
@@ -1162,335 +1163,49 @@ sub load_form {
                 close(INF);
                 $text = join( '', @lines );
 
-                $sc = 0;
-                $fc = 0;
-                ( $val, undef, $key ) =
-                  extract_bracketed( $text, '{', '\s*[a-zA-Z]*\s*' );
-                while ($key) {
-                    $val =~ s/^\{\s*//;
-                    $val =~ s/\s*\n?\s*\}$//;
-                    $key =~ s/^\s+//;
-                    $key =~ s/\s+$//;
-                  SWITCH: {
-                        $_ = lc $key;
-                        if (/^title$/) {
-                            $form{title} = $val;
-                            last SWITCH;
-                        }
-                        elsif (/^top$/) {
-                            @{ $form{top} } = split /\s*\n\s*/, $val, 2;
-                            last SWITCH;
-                        }
-                        elsif (/^path$/) {
-                            $form{path} = $val;
-                            last SWITCH;
-                        }
-                        elsif (/^field$/) {
-                            my $s;
-                            my @finfo = split /\s*\n\s*/, $val;
-                            foreach $s (@finfo) {
-                                ( $attrk, $attrv ) = split /\s*=\s*/, $s, 2;
-                              ASWITCH: {
-                                    $_ = lc $attrk;
-                                    if (/^id$/) {
-                                        for $i ( 0 .. $fc - 1 ) {
-                                            if ( $form{fields}[$i]{id} eq
-                                                $attrv )
-                                            {
-                                                trace(
-"WARNING: duplicated field ID \"$attrv\""
-                                                );
-                                            }
-                                        }
-                                        $form{fields}[$fc]{id} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^label$/) {
-                                        $form{fields}[$fc]{label} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^len$/) {
-                                        $form{fields}[$fc]{len} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^hscroll$/) {
-                                        if (
-                                            defined( $bool_vals{ lc($attrv) } )
-                                          )
-                                        {
-                                            $form{fields}[$fc]{hscroll} =
-                                              $bool_vals{ lc($attrv) };
-                                        }
-                                        else {
-                                            trace(
-"wrong value \"$attrv\" for \"$attrk\" attribute"
-                                            );
-                                            $res = $ES_SYNTAX_ERR;
-                                        }
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^enabled$/) {
-                                        if (
-                                            defined( $bool_vals{ lc($attrv) } )
-                                          )
-                                        {
-                                            $form{fields}[$fc]{enabled} =
-                                              $bool_vals{ lc($attrv) };
-                                        }
-                                        else {
-                                            trace(
-"wrong value \"$attrv\" for \"$attrk\" attribute"
-                                            );
-                                            $res = $ES_SYNTAX_ERR;
-                                        }
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^hidden$/) {
-                                        if (
-                                            defined( $bool_vals{ lc($attrv) } )
-                                          )
-                                        {
-                                            $form{fields}[$fc]{hidden} =
-                                              $bool_vals{ lc($attrv) };
-                                        }
-                                        else {
-                                            trace(
-"wrong value \"$attrv\" for \"$attrk\" attribute"
-                                            );
-                                            $res = $ES_SYNTAX_ERR;
-                                        }
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^required$/) {
-                                        if (
-                                            defined( $bool_vals{ lc($attrv) } )
-                                          )
-                                        {
-                                            $form{fields}[$fc]{required} =
-                                              $bool_vals{ lc($attrv) };
-                                        }
-                                        else {
-                                            trace(
-"wrong value \"$attrv\" for \"$attrk\" attribute"
-                                            );
-                                            $res = $ES_SYNTAX_ERR;
-                                        }
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^persist$/) {
-                                        if (
-                                            defined( $bool_vals{ lc($attrv) } )
-                                          )
-                                        {
-                                            $form{fields}[$fc]{persist} =
-                                              $bool_vals{ lc($attrv) };
-                                        }
-                                        else {
-                                            trace(
-"wrong value \"$attrv\" for \"$attrk\" attribute"
-                                            );
-                                            $res = $ES_SYNTAX_ERR;
-                                        }
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^ignore_unchgd$/) {
-                                        if (
-                                            defined( $bool_vals{ lc($attrv) } )
-                                          )
-                                        {
-                                            $form{fields}[$fc]{ignore_unchgd} =
-                                              $bool_vals{ lc($attrv) };
-                                        }
-                                        else {
-                                            trace(
-"wrong value \"$attrv\" for \"$attrk\" attribute"
-                                            );
-                                            $res = $ES_SYNTAX_ERR;
-                                        }
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^htab$/) {
-                                        $form{fields}[$fc]{htab} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^vtab$/) {
-                                        $form{fields}[$fc]{vtab} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^option$/) {
-                                        $form{fields}[$fc]{option} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^type$/) {
-                                        if (
-                                            defined( $type_vals{ lc($attrv) } )
-                                          )
-                                        {
-                                            $form{fields}[$fc]{type} =
-                                              $type_vals{ lc($attrv) };
-                                        }
-                                        else {
-                                            trace(
-"unknown field type \"$attrv\" of key \"$key\""
-                                            );
-                                            $res = $ES_SYNTAX_ERR;
-                                        }
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^default$/) {
-                                        $form{fields}[$fc]{default} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^list_cmd$/) {
-                                        $form{fields}[$fc]{list_cmd} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^list_sep$/) {
-                                        if ( $attrv =~ /"([ ,;:])"/ ) {
-                                            $form{fields}[$fc]{list_sep} = $1;
-                                        }
-                                        else {
-                                            trace(
-"syntax error \"$attrv\" in \"$attrk\" attribute"
-                                            );
-                                            $res = $ES_SYNTAX_ERR;
-                                        }
-                                        last ASWITCH;
-                                        last ASWITCH;
-                                    }
-                                    else {
-                                        trace(
-                                            "unknown field attribute \"$attrk\""
-                                        );
-                                        $res = $ES_SYNTAX_ERR;
-                                    }
-                                }
-                            }
-                            $fc++;
-                            last SWITCH;
-                        }
-                        elsif (/^separator$/) {
-                            my $line_width =
-                              $COLS - $FIELD_LMARGIN - $FIELD_RMARGIN;
-                            my $s;
-                            my @finfo = split /\s*\n\s*/, $val;
-                            foreach $s (@finfo) {
-                                ( $attrk, $attrv ) = split /\s*=\s*/, $s, 2;
-                              ASWITCH: {
-                                    $_ = lc $attrk;
-                                    if (/^id$/) {
-                                        for $i ( 0 .. $fc - 1 ) {
-                                            if ( $form{fields}[$i]{id} eq
-                                                $attrv )
-                                            {
-                                                trace(
-"WARNING: duplicated field ID in separator \"$attrv\""
-                                                );
-                                            }
-                                        }
-                                        $form{fields}[$fc]{id} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^type$/) {
-                                        if (
-                                            defined(
-                                                $sep_type_vals{ lc($attrv) }
-                                            )
-                                          )
-                                        {
-                                            $form{fields}[$fc]{sep_type} =
-                                              $sep_type_vals{ lc($attrv) };
-                                        }
-                                        else {
-                                            trace(
-"unknown separator type \"$attrv\" of key \"$key\""
-                                            );
-                                            $res = $ES_SYNTAX_ERR;
-                                        }
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^text$/) {
-                                        $form{fields}[$fc]{label} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^htab$/) {
-                                        $form{fields}[$fc]{htab} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^vtab$/) {
-                                        $form{fields}[$fc]{vtab} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    else {
-                                        trace(
-"unknown separator attribute \"$attrk\""
-                                        );
-                                        $res = $ES_SYNTAX_ERR;
-                                    }
-                                }
-                            }
-                            $form{fields}[$fc]{type}          = $SEPARATOR;
-                            $form{fields}[$fc]{len}           = 1;
-                            $form{fields}[$fc]{enabled}       = $NO;
-                            $form{fields}[$fc]{required}      = $NO;
-                            $form{fields}[$fc]{persist}       = $NO;
-                            $form{fields}[$fc]{hidden}        = $NO;
-                            $form{fields}[$fc]{hscroll}       = $NO;
-                            $form{fields}[$fc]{ignore_unchgd} = $NO;
-                            $form{fields}[$fc]{option}        = '';
-                            $form{fields}[$fc]{default}       = '';
-                            $form{fields}[$fc]{list_cmd}      = '';
-
-                            unless ( $form{fields}[$fc]{id} ) {
-                                $form{fields}[$fc]{id} =
-                                  sprintf( "CCFEFSEP%03d", ++$sc );
-                            }
-                            if ( $form{fields}[$fc]{sep_type} ==
-                                $SEP_TEXT_CENTER )
-                            {
-                                my $lblanks =
-                                  ( $line_width -
-                                      length( $form{fields}[$fc]{label} ) ) / 2;
-                                $form{fields}[$fc]{label} = sprintf( "%s%s",
-                                    ' ' x ($lblanks),
-                                    $form{fields}[$fc]{label} );
-                            }
-                            if ( $form{fields}[$fc]{sep_type} == $SEP_LINE ) {
-                                $form{fields}[$fc]{label} =
-                                  sprintf( "%s", '-' x ${line_width} );
-                            }
-                            if ( $form{fields}[$fc]{sep_type} ==
-                                $SEP_LINE_DOUBLE )
-                            {
-                                $form{fields}[$fc]{label} =
-                                  sprintf( "%s", '=' x ${line_width} );
-                            }
-                            $fc++;
-                            last SWITCH;
-                        }
-                        elsif (/^bottom$/) {
-                            @{ $form{bottom} } = split /\s*\n\s*/, $val, 2;
-                            last SWITCH;
-                        }
-                        elsif (/^init$/) {
-                            $form{init} = $val;
-                            last SWITCH;
-                        }
-                        elsif (/^action$/) {
-                            $form{action} = $val;
-                            last SWITCH;
-                        }
-                        else {
-                            trace("unknown form attribute \"$key\"");
-                            $res = $ES_SYNTAX_ERR;
-                        }
+                # The bracket-block parse now lives in the pure CCFE::FormFile
+                # module (ROADMAP M7): it returns a plain data structure with no
+                # terminal/global side effects.  load_form keeps the effectful
+                # rest -- command/boolean defaults, the $COLS-dependent separator
+                # formatting, select-item resolution -- below.
+                my ( $parsed, $pstatus, $warns, $fcount ) =
+                  CCFE::FormFile::parse(
+                    $text,
+                    {
+                        bool      => \%bool_vals,
+                        type      => \%type_vals,
+                        sep_type  => \%sep_type_vals,
+                        separator => $SEPARATOR,
+                        no        => $NO,
                     }
-                    ( $val, undef, $key ) =
-                      extract_bracketed( $text, '{', '\s*[a-zA-Z]*\s*' );
-                }
-                $res = $ES_SYNTAX_ERR if !pos($text);
+                  );
+                %form = %{$parsed};
+                trace($_) for @{$warns};
+                $fc  = $fcount;
+                $res = $ES_SYNTAX_ERR if $pstatus eq 'syntax_error';
                 if ( $res == $ES_NO_ERR ) {
                     @{ $form{top} } = @FORM_TOP_MSG unless @{ $form{top} };
+
+                    # Separator label formatting depends on $COLS, so the pure
+                    # parser defers it to here: centre the text, or draw a rule
+                    # line across the field area.
+                    my $line_width = $COLS - $FIELD_LMARGIN - $FIELD_RMARGIN;
+                    foreach my $f ( @{ $form{fields} } ) {
+                        next unless ( $f->{type} // 0 ) == $SEPARATOR;
+                        next unless defined $f->{sep_type};
+                        if ( $f->{sep_type} == $SEP_TEXT_CENTER ) {
+                            my $lblanks =
+                              ( $line_width - length( $f->{label} ) ) / 2;
+                            $f->{label} =
+                              sprintf( "%s%s", ' ' x ($lblanks), $f->{label} );
+                        }
+                        elsif ( $f->{sep_type} == $SEP_LINE ) {
+                            $f->{label} = '-' x $line_width;
+                        }
+                        elsif ( $f->{sep_type} == $SEP_LINE_DOUBLE ) {
+                            $f->{label} = '=' x $line_width;
+                        }
+                    }
 
                     foreach my $i ( 0 .. $#{ $form{fields} } ) {
                         my $id      = $form{fields}[$i]{id};

@@ -165,8 +165,18 @@ the conformance tests.
   flat dispatch (no cascading-if / deep-nest, so it passes the `src/lib`
   Perl::Critic/perltidy gates the legacy file is exempt from). Unit-tested
   directly in `t/13-menufile.t`; the demo/sysmon fixtures and tty smoke still
-  pass. Next: `CCFE::FormFile` (same shape), then `Config`, `Action`, the pure
-  `Layout` helpers, and finally the `$ctx` threading.
+  pass.
+- 🔄 **`CCFE::FormFile`** (done): the `.form` bracket parser (title/top/bottom/
+  path/init/action plus field and separator blocks) is now a pure module of the
+  same shape, dispatch-table driven (`%FIELD_ATTR`/`%SEP_ATTR` closures, no
+  cascading-if). `load_form` keeps the file finding/reading and the effectful
+  rest — command/boolean defaults, **the `$COLS`-dependent separator label
+  formatting** (centre / rule-line, which the parser deliberately defers as
+  layout not parsing), select-item resolution and the `%form`/`$SCREEN_DIR`
+  side effects. This cut ~325 lines of inline parser to a ~20-line call. Unit-
+  tested in `t/14-formfile.t` (40 cases); the multipage-form pty test and full
+  suite (235 tests) stay green. Next: `Config`, `Action`, the pure `Layout`
+  helpers, and finally the `$ctx` threading.
 
 ## M8 — Non-functional close-out audit  _(final gate)_
 Five dimensions: **test coverage, code quality, performance, security,
