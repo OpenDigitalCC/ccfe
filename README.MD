@@ -87,6 +87,40 @@ ops                                 # runs the "ops" menu tree, reads ops.conf
 This makes CCFE a natural way to give a team (or a constrained login) a
 purpose-built menu without touching the default `ccfe` one.
 
+## Restricted mode
+
+For constrained deployments (a kiosk, an operator console, a restricted
+login), set `restricted = yes` in the `global { }` section of the config.
+CCFE then disables the F7 shell escape and the runnable-script save, and
+refuses the `system:` / `exec:` verbs unless the target program is on an
+allowlist:
+
+```
+global {
+  restricted       = yes
+  restricted_allow = top, df, less
+}
+```
+
+Field values are always exported to action commands as `CCFE_FIELD_<ID>`
+environment variables, so menus can consume input safely (e.g.
+`run:grep -- "$CCFE_FIELD_PATTERN" /var/log/syslog`) instead of interpolating
+`%{PATTERN}` into a shell string.
+
+## Colour
+
+CCFE is monochrome by default. When the terminal supports colour (and
+`NO_COLOR` is unset and the layout is not `Simple`), it pre-creates the
+standard foreground colour pairs, so any `*_attr` setting in the config may
+reference `COLOR_PAIR(n)` — `1`=red, `2`=green, `3`=yellow, `4`=blue,
+`5`=magenta, `6`=cyan, `7`=white — over the terminal's own background,
+combinable with `A_BOLD` etc. For example, in `browser_global { }`:
+
+```
+stderr_attr = COLOR_PAIR(1) | A_BOLD
+info_attr   = COLOR_PAIR(6)
+```
+
 ## Docker
 
 A minimal image (stock Debian + `libcurses-perl`) is provided:

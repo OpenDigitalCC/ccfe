@@ -20,3 +20,9 @@ severity = 3
 # We do not mandate the /x flag on every regular expression; it adds noise to
 # trivial patterns.  Complex patterns should still use it by good judgement.
 [-RegularExpressions::RequireExtendedFormatting]
+
+# Lookup helpers (e.g. CCFE::Theme::color_number/pair_number) return undef in
+# scalar context to mean "not found"; that is a deliberate, documented API and
+# callers use scalar context.  `return;` would yield an empty list in list
+# context and misbehave, so an explicit `return undef` is correct here.
+[-Subroutines::ProhibitExplicitReturnUndef]

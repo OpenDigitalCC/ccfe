@@ -40,6 +40,7 @@ use Digest::MD5 qw(md5_hex);
 # require()d headlessly from the test suite.
 use lib do { my $d = dirname(__FILE__); ( "$d/lib", "$d/../lib/perl5" ) };
 use CCFE::Restrict ();
+use CCFE::Theme    ();
 
 $VERSION      = '1.60';
 $VERSION_DATE = '09/06/2026';
@@ -4686,6 +4687,7 @@ $USER_SHELL       = ( getpwuid($>) )[8];
 $FIELD_VALUE_POS  = -1;
 $RESTRICTED       = $NO;
 @RESTRICTED_ALLOW = ();
+$HAS_COLOR        = $NO;
 
 if ( $res = load_config ) {
     trace("$es_str[$res] loading configuration file");
@@ -4702,6 +4704,20 @@ if ($RESTRICTED) {
           . 'system:/exec: limited to [%s]',
         join( ', ', @RESTRICTED_ALLOW ) || 'nothing'
     );
+}
+
+# Optional colour.  Purely additive: when the terminal supports colour (and
+# NO_COLOR is not set and we are not in the SIMPLE monochrome layout) we
+# enable it and pre-create the standard foreground colour pairs, so a
+# configuration can reference COLOR_PAIR(n) in any of the *_attr settings
+# (e.g. `stderr_attr = COLOR_PAIR(1) | A_BOLD`).  Otherwise nothing changes
+# and the appearance is exactly as before.  See CCFE::Theme / REFACTOR.md.
+if ( has_colors() and !$ENV{NO_COLOR} and $LAYOUT != $SIMPLE ) {
+    start_color();
+    eval { use_default_colors() };    # lets pairs use the terminal's own bg
+    CCFE::Theme::init_standard_pairs();
+    $HAS_COLOR = $YES;
+    trace('colour enabled (standard foreground pairs created)');
 }
 if ( !$PERMIT_DEBUG ) {
     trace('debugging disabled by configuration!');
