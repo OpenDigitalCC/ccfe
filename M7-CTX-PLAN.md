@@ -117,16 +117,32 @@ threading mistake shows up as a crash or a mis-drawn screen, not a silent pass.
 - **Gate:** `t/03` smoke, `t/07` (`-k` item count + `--dump` JSON items array),
   `t/01` parser unit. Full suite 309 green.
 
-### Phase 3 — `%form` + `@fp` + `$cform` → `$ctx->{form}`  *(~160 sites — the big one)*
-- The bulk of the work and of the value: this is what kills the `local %form`
-  dynamic scope. `do_form`'s `local %form/@fp/$cform` become a per-call form
-  sub-object; `load_form`, `redraw_form_page`, `resize_form` and the remaining
-  inner subs take it explicitly.
-- Split if needed: **3a** convert the 7 inner subs to `$ctx`-taking form
-  (behaviour-preserving, globals still present); **3b** flip `%form` itself to
-  `$ctx->{form}` and delete the `local`.
-- **Gate:** `t/08` multipage, `t/10` resize, `t/11` layout — the screens that
-  have historically broken.
+### Phase 3 — `%form` + `@fp` + `$cform` → per-call lexicals  *(done — the big one)*
+- ~162 `%form` + 50 `@fp` + 113 `$cform` sites; the bulk of the value, killing
+  the `local %form` dynamic scope. Done in two commits:
+- **3a** — convert `do_form`'s seven nested **named** subs (sync_fields_val,
+  set_field_attr, set_field_active_attr, check_val_changes, prepare_action,
+  save_persistent, load_persistent) to forward-declared **anonymous closures**.
+  Bodies unchanged; at this step they still read the `local` globals, so
+  behaviour is identical. This is the prerequisite — a named sub binds the first
+  call's lexical, so it cannot capture a per-call `my %form`.
+- **3b** — flip `do_form`'s `local @fp/$cform/%form` to `my`. The ~325 body
+  sites stay byte-identical (lexical hash/array/scalar use the same sigils); the
+  closures and `resize_form` (already anonymous) now capture the lexicals.
+  `load_form` builds into a lexical `%form` and **copies it out** to a new
+  caller-ref parameter at the end (so its ~40 internal sites stay unchanged
+  rather than converting to `$form->{}`). `do_form` passes `\%form`; that ref is
+  the same hash the closures captured, so `load_form` filling it in place is
+  seen by them. The `--dump`/`-k` `dump_shortcut`/`check_shortcut` form branch
+  also updated. `t/01-parsers.t` form section updated to the new signature.
+- **Coverage added:** `t/20-form-submit.t` drives Enter to run a form's action
+  with `%{FIELD}` substitution, firing the submit-path closures (sync_fields_val,
+  prepare_action) that the open/navigate tests never reached. (A manual F6 check
+  separately confirmed save_persistent.) Note found along the way: **Enter**
+  submits/runs the action; **F6** is save-persistent — not the reverse.
+- **Gate:** `t/03` menu→form, `t/08` multipage, `t/10` resize (fires the
+  resize_form closure), `t/11` layout, `t/07` `--dump` form, `t/20` submit. Full
+  suite 311 green.
 
 ### Phase 4 — config settings → `$ctx->{cfg}`  *(~30 vars, incl. 17 colour attrs)*
 - `load_config`'s per-section dispatch writes `$ctx->{cfg}{...}`; the

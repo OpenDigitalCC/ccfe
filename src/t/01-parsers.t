@@ -52,22 +52,26 @@ is( $act{SAR}, 'form:sysmon.d/sar', '  SAR item -> form: action' );
 is( $act{TOP}, 'system:top',        '  TOP item -> system: action' );
 
 # ---- form files --------------------------------------------------------
-is( main::load_form('demo.d/recursive'), $main::ES_NO_ERR,
+# load_form now fills a caller-provided hashref (M7 Phase 3), not a global;
+# the second arg is the dir scalar-ref (here a throwaway).
+my %form;
+my $dir_ref;
+is( main::load_form( 'demo.d/recursive', \$dir_ref, \%form ), $main::ES_NO_ERR,
     'load demo.d/recursive.form' );
-like( $main::form{title}, qr/Form recursivity test/, '  form title parsed' );
-ok( ( grep { $_->{id} eq 'COUNTER' } @{ $main::form{fields} } ),
+like( $form{title}, qr/Form recursivity test/, '  form title parsed' );
+ok( ( grep { $_->{id} eq 'COUNTER' } @{ $form{fields} } ),
     '  COUNTER field parsed' );
-like( $main::form{action}, qr/^form:demo\.d\/recursive/,
+like( $form{action}, qr/^form:demo\.d\/recursive/,
     '  recursive action references itself' );
 
-is( main::load_form('sysmon.d/sar'), $main::ES_NO_ERR,
+is( main::load_form( 'sysmon.d/sar', \$dir_ref, \%form ), $main::ES_NO_ERR,
     'load plugin sysmon.d/sar.form' );
-ok( scalar( @{ $main::form{fields} } ) >= 1, '  sar.form has fields' );
+ok( scalar( @{ $form{fields} } ) >= 1, '  sar.form has fields' );
 
 # ---- not-found handling ------------------------------------------------
 is( main::load_menu( 'nope_does_not_exist', \%menu ), $main::ES_NOT_FOUND,
     'missing menu -> ES_NOT_FOUND' );
-is( main::load_form('nope/does_not_exist'), $main::ES_NOT_FOUND,
-    'missing form -> ES_NOT_FOUND' );
+is( main::load_form( 'nope/does_not_exist', \$dir_ref, \%form ),
+    $main::ES_NOT_FOUND, 'missing form -> ES_NOT_FOUND' );
 
 done_testing();

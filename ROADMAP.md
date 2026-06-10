@@ -214,7 +214,12 @@ the conformance tests.
   into a per-call lexical; `load_menu` now fills a caller-provided hashref, and
   all three callers (`do_menu` plus the `--dump`/`-k` `dump_shortcut`/
   `check_shortcut`) pass `\%menu`; `t/01-parsers.t` updated to the new
-  signature. 309 tests green. Next: Phase 3 (`%form`/`@fp`/`$cform`, the big one).
+  signature. **Phase 3 done (the big one):** `do_form`'s seven nested named subs
+  converted to anonymous closures (3a), then `%form`/`@fp`/`$cform` flipped from
+  `local` to per-call `my` (3b); `load_form` now builds a lexical and copies it
+  out to a caller ref. ~325 body sites stayed byte-identical. `t/20-form-submit.t`
+  added to fire the submit-path closures. 311 tests green. Next: Phase 4
+  (config settings → `$ctx->{cfg}`).
 
 ## M8 — Non-functional close-out audit  _(final gate)_
 Five dimensions: **test coverage, code quality, performance, security,

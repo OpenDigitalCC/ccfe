@@ -1144,8 +1144,12 @@ sub load_menu {
 }
 
 sub load_form {
-    my ( $name, $path ) = @_;
+    my ( $name, $path, $form ) = @_;    # $form: caller's hashref to fill
 
+    # M7 Phase 3: build into a lexical %form and copy it out to the caller's
+    # ref at the end, so the ~30 `$form{...}` sites below stay byte-identical
+    # rather than the global they used to fill.
+    my %form;
     my ( $key, $val, $found, $text, $fc, $sc, $res );
     my @lines;
 
@@ -1352,6 +1356,10 @@ sub load_form {
         trace("form \"$name\" NOT FOUND!");
         $res = $ES_NOT_FOUND;
     }
+
+    # Hand the built form to the caller (M7 Phase 3).  The {fields} arrayref is
+    # shared by this shallow copy, so the caller owns the same field hashes.
+    %{$form} = %form if $form;
     return $res;
 }
 
@@ -2642,9 +2650,9 @@ sub do_form {
     my ( $formname, $title, @argv ) = @_;
 
     my @fset;
-    local @fp;
+    my @fp;    # field pointers; M7 Phase 3: per-call lexical, not a `local`
     my ( $es, $rows, $cols, $i, $nfields, $field, $ch, $fsub, $y, $npages );
-    local $cform;
+    my $cform;
     my ( $action, $args, $wait_key );
     my @actopts;
     my ($pan);
@@ -2660,7 +2668,8 @@ sub do_form {
     # recursion semantics (a nested screen gets its own) and is threaded into
     # the nested load_persistent() explicitly rather than via dynamic scope.
     my $field_vals = {};
-    local %form;
+    my %form;    # the form; M7 Phase 3: per-call lexical filled by load_form,
+                 # captured by the helper closures above and resize_form below
     my ( @fields_to_remove, @fields_to_enable, @fields_to_disable );
 
     # M7 de-globalisation (Phase 3): the form's nested helpers are anonymous
@@ -2903,7 +2912,7 @@ sub do_form {
         }
     };
 
-    unless ( $es = load_form( $formname, \$form_dir ) ) {
+    unless ( $es = load_form( $formname, \$form_dir, \%form ) ) {
         undef(@fields_to_remove);
         undef(@fields_to_enable);
         undef(@fields_to_disable);
@@ -4599,8 +4608,11 @@ sub check_shortcut {
         return 2;
     }
     my $is_menu = ( $ext eq $MENUEXT );
-    my %menu;    # filled by load_menu (M7 Phase 2); the form branch uses %form
-    my $es = $is_menu ? load_menu( $name, \%menu ) : load_form($name);
+    my ( %menu, %form );    # filled by load_menu / load_form (M7 Phase 2-3)
+    my $es =
+      $is_menu
+      ? load_menu( $name, \%menu )
+      : load_form( $name, undef, \%form );
     if ( $es == $ES_NO_ERR ) {
         my $kind  = $is_menu ? 'menu' : 'form';
         my $title = $is_menu ? $menu{title} : $form{title};
@@ -4643,8 +4655,11 @@ sub dump_shortcut {
     }
     require JSON::PP;
     my $is_menu = ( $ext eq $MENUEXT );
-    my %menu;    # filled by load_menu (M7 Phase 2); the form branch uses %form
-    my $es = $is_menu ? load_menu( $name, \%menu ) : load_form($name);
+    my ( %menu, %form );    # filled by load_menu / load_form (M7 Phase 2-3)
+    my $es =
+      $is_menu
+      ? load_menu( $name, \%menu )
+      : load_form( $name, undef, \%form );
     if ( $es != $ES_NO_ERR ) {
         printf STDERR "ERROR: %s \"%s\": %s\n", ( $is_menu ? 'menu' : 'form' ),
           $name, ( $es_str[$es] || "parse error ($es)" );
