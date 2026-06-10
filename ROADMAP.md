@@ -210,7 +210,11 @@ the conformance tests.
   `%field_vals` turned from a `local` global into a per-call lexical threaded
   explicitly into `load_persistent` (proving the named-sub conversion on the
   smallest surface); `t/19-form-init.t` added to cover the previously-untested
-  init→field-value path. 309 tests green. Next: Phase 2 (`%menu`).
+  init→field-value path. **Phase 2 done:** `%menu` turned from a `local` global
+  into a per-call lexical; `load_menu` now fills a caller-provided hashref, and
+  all three callers (`do_menu` plus the `--dump`/`-k` `dump_shortcut`/
+  `check_shortcut`) pass `\%menu`; `t/01-parsers.t` updated to the new
+  signature. 309 tests green. Next: Phase 3 (`%form`/`@fp`/`$cform`, the big one).
 
 ## M8 — Non-functional close-out audit  _(final gate)_
 Five dimensions: **test coverage, code quality, performance, security,

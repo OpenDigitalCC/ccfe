@@ -1072,7 +1072,7 @@ sub disp_page {
 }
 
 sub load_menu {
-    my ($name) = @_;
+    my ( $name, $menu ) = @_;    # $menu: caller's hashref to fill (M7 Phase 2)
 
     my ( $key, $val, $text, $found, $ic, $res );
     my @lines;
@@ -1091,8 +1091,7 @@ sub load_menu {
                 trace("load static menu $fname");
                 @flist = ($fname);
             }
-            %menu = ();
-            undef %menu;
+            %{$menu} = ();
             $res = $ES_NO_ERR;
 
             foreach my $fname (@flist) {
@@ -1113,16 +1112,17 @@ sub load_menu {
                 $text = join( '', @lines );
 
                 # The bracket parser is now a pure module (CCFE::MenuFile);
-                # load_menu keeps the file finding/reading and owns the side
-                # effects -- %menu, $SCREEN_DIR and the default top message.
+                # load_menu keeps the file finding/reading, fills the caller's
+                # %menu hashref (M7 Phase 2) and applies the remaining side
+                # effects -- $SCREEN_DIR and the default top message.
                 my ( $parsed, $pstatus, $warns );
                 ( $parsed, $pstatus, $warns, $ic ) =
                   CCFE::MenuFile::parse($text);
-                %menu = %{$parsed};
+                %{$menu} = %{$parsed};
                 trace($_) for @{$warns};
                 $res = $ES_SYNTAX_ERR if $pstatus eq 'syntax_error';
                 if ( $res == $ES_NO_ERR ) {
-                    @{ $menu{top} } = @MENU_TOP_MSG unless @{ $menu{top} };
+                    @{ $menu->{top} } = @MENU_TOP_MSG unless @{ $menu->{top} };
                     $SCREEN_DIR = $dir;
                     $$path      = $dir;
                 }
@@ -1949,9 +1949,13 @@ sub do_menu {
     my ( $win,     $mwinr );
     my ( $exit_id, $exit_descr );
     my ( $pos_msg, $saveY, $saveX );
-    local %menu;
 
-    unless ( $es = load_menu($menuname) ) {
+    # M7 de-globalisation (Phase 2): the menu is a per-call lexical filled by
+    # load_menu, not a `local` global -- the anonymous draw/resize closures
+    # below capture it correctly, and a nested do_menu gets its own.
+    my %menu;
+
+    unless ( $es = load_menu( $menuname, \%menu ) ) {
         foreach $i ( 0 .. $#{ $menu{items} } ) {
             if ( $MARK_NOACT_ITEMS and !$menu{items}[$i]{action} ) {
                 $menu{items}[$i]{descr} = "($menu{items}[$i]{descr})";
@@ -4584,7 +4588,8 @@ sub check_shortcut {
         return 2;
     }
     my $is_menu = ( $ext eq $MENUEXT );
-    my $es = $is_menu ? load_menu($name) : load_form($name);
+    my %menu;    # filled by load_menu (M7 Phase 2); the form branch uses %form
+    my $es = $is_menu ? load_menu( $name, \%menu ) : load_form($name);
     if ( $es == $ES_NO_ERR ) {
         my $kind  = $is_menu ? 'menu' : 'form';
         my $title = $is_menu ? $menu{title} : $form{title};
@@ -4627,7 +4632,8 @@ sub dump_shortcut {
     }
     require JSON::PP;
     my $is_menu = ( $ext eq $MENUEXT );
-    my $es = $is_menu ? load_menu($name) : load_form($name);
+    my %menu;    # filled by load_menu (M7 Phase 2); the form branch uses %form
+    my $es = $is_menu ? load_menu( $name, \%menu ) : load_form($name);
     if ( $es != $ES_NO_ERR ) {
         printf STDERR "ERROR: %s \"%s\": %s\n", ( $is_menu ? 'menu' : 'form' ),
           $name, ( $es_str[$es] || "parse error ($es)" );

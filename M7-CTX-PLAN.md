@@ -98,11 +98,24 @@ threading mistake shows up as a crash or a mis-drawn screen, not a silent pass.
   write (init parse) and read (field creation) sites this phase changed.
 - **Gate:** full suite (309 tests) + the new `t/19` green.
 
-### Phase 2 — `%menu` → `$ctx->{menu}`  *(38 sites)*
-- `load_menu` fills `$ctx->{menu}` (it already returns a structure from
-  `CCFE::MenuFile`; just stop copying into the global). `do_menu`'s `local
-  %menu` → `my $menu` passed into the draw closures.
-- **Gate:** `t/03` smoke, 1-item-menu regression (`t/02`).
+### Phase 2 — `%menu` → per-call lexical  *(done)*
+- Low-churn shape: `load_menu` now fills a **caller-provided hashref**
+  (`load_menu($name, \%menu)`); each caller declares a lexical `my %menu` so the
+  ~30 `$menu{X}` read sites stay byte-identical, just bound to the lexical
+  instead of the global. `do_menu`'s `local %menu` → `my %menu`; its anonymous
+  draw/resize closures capture the lexical correctly (no named-sub trap, unlike
+  `do_form`).
+- **Caller count was 3, not 1:** besides `do_menu`, the `--dump`/`-k` path
+  (`dump_shortcut`, `check_shortcut`) also calls `load_menu` and read the global
+  — both updated to pass `\%menu`.
+- **Test fallout:** `t/01-parsers.t` drove `load_menu('ccfe')` and read the
+  global `%menu`; updated to the new signature. (The form half still reads
+  global `%form` — that is Phase 3.)
+- **Noted, not touched:** `load_menu`'s `$$path = $dir` writes through an
+  undef global `$path` (a vestigial no-op under no-strict; the real path
+  side-effect is `$SCREEN_DIR`). Left as-is; revisit at the strict capstone.
+- **Gate:** `t/03` smoke, `t/07` (`-k` item count + `--dump` JSON items array),
+  `t/01` parser unit. Full suite 309 green.
 
 ### Phase 3 — `%form` + `@fp` + `$cform` → `$ctx->{form}`  *(~160 sites — the big one)*
 - The bulk of the work and of the value: this is what kills the `local %form`
