@@ -3,15 +3,17 @@ field {
   id       = FORMNAME
   len      = 24
   type     = STRING
+  required = YES
   list_cmd = command:single-val:"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" list-forms
   label    = Form name (F2 for a list)
 }
 field {
-  id      = ACTION
-  len     = 50
-  type    = STRING
-  hscroll = YES
-  label   = Action (e.g. run:mycmd, or run:echo "$CCFE_FIELD_NAME")
+  id       = ACTION
+  len      = 50
+  type     = STRING
+  hscroll  = YES
+  required = YES
+  label    = Action (e.g. run:mycmd, or run:echo "$CCFE_FIELD_NAME")
 }
 separator { type = LINE }
 separator {

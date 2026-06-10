@@ -1,9 +1,10 @@
 title { Create a new form }
 field {
-  id      = FORMNAME
-  len     = 24
-  type    = STRING
-  label   = Form name (letters, digits, _ . -)
+  id       = FORMNAME
+  len      = 24
+  type     = STRING
+  required = YES
+  label    = Form name (letters, digits, _ . -)
 }
 field {
   id      = TITLE

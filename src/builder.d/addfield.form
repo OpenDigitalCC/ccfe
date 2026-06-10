@@ -3,22 +3,25 @@ field {
   id       = FORMNAME
   len      = 24
   type     = STRING
+  required = YES
   list_cmd = command:single-val:"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" list-forms
   label    = Form name to add to (F2 for a list)
 }
 field {
-  id      = FIELDID
-  len     = 16
-  type    = UCSTRING
-  htab    = 1
-  label   = Field id (e.g. NAME)
+  id       = FIELDID
+  len      = 16
+  type     = UCSTRING
+  htab     = 1
+  required = YES
+  label    = Field id (e.g. NAME)
 }
 field {
-  id      = LABEL
-  len     = 40
-  type    = STRING
-  hscroll = YES
-  label   = Field label (the prompt)
+  id       = LABEL
+  len      = 40
+  type     = STRING
+  hscroll  = YES
+  required = YES
+  label    = Field label (the prompt)
 }
 field {
   id      = TYPE

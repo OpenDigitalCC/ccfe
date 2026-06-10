@@ -1,9 +1,10 @@
 title { Create a new menu }
 field {
-  id      = MENUNAME
-  len     = 24
-  type    = STRING
-  label   = Menu name (letters, digits, _ . -)
+  id       = MENUNAME
+  len      = 24
+  type     = STRING
+  required = YES
+  label    = Menu name (letters, digits, _ . -)
 }
 field {
   id      = TITLE

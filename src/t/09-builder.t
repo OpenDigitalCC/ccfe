@@ -86,6 +86,16 @@ for my $name (
     is( $? >> 8, 0, "builder object '$name' parses" );
 }
 
+# The fields the backend needs are marked required, so the form blocks an
+# empty submit (a clear "cannot be empty") instead of the backend erroring.
+my $additem = do {
+    local ( @ARGV, $/ ) =
+      "$prefix/share/ccfe/objects/ccfe/builder.d/additem.form";
+    <>;
+};
+my @req = $additem =~ /^\s*required\s*=\s*YES/mig;
+is( scalar @req, 4, 'add-item form marks its required fields' );
+
 # ---- end-to-end: drive a builder form on a pty -------------------------
 SKIP: {
     eval { require CCFE::Test::Pty; 1 } or skip( 'pty helper', 1 );

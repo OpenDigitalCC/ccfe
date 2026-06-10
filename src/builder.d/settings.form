@@ -4,21 +4,23 @@ separator {
   text = Sets a key in the global { } block of your personal ccfe.conf.
 }
 field {
-  id      = KEY
-  len     = 20
-  type    = STRING
-  vtab    = 1
-  default = const: screen_layout
+  id       = KEY
+  len      = 20
+  type     = STRING
+  vtab     = 1
+  required = YES
+  default  = const: screen_layout
   list_cmd = const:single-val:"screen_layout","hide_cursor","restricted","restricted_allow","user_shell","log_level"
-  label   = Setting (F2 for a list)
+  label    = Setting (F2 for a list)
 }
 field {
-  id      = VALUE
-  len     = 30
-  type    = STRING
-  htab    = 1
-  hscroll = YES
-  label   = Value
+  id       = VALUE
+  len      = 30
+  type     = STRING
+  htab     = 1
+  hscroll  = YES
+  required = YES
+  label    = Value
 }
 action { run:
   "${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" set-config "$CCFE_FIELD_KEY" "$CCFE_FIELD_VALUE"
