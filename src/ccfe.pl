@@ -576,9 +576,9 @@ sub init_title {
     $title =~ s/^\s+//;
     $title =~ s/\s+$//;
     addstr( $win, 0, 0, $USERNAME . '@' . $HOSTNAME ) if ( $LAYOUT == $NORMAL );
-    attron( $win, A_BOLD ) if ( $LAYOUT == $NORMAL );
+    attron( $win, $TITLE_ATTR ) if ( $LAYOUT == $NORMAL );
     addstr( $win, 0, int( ( $COLS - length($title) ) / 2 ), $title );
-    attroff( $win, A_BOLD ) if ( $LAYOUT == $NORMAL );
+    attroff( $win, $TITLE_ATTR ) if ( $LAYOUT == $NORMAL );
     hline( $win, $winRows - 1, 0, ACS_HLINE, $COLS ) if ( $LAYOUT == $NORMAL );
 }
 
@@ -674,14 +674,17 @@ sub init_footer {
         addstr( $win, $y, $x, "$keys{$keysList[$i]}{key}" );
         addstr( $win, "$keys{$keysList[$i]}{label}" );
         if ( $LAYOUT == $NORMAL ) {
-            if ( getbkgd($win) & A_REVERSE ) {
-                chgat( $win, $y, $x, length( $keys{ $keysList[$i] }{key} ),
-                    A_NORMAL, NULL, NULL );
-            }
-            else {
-                chgat( $win, $y, $x, length( $keys{ $keysList[$i] }{key} ),
-                    A_REVERSE, NULL, NULL );
-            }
+            # The control-key label (e.g. "F4") is highlighted.  A configured
+            # $KEY_ATTR (e.g. a colour pair) takes over; otherwise keep the
+            # original bkgd-relative reverse so it stands out either way.
+            my $ka =
+              defined $KEY_ATTR
+              ? $KEY_ATTR
+              : ( ( getbkgd($win) & A_REVERSE ) ? A_NORMAL : A_REVERSE );
+            # chgat() takes the colour pair as a separate argument, so extract
+            # it from $ka (0 = no colour, i.e. the monochrome default).
+            chgat( $win, $y, $x, length( $keys{ $keysList[$i] }{key} ),
+                $ka, PAIR_NUMBER($ka), NULL );
         }
         $x += $labelSize;
     }
@@ -2140,6 +2143,14 @@ sub load_config {
                                     }
                                     if (/^SELECTED_ATTR$/) {
                                         eval "\$MENU_SEL_ATTR = $attrv";
+                                        last ASWITCH;
+                                    }
+                                    if (/^TITLE_ATTR$/) {
+                                        eval "\$TITLE_ATTR = $attrv";
+                                        last ASWITCH;
+                                    }
+                                    if (/^KEY_ATTR$/) {
+                                        eval "\$KEY_ATTR = $attrv";
                                         last ASWITCH;
                                     }
                                     else {
@@ -4740,12 +4751,17 @@ $FIELD_VALUE_POS  = -1;
 $RESTRICTED       = $NO;
 @RESTRICTED_ALLOW = ();
 $HAS_COLOR        = $NO;
-# Menu theme attributes.  Defaults preserve the historical monochrome look
-# (overall screen normal, selected item reversed); a config (e.g. a SMIT-style
-# instance) can set these to COLOR_PAIR(n) expressions for a colour menu UI.
+# Menu/screen theme attributes.  Defaults preserve the historical monochrome
+# look (overall screen normal, selected item reversed, bold title, reverse
+# function-key highlight); a config (e.g. a SMIT-style instance) can set these
+# to COLOR_PAIR(n) expressions for a colour UI.  $TITLE_ATTR colours the header
+# and $KEY_ATTR the control keys in the footer bar; they apply to every screen
+# (menus, forms, the output browser), since the title/footer are shared.
 $MENU_SCREEN_ATTR = A_NORMAL;
 $MENU_ITEM_ATTR   = A_NORMAL;
 $MENU_SEL_ATTR    = A_REVERSE;
+$TITLE_ATTR       = A_BOLD;
+$KEY_ATTR         = undef;     # undef = the original bkgd-relative highlight
 
 if ( $res = load_config ) {
     trace("$es_str[$res] loading configuration file");

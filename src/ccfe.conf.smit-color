@@ -1,0 +1,62 @@
+# The Curses Command Front-end sample configuration file:
+# a colour AIX SMIT theme -- the classic SMIT look, in colour, including the
+# header and the control (function) keys.
+#
+# Needs a colour terminal; on a monochrome one (or with NO_COLOR set, or
+# screen_layout = Simple) CCFE falls back to the plain look automatically.
+# The standard foreground colour pairs are pre-created:
+#   1=red 2=green 3=yellow 4=blue 5=magenta 6=cyan 7=white
+# over the terminal's own background, combinable with A_BOLD / A_REVERSE.
+#
+# See ccfe.conf.smit for the monochrome original. Use directly as ccfe.conf,
+# or as a `smit` instance config (see ccfe.conf(5)).
+
+global {
+  screen_layout = Normal
+  hide_cursor   = YES
+  shell         = /bin/sh
+  log_level     = 1
+  key_f2        = list
+  key_f3        = sel_items
+  key_f4        = back
+  key_f5        = show_action
+  key_f6        = save
+  key_f7        = shell_escape
+  key_f8        = redraw
+  key_f9        = exit
+}
+
+menu_global {
+  mark_noaction_items = YES
+  screen_attr   = COLOR_PAIR(6)                       # cyan menu text
+  item_attr     = COLOR_PAIR(6)
+  selected_attr = COLOR_PAIR(3) | A_REVERSE | A_BOLD  # yellow highlight bar
+  title_attr    = COLOR_PAIR(3) | A_BOLD              # yellow header
+  key_attr      = COLOR_PAIR(2) | A_REVERSE | A_BOLD  # green control keys
+}
+
+browser_global {
+  max_rows    = 5000
+  stdout_attr = A_NORMAL
+  stderr_attr = COLOR_PAIR(1) | A_BOLD                # errors in bold red
+  info_attr   = COLOR_PAIR(6) | A_REVERSE             # cyan status bar
+  end_marker  = **** end of output ****
+}
+
+field_attr {
+  label_fg         = COLOR_PAIR(6)
+  label_bg         = A_NORMAL
+  value_fg         = A_NORMAL
+  value_bg         = A_UNDERLINE
+  changed_value_fg = COLOR_PAIR(3) | A_BOLD
+  changed_value_bg = A_UNDERLINE
+}
+
+active_field_attr {
+  label_fg         = COLOR_PAIR(3) | A_BOLD
+  label_bg         = A_NORMAL
+  value_fg         = A_NORMAL
+  value_bg         = A_REVERSE
+  changed_value_fg = A_NORMAL
+  changed_value_bg = A_REVERSE
+}

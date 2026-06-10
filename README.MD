@@ -123,17 +123,23 @@ This themes the run-output (`browser_global`), the form fields (`field_attr`
 menu_global {
   screen_attr   = COLOR_PAIR(6)                       # menu text
   selected_attr = COLOR_PAIR(3) | A_REVERSE | A_BOLD  # highlight bar
+  title_attr    = COLOR_PAIR(3) | A_BOLD              # header
+  key_attr      = COLOR_PAIR(2) | A_REVERSE | A_BOLD  # control keys
 }
 browser_global {
   stderr_attr = COLOR_PAIR(1) | A_BOLD                # errors in red
 }
 ```
 
-CCFE was modelled on AIX's SMIT, and a ready-made SMIT-like colour theme
-ships as **`ccfe.conf.smit`** (installed under `doc/samples/`). Drop it in as
-your `ccfe.conf`, or use it as an instance config: symlink the binary to
-`smit` and save it as `smit.conf`, so `smit` gets its own colour scheme and
-menu tree (see *One binary, many menu trees* above).
+`title_attr` (the header) and `key_attr` (the function-key bar) apply to every
+screen — menus, forms and the output browser.
+
+CCFE was modelled on AIX's SMIT, and two ready-made themes ship under
+`doc/samples/`: **`ccfe.conf.smit`** (the classic monochrome original) and
+**`ccfe.conf.smit-color`** (the colour version, including the header and
+control keys). Drop one in as your `ccfe.conf`, or use it as an instance
+config: symlink the binary to `smit` and save it as `smit.conf`, so `smit`
+gets its own scheme and menu tree (see *One binary, many menu trees* above).
 
 ## Docker
 

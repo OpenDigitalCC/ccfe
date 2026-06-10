@@ -177,6 +177,7 @@ install ()
   cp -rp ccfe-plugin-sysmon $DOCDIR/samples
   cp -p ccfe.conf.console $DOCDIR/samples
   cp -p ccfe.conf.smit $DOCDIR/samples
+  cp -p ccfe.conf.smit-color $DOCDIR/samples
 
   if [ $update -eq 0 ]; then
     # Save subdirs for future uninstall option:

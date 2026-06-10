@@ -34,10 +34,11 @@ deploy, easier to maintain, and nicer to use.
 - **Quality gates** (§4) — `.perlcriticrc`, `.perltidyrc`, a `Makefile`
   (`make check`) and a GitHub Actions CI workflow, enforced on the new modules.
 - **Optional colour** (§5) — `CCFE::Theme` pre-creates the standard colour
-  pairs so any `*_attr` can use `COLOR_PAIR(n)`; the **menus** are now themable
-  too (`menu_global` `screen_attr`/`item_attr`/`selected_attr`), and a SMIT-like
-  colour theme ships as `ccfe.conf.smit`. Monochrome fallback intact. Still
-  open: a full fg/bg palette section and configurable title/footer attrs.
+  pairs so any `*_attr` can use `COLOR_PAIR(n)`. The whole UI is themable:
+  menus (`screen_attr`/`item_attr`/`selected_attr`), the header (`title_attr`)
+  and the control keys (`key_attr`). Two themes ship: `ccfe.conf.smit` (classic
+  monochrome) and `ccfe.conf.smit-color`. Monochrome fallback intact. Still
+  open: a full fg/bg palette section (background colours / panelled look).
 - **`-k NAME` linter** (§6.4) — headless parse-check of a menu/form for authors
   and CI.
 
