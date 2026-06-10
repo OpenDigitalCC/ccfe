@@ -156,9 +156,16 @@ install ()
   cp -r lib/CCFE $LIBDIR/perl5/
 
   if [ $update -eq 0 ]; then
-    cp ccfe.conf $ETCDIR/
+    # Never clobber an existing configuration: a reinstall over a prefix that
+    # a user has customised (e.g. a colour theme in ccfe.conf) must preserve
+    # their settings.  Only drop the default config on a genuinely fresh tree.
+    if [ -f "$ETCDIR/ccfe.conf" ]; then
+      echo "Keeping existing $ETCDIR/ccfe.conf (not overwritten)."
+    else
+      cp ccfe.conf $ETCDIR/
+    fi
 
-    # Shipped colour/style themes:
+    # Shipped colour/style themes (program assets -- always refreshed):
     cp ccfe.conf.smit ccfe.conf.smit-color ccfe.conf.console $THEMEDIR/
 
     cp msg/C/ccfe $MSGDIR/C/ccfe
