@@ -2880,7 +2880,6 @@ sub do_form {
     my @actopts;
     my ($pan);
     my ( $win, $mwinr, $dots, $c );
-    my ($value_col);
     my ( $exit_id, $exit_descr );
     my (
         $id,     $all_ids, $label,  $len, $type, $default,
@@ -3221,29 +3220,6 @@ sub do_form {
         $npages      = 0;
         $lflags_size = $FIELD_LMARGIN;
         $rflags_size = $FIELD_RMARGIN;
-
-        # Pre-pass (NORMAL layout, auto value position): the value column for
-        # the whole form = the longest label end + a small gap, so values are
-        # grouped just right of the labels instead of being right-aligned to
-        # the screen edge (short dot runs, compact width, values that stay
-        # visible on a narrow terminal).  A single form-wide column keeps the
-        # values aligned across page flips and -- crucially -- lets the build
-        # and resize passes agree on pagination even when a long label wraps
-        # (a per-page column would depend on a pagination that depends on the
-        # wrapping that depends on the column).  Separators span the full
-        # width and do not constrain the column.
-        $value_col = $FIELD_LMARGIN + $FIELD_VALUE_GAP;
-        if ( $LAYOUT == $NORMAL and $FIELD_VALUE_POS == -1 ) {
-            foreach my $fld ( @{ $form{fields} } ) {
-                next if in( $fld->{id}, @fields_to_remove );
-                next if $fld->{type} == $SEPARATOR;
-                my $lx = $FIELD_LMARGIN + ( $fld->{htab} || 0 ) * $HTAB_COLS;
-                my $le =
-                  $lx + length( $fld->{label} // '' ) + $FIELD_VALUE_GAP;
-                $value_col = $le if $le > $value_col;
-            }
-        }
-
         $i           = 0;
         $nfields     = $#{ $form{fields} };
         while ( $i <= $#{ $form{fields} } ) {
@@ -3290,25 +3266,18 @@ sub do_form {
                   if ( $hscroll == $NO )
                   and ( length($val) > $len );
 
-                # Value/flag columns and wrapping (NORMAL, auto placement): the
-                # value sits at the form's shared column, just right of the
-                # longest label; a value too wide to fit there slides right as
-                # far as it fits.  If the label still cannot fit beside the
-                # (possibly slid) value, the label wraps onto its own full-width
-                # line(s) and the value drops to the row after the last label
-                # line.  Otherwise honour the explicit / SIMPLE column.
+                # Value/flag columns and wrapping.  The value is right-aligned to
+                # the screen edge (classic SMIT look), so it expands to use the
+                # width on a wide terminal.  When the label is too long to leave
+                # at least $FIELD_VALUE_GAP columns before that value -- a long
+                # label on a narrow terminal -- the label wraps onto its own
+                # full-width line(s) and the value drops to the row after the
+                # last label line, so it is never pushed off-screen or truncated.
                 my $auto = ( $LAYOUT == $NORMAL and $FIELD_VALUE_POS == -1 );
                 my $val_x = $FIELD_VALUE_POS;
                 if ( $val_x == -1 ) {
-                    if ( $LAYOUT == $NORMAL ) {
-                        my $rightmost = $COLS - $len - 1 - $rflags_size;
-                        $val_x =
-                          ( $value_col <= $rightmost ) ? $value_col : $rightmost;
-                        $val_x = $label_x + 1 if $val_x < $label_x + 1;
-                    }
-                    else {
-                        $val_x = $COLS - $len - 1 - $rflags_size;
-                    }
+                    $val_x = $COLS - $len - 1 - $rflags_size;
+                    $val_x = $label_x + 1 if $val_x < $label_x + 1;
                 }
 
                 # Wrap the label when it would otherwise collide with the value.
@@ -3330,7 +3299,7 @@ sub do_form {
 
                 my $lvald_x  = $val_x - 1;
                 my $rvald_x  = $val_x + $len;
-                my $rflags_x = $auto ? $val_x + $len + 1 : $COLS - $rflags_size;
+                my $rflags_x = $COLS - $rflags_size;
 
                 # Advance to this field's top row, breaking to a new page if the
                 # whole (possibly multi-row) block would not fit on this one.

@@ -83,14 +83,16 @@ the form was left unposted and the loop faulted, surfacing as exit 245);
 `do_form` now widens the rebuilt window to hold every field so `post_form`
 always succeeds.
 
-✅ **Compact value column + label wrap** (done): values group just right of the
-form's longest label (`longest + gap`, gap = `$FIELD_VALUE_GAP`) instead of
-right-aligning to the screen edge, so the dot run is short and forms stay narrow
-enough to read on small terminals; a value too wide to fit there slides right.
-A label too long to sit beside its (slid) value wraps onto its own line(s) with
-the value on the row below. `t/11-layout.t`. Open: re-flowing a build-time wrap
-when the terminal is *grown* (needs a field rebuild on resize), and `do_list` /
-`run_browse` reflow.
+✅ **Value column + label wrap** (done): values are right-aligned to the screen
+edge (classic SMIT), so they expand to use the width of a wide terminal; when a
+label is too long to leave `$FIELD_VALUE_GAP` columns before that value (a long
+label on a narrow terminal) the label wraps onto its own line(s) and the value
+drops to the row below, so it is never pushed off-screen or truncated.
+`t/11-layout.t`. Open: **horizontal re-flow on resize** — the value column and
+wrapping are fixed at the launch width and only the *vertical* layout reflows on
+resize, so resizing much narrower can push values off the right of an over-sized
+window; re-right-aligning / re-wrapping to the new width needs a field rebuild
+on resize. Also `do_list` / `run_browse` reflow.
 
 ## M7 — De-globalisation / full modularisation  _(REFACTOR §3 — deferred to end)_
 Extract `MenuFile`/`FormFile`/`Action`/`Layout`/`Exec`/`UI::*` into

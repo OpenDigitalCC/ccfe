@@ -53,13 +53,14 @@ sub run_form {
     return ( $screen, $log );
 }
 
-# --- a normal form: value column is compact, not right-aligned --------------
-# Short labels, short values: the form's natural width (the resize trace's
-# max_right) must be far below the 80-column screen -- i.e. the values sit
-# near the labels.  The old right-aligned layout pinned max_right to ~COLS.
+# --- a normal form: value column is right-aligned (expands to the width) -----
+# Short labels, short values: the value is right-aligned to the screen edge
+# (classic SMIT), so it uses the available width rather than hugging the
+# labels.  The form's natural width (the resize trace's max_right) is therefore
+# close to the build width, not a narrow column near the labels.
 {
     open( my $fh, '>', "$objs/compact.form" ) or die "write: $!";
-    print {$fh} "title { Compact }\n";
+    print {$fh} "title { Wideform }\n";
     print {$fh}
       "field {\n  id    = F$_\n  len   = 5\n  type  = STRING\n  label = Item $_\n}\n"
       for 1 .. 6;
@@ -69,8 +70,8 @@ sub run_form {
     my ( $screen, $log ) = run_form( 'compact', 80, 24, [ 100, 30 ] );
     my @mr = $log =~ /max_right=(\d+)/g;
     ok( scalar @mr, 'resize traced the form width (max_right)' );
-    cmp_ok( $mr[0], '<', 40,
-        "  value column is compact, not screen-right (max_right=$mr[0])" );
+    cmp_ok( $mr[0], '>', 60,
+        "  value column is right-aligned, using the width (max_right=$mr[0])" );
 }
 
 # --- a long label + a wide value still posts (no E_NO_ROOM) -----------------
