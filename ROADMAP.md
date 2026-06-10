@@ -105,6 +105,16 @@ pop-ups: re-wrapping their *content* to the new width, and propagating the
 resize to the menu/form underneath (it does not see the event while a pop-up is
 open); word-boundary (vs character) label wrapping.
 
+✅ **Wide-char / UTF-8 layout** (done): `setlocale(LC_CTYPE)` is adopted so
+ncursesw renders multi-byte text by display column, and a `disp_width()` helper
+(ASCII fast-path → `Text::CharWidth::mbswidth`, falling back to `length()` if
+the module is absent — added as a Debian `Recommends`) replaces byte-count
+`length()` in the layout maths (labels, titles, message/popup centring), so an
+accented or CJK label lays out by the columns it occupies, not its byte count.
+`t/11-layout.t`. Open: column-aware *truncation* of over-long messages
+(`substr` still cuts by byte), and multi-byte field **input** (the byte-only
+Perl Curses API makes typing non-ASCII into a field hard).
+
 ## M7 — De-globalisation / full modularisation  _(REFACTOR §3 — deferred to end)_
 Extract `MenuFile`/`FormFile`/`Action`/`Layout`/`Exec`/`UI::*` into
 `lib/CCFE`, add `strict`/`warnings`, replace globals/`local` scope with an

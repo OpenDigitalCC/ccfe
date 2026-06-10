@@ -27,7 +27,7 @@ my $ilog   = `cd "$src" && sh install.sh -b -p "$prefix" 2>&1`;
 plan skip_all => "install failed: $ilog"
   unless $? == 0 && -x "$prefix/bin/ccfe";
 
-plan tests => 8;
+plan tests => 9;
 
 my $objs   = "$prefix/share/ccfe/objects/ccfe";
 my $logf   = "$prefix/log/" . ( $ENV{USER} || getpwuid($<) ) . ".log";
@@ -124,4 +124,24 @@ sub run_form {
     ok( scalar @posts, '  wrapped form posts (build and resize)' );
     is( ( scalar grep { $_ != 0 } @posts ),
         0, '  wrapped form never fails post_form, before or after resize' );
+}
+
+# --- UTF-8 labels are measured by display column, not byte count ------------
+# A 31-character accented label is 31 columns wide but 62 bytes.  Beside a
+# 10-wide value on 80 columns it fits by display width (2 + 31 + 4 <= 67) but
+# NOT by byte count (2 + 62 + 4 > 67).  Column-correct measurement must place
+# it beside the value (no wrap); a byte-count would wrongly wrap it.
+SKIP: {
+    skip( 'Text::CharWidth not installed', 1 )
+      unless eval { require Text::CharWidth; 1 };
+    open( my $fh, '>:raw', "$objs/u8.form" ) or die "write: $!";
+    print {$fh} "title { U8 }\n";
+    print {$fh} "field {\n  id    = A\n  len   = 10\n  type  = STRING\n"
+      . "  label = "
+      . ( "\xc3\xa9" x 31 ) . "\n}\n";
+    print {$fh} "action { run:true }\n";
+    close($fh);
+    my ( $screen, $log ) = run_form( 'u8', 80, 24 );
+    unlike( $log, qr/wrapped label/,
+        'a UTF-8 label is measured by display column, not byte count' );
 }

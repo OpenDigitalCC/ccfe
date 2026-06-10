@@ -9,6 +9,7 @@ Rules-Requires-Root: no
 Package: ccfe
 Architecture: all
 Depends: ${misc:Depends}, perl, libcurses-perl
+Recommends: libtext-charwidth-perl
 Description: Curses Command Front-end
  CCFE puts an interactive, screen-oriented front-end on command-line scripts
  and commands: it prompts for the information a command needs, driven by plain

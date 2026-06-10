@@ -48,6 +48,16 @@ use CCFE::Restrict ();
 use CCFE::Theme    ();
 use FindBin ();    # to locate the program at runtime (see the path block below)
 
+# Optional display-width support.  In a UTF-8 locale a label/title can occupy
+# fewer screen columns than it has bytes (e.g. "caf\xc3\xa9" is 5 bytes, 4
+# columns) and a CJK glyph occupies two columns; ncursesw already lays the
+# screen out by columns, so CCFE's own layout maths must measure columns too,
+# not bytes.  Text::CharWidth::mbswidth() (Debian libtext-charwidth-perl)
+# reports the column width per the locale, matching ncursesw exactly; if it is
+# absent disp_width() falls back to length(), which is column-identical in a
+# single-byte locale.  See disp_width() below.
+our $HAVE_CHARWIDTH = eval { require Text::CharWidth; 1 };
+
 $VERSION      = '2.0';
 $VERSION_DATE = '10/06/2026';
 $VERSION_YEAR = '2009, 2026';
@@ -268,6 +278,20 @@ sub REAPER {
     $SIG{CHLD} = \&REAPER;
 }
 $SIG{CHLD} = \&REAPER;
+
+# Screen-column width of a (possibly UTF-8) string -- the unit ncursesw lays
+# the screen out in.  Pure-ASCII strings (the overwhelming majority of labels)
+# take the fast length() path; otherwise use mbswidth() when available.
+sub disp_width {
+    my ($s) = @_;
+    return 0 unless defined $s;
+    return length($s) if $s !~ /[^\x00-\x7f]/;    # ASCII: bytes == columns
+    if ($HAVE_CHARWIDTH) {
+        my $w = Text::CharWidth::mbswidth($s);
+        return $w if defined $w && $w >= 0;        # -1 == has non-printables
+    }
+    return length($s);
+}
 
 sub fatal {
     trace("FATAL: @_");
@@ -612,7 +636,7 @@ sub init_title {
     $title =~ s/\s+$//;
     addstr( $win, 0, 0, $USERNAME . '@' . $HOSTNAME ) if ( $LAYOUT == $NORMAL );
     attron( $win, $TITLE_ATTR ) if ( $LAYOUT == $NORMAL );
-    addstr( $win, 0, int( ( $COLS - length($title) ) / 2 ), $title );
+    addstr( $win, 0, int( ( $COLS - disp_width($title) ) / 2 ), $title );
     attroff( $win, $TITLE_ATTR ) if ( $LAYOUT == $NORMAL );
     hline( $win, $winRows - 1, 0, ACS_HLINE, $COLS ) if ( $LAYOUT == $NORMAL );
 }
@@ -776,9 +800,9 @@ sub disp_msg {
     my $bottom_attr = A_NORMAL;
 
     $msg = substr( $msg, 0, $COLS - 4 ) if length($msg) > $COLS - 4;
-    $width = length($msg);
-    if ( length($MSG_WIN_BMSG) > $width ) {
-        $width = length($MSG_WIN_BMSG);
+    $width = disp_width($msg);
+    if ( disp_width($MSG_WIN_BMSG) > $width ) {
+        $width = disp_width($MSG_WIN_BMSG);
     }
     $win = newwin(
         $MSG_WIN_ROWS, $width + 4,
@@ -792,10 +816,11 @@ sub disp_msg {
     $title = $MSG_WIN_TITLE unless $title;
     if ($title) {
         $title = " $title ";
-        addstr( $win, 0, 2 + int( ( $width - length($title) ) / 2 ), $title );
+        addstr( $win, 0, 2 + int( ( $width - disp_width($title) ) / 2 ),
+            $title );
     }
-    addstr( $win, 1, 2 + int( ( $width - length($msg) ) / 2 ), $msg );
-    addstr( $win, 3, 2 + int( ( $width - length($MSG_WIN_BMSG) ) / 2 ),
+    addstr( $win, 1, 2 + int( ( $width - disp_width($msg) ) / 2 ), $msg );
+    addstr( $win, 3, 2 + int( ( $width - disp_width($MSG_WIN_BMSG) ) / 2 ),
         $MSG_WIN_BMSG );
     chgat( $win, 3, 1, $width + 2, $bottom_attr, NULL, NULL );
     refresh($win);
@@ -2687,7 +2712,8 @@ sub do_list {
     if ( defined($title) ) {
         $title = " $title " if $LAYOUT == $NORMAL;
     }
-    addstr( $mwin, $title_y, int( ( $LW_COLS - length($title) ) / 2 ), $title );
+    addstr( $mwin, $title_y, int( ( $LW_COLS - disp_width($title) ) / 2 ),
+        $title );
     init_top( $mwin, $YES, $top_msg_y, scalar @top_msg, @top_msg );
     init_footer( $mwin, $YES, $LW_FOOTER_ROWS, @lw_keys );
     scale_menu( $cmenu, $rows, $cols );
@@ -3276,7 +3302,8 @@ sub do_form {
                   $lflags_x +
                   $lflags_size +
                   $form{fields}[$i]{htab} * $HTAB_COLS;
-                my $dots_x = $label_x + length($label);
+                my $lw     = disp_width($label);    # label width in columns
+                my $dots_x = $label_x + $lw;
                 $val = '';
                 $val = $default if defined($default);
                 $val = $field_vals{$id} if defined( $field_vals{$id} );
@@ -3299,15 +3326,14 @@ sub do_form {
                 }
 
                 # Wrap the label when it would otherwise collide with the value.
-                my $label_w   = length($label);
+                my $label_w   = $lw;
                 my $wrap_rows = 0;
                 if ( $auto
-                    and $label_x + length($label) + $FIELD_VALUE_GAP > $val_x )
+                    and $label_x + $lw + $FIELD_VALUE_GAP > $val_x )
                 {
                     $label_w = $COLS - $label_x - $rflags_size - 1;
                     $label_w = 1 if $label_w < 1;
-                    $wrap_rows =
-                      int( ( length($label) + $label_w - 1 ) / $label_w );
+                    $wrap_rows = int( ( $lw + $label_w - 1 ) / $label_w );
                     $wrap_rows = 1 if $wrap_rows < 1;
                     $dots_x    = $label_x;    # value row: dots run from the margin
                     trace( "do_form: wrapped label \"$id\" over $wrap_rows line(s)",
@@ -3331,7 +3357,7 @@ sub do_form {
                 $field =
                   $wrap_rows
                   ? new_field( $wrap_rows, $label_w, $y, $label_x, 0, 0 )
-                  : new_field( 1, length($label), $y, $label_x, 0, 0 );
+                  : new_field( 1, $lw, $y, $label_x, 0, 0 );
                 if ( $field eq '' ) { fatal("new_field(LABEL $label) failed") }
                 set_field_buffer( $field, 0, $label );
                 field_opts_off( $field, O_ACTIVE );
@@ -3581,20 +3607,21 @@ sub do_form {
                 my $label_x = $FIELD_LMARGIN + ( $f->{htab} || 0 ) * $HTAB_COLS;
                 my $wr      = $f->{wrap_rows} || 0;
 
+                my $lw = disp_width($label);    # label width in columns
                 my ( $val_x, $dots_x, $lvald_x, $rvald_x, $rflags_x, $label_w );
                 if ($reflow) {
                     $val_x = $COLS - $len - 1 - $rflags_size;
                     $val_x = $label_x + 1 if $val_x < $label_x + 1;
                     $wr      = 0;
-                    $label_w = length($label);
-                    if ( $label_x + length($label) + $FIELD_VALUE_GAP > $val_x ) {
+                    $label_w = $lw;
+                    if ( $label_x + $lw + $FIELD_VALUE_GAP > $val_x ) {
                         $label_w = $COLS - $label_x - $rflags_size - 1;
                         $label_w = 1 if $label_w < 1;
-                        $wr = int( ( length($label) + $label_w - 1 ) / $label_w );
+                        $wr = int( ( $lw + $label_w - 1 ) / $label_w );
                         $wr = 1 if $wr < 1;
                     }
                     $f->{wrap_rows} = $wr;
-                    $dots_x   = $wr ? $label_x : $label_x + length($label);
+                    $dots_x   = $wr ? $label_x : $label_x + $lw;
                     $lvald_x  = $val_x - 1;
                     $rvald_x  = $val_x + $len;
                     $rflags_x = $COLS - $rflags_size;
@@ -3615,7 +3642,7 @@ sub do_form {
                     my $lab =
                         $wr
                       ? new_field( $wr, $label_w, $yy, $label_x, 0, 0 )
-                      : new_field( 1, length($label), $yy, $label_x, 0, 0 );
+                      : new_field( 1, $lw, $yy, $label_x, 0, 0 );
                     set_field_buffer( $lab, 0, $label );
                     field_opts_off( $lab, O_ACTIVE );
                     field_opts_off( $lab, O_EDIT );
@@ -5045,6 +5072,11 @@ exit check_shortcut( $options{k} ) if defined $options{k};
   qw( help redraw back list reset_field show_action save shell_escape exit do );
 @RSKeys =
   qw( help redraw back show_action save shell_escape exit find find_next);
+
+# Adopt the environment's character locale so ncursesw renders multi-byte
+# (UTF-8) text by display column, in step with disp_width().  LC_CTYPE only --
+# this must not change LC_NUMERIC (decimal point) or imply `use locale`.
+POSIX::setlocale( POSIX::LC_CTYPE(), '' );
 
 initscr;
 $CURSES_ACTIVE = $YES;
