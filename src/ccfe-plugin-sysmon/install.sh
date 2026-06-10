@@ -42,6 +42,7 @@ then
   then
     cp sysmon.item $prefix/demo.menu/
     cp sysmon.menu $prefix/
+    cp sysmon.plugin $prefix/
     cp -r sysmon.d $prefix/
     cp README $prefix/sysmon.d/
     echo "$MYNAME installed in default demo menu."

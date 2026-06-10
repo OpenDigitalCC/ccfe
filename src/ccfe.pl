@@ -329,6 +329,7 @@ $DESCR.
     -h        : print this (Help) message and exit
     -k NAME   : checK that menu/form NAME parses, then exit (no terminal needed)
     -l PATH   : set forms and menus Library directory to PATH
+    -P        : list installed Plugins (--plugins) and exit
     -s        : print available Shortcuts and exit
     -v        : print Version informations and exit
 
@@ -5013,6 +5014,65 @@ sub dump_shortcut {
     return 0;
 }
 
+# Parse a plugin manifest (`<name>.plugin`): a single `plugin { ... }` block of
+# `key = value` lines describing a packaged set of menus/forms.  Returns a
+# hashref (keys lower-cased) or undef if the file has no recognisable name.
+sub parse_manifest {
+    my ($file) = @_;
+    open( my $fh, '<', $file ) or return undef;
+    my %m;
+    while ( my $line = <$fh> ) {
+        $line =~ s/#.*//;
+        next unless $line =~ /^\s*([A-Za-z_]\w*)\s*=\s*(.*?)\s*$/;
+        $m{ lc $1 } = $2;
+    }
+    close($fh);
+    return undef unless defined $m{name} && length $m{name};
+    return \%m;
+}
+
+# `--plugins`: list the installed plugins by scanning the object search path
+# for `*.plugin` manifests, newest-wins per filename.  Human-readable, like -s.
+sub list_plugins {
+    my ( @found, %seen );
+    for my $dir (@mf_path) {
+        opendir( my $dh, $dir ) or next;
+        for my $f ( sort readdir $dh ) {
+            next unless $f =~ /\.plugin$/;
+            next if $seen{$f}++;
+            my $m = parse_manifest("$dir/$f");
+            push @found, $m if $m;
+        }
+        closedir($dh);
+    }
+    unless (@found) {
+        print "No CCFE plugins found on the object path.\n";
+        exit 0;
+    }
+    printf "%-16s %-9s %s\n", 'PLUGIN', 'VERSION', 'DESCRIPTION';
+    for my $m ( sort { ( $a->{name} || '' ) cmp( $b->{name} || '' ) } @found ) {
+        printf "%-16s %-9s %s\n", $m->{name}, ( $m->{version} // '?' ),
+          ( $m->{description} // '' );
+        print "                 provides: $m->{provides}\n" if $m->{provides};
+        if ( $m->{requires} ) {
+            my @missing = grep { !cmd_in_path($_) } split ' ', $m->{requires};
+            print "                 requires: $m->{requires}",
+              ( @missing ? "  (missing: @missing)" : '' ), "\n";
+        }
+    }
+    exit 0;
+}
+
+# True if a bare command name is found in $PATH (for a manifest's `requires`).
+sub cmd_in_path {
+    my ($cmd) = @_;
+    return 1 if $cmd =~ m{/} && -x $cmd;
+    for my $d ( split /:/, ( $ENV{PATH} // '' ) ) {
+        return 1 if -x "$d/$cmd";
+    }
+    return 0;
+}
+
 sub list_shortcuts {
     my @unique = ();
     my @all    = ();
@@ -5128,10 +5188,10 @@ return 1 if $ENV{CCFE_TESTING};
 $Getopt::Std::STANDARD_HELP_VERSION = $TRUE;
 $Getopt::Std::OUTPUT_HELP_VERSION   = '';
 %options                            = ();
-# Accept the long form `--dump NAME` as an alias for `-D NAME` (Getopt::Std
-# itself only does single-letter options).
-@ARGV = map { $_ eq '--dump' ? '-D' : $_ } @ARGV;
-getopts( "vhsdcD:k:l:", \%options ) or usage();
+# Accept the long forms `--dump NAME` / `--plugins` as aliases for `-D NAME` /
+# `-P` (Getopt::Std itself only does single-letter options).
+@ARGV = map { $_ eq '--dump' ? '-D' : $_ eq '--plugins' ? '-P' : $_ } @ARGV;
+getopts( "vhsdcPD:k:l:", \%options ) or usage();
 if ( defined $options{v} ) {
     my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
     my ( $dd, $mm, $yy ) = split /\//, $VERSION_DATE;
@@ -5156,6 +5216,7 @@ if ( defined( $options{l} ) ) {
 }
 usage()        if defined $options{h};
 list_shortcuts if defined $options{s};
+list_plugins   if defined $options{P};
 print_config   if defined $options{c};
 $DEBUG = $YES if defined $options{d};
 $LANG_ID = get_lang_id;

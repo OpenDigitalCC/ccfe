@@ -1,0 +1,13 @@
+# CCFE plugin manifest.  Describes a packaged set of menus/forms so that
+# `ccfe --plugins` can list what is installed.  Drop this `<name>.plugin` file
+# alongside the plugin's menu (in the objects directory); CCFE finds it on the
+# object search path.
+plugin {
+  name        = sysmon
+  version     = 1.0
+  description = System resources usage monitors (SAMPLE PLUGIN)
+  author      = Massimo Loschi <ccfedevel@gmail.com>
+  ccfe_min    = 2.0
+  provides    = sysmon sysmon.d/sar sysmon.d/iostat sysmon.d/vmstat
+  requires    = sar iostat vmstat
+}

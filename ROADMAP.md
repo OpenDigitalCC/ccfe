@@ -140,6 +140,17 @@ own click-to-select text keeps working.  Uses `mousemask` + the packed `MEVENT`
 from `getmouse`.  `t/12-mouse.t`.  Open: clickable footer function-keys, and
 mouse in forms / the pop-up list / the output browser.
 
+✅ **Plugin manifest** (done): a plugin can ship a `<name>.plugin` manifest (a
+`plugin { name/version/description/author/provides/requires }` block) beside its
+menu; `ccfe --plugins` (`-P`) scans the object path for them and lists the
+installed plugins, flagging any `requires` command missing from `$PATH`.  The
+sample sysmon plugin ships `sysmon.plugin`.  `t/07-check-cli.t`.  Open: using
+the manifest at install time (dependency checks, clean uninstall).
+
+**→ M6 is complete** (every item delivered; the "Open" notes above are optional
+future refinements, not blockers).  Next: **M7** (de-globalisation) then **M8**
+(the non-functional close-out audit).
+
 ## M7 — De-globalisation / full modularisation  _(REFACTOR §3 — deferred to end)_
 Extract `MenuFile`/`FormFile`/`Action`/`Layout`/`Exec`/`UI::*` into
 `lib/CCFE`, add `strict`/`warnings`, replace globals/`local` scope with an
@@ -177,6 +188,13 @@ documentation**. Produce a short report, fix what's cheap, file the rest.
   `ccfe-build` backend let users create/extend menus, forms and config — "CCFE
   building CCFE" — writing to the XDG dir, validating with `ccfe -k`, and taking
   input injection-safely via `$CCFE_FIELD_*`. Tests in `t/09-builder.t`.
+- ✅ **M6** — UX & quality polish (released as **2.1**): full terminal-resize
+  reflow (vertical + horizontal, re-wrap, no crash) and pop-up/menu repaint
+  fixes; display-column (UTF-8) layout; long-label wrapping; the full fg/bg
+  colour palette + panelled `smit-panel` theme with themed markers/dots and a
+  `show_dots` switch; graceful uncaught-error handling; machine-readable
+  `--dump` (JSON); opt-in `mouse`; and the `--plugins` manifest lister. Tests
+  `t/06`/`t/07`/`t/10`/`t/11`/`t/12`; see the detailed list above.
 
 ### Done before this roadmap (post-v1.60)
 Security/restricted mode, the `CCFE::Restrict`/`CCFE::Theme` module

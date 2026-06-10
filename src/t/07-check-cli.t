@@ -84,4 +84,12 @@ ok( ( grep { defined $_->{type} } @{ $f->{fields} } ),
 `"$bin" --dump does_not_exist_xyz 2>/dev/null`;
 is( $? >> 8, 2, '--dump missing name: exit 2' );
 
+# ---- the --plugins manifest lister --------------------------------------
+my $plug = `"$bin" --plugins 2>/dev/null`;
+is( $? >> 8, 0, '--plugins: exit 0' );
+like( $plug, qr/^sysmon\s+1\.0\b/m,
+    '  lists the installed sysmon plugin with its version' );
+like( $plug, qr/provides:.*\bsysmon\b/,
+    '  shows what the plugin provides' );
+
 done_testing();
