@@ -3536,42 +3536,125 @@ sub do_form {
             unpost_form($cform);
             free_form($cform);
 
-            # Re-run the vertical page layout (mirrors the build loop): a field
-            # starts a new page when its (possibly multi-row) block no longer
-            # fits.  The 7 curses fields of a logical field keep their columns;
-            # only their rows change.  A wrapped field's label spans wrap_rows
-            # rows starting at $yy and its value/markers sit on the row below the
-            # last label line ($vr); the others share $yy.  While here, measure
-            # the widest field so the rebuilt window is never narrower than the
-            # fields need (ncurses permits an over-sized window on a smaller
-            # screen -- the same property the 24-row vertical clamp relies on),
-            # so post_form() can never fail with E_NO_ROOM and crash the loop.
+            # Re-lay-out every field for the new width and height.  Value fields
+            # re-right-align to the current $COLS and re-wrap (the value column
+            # and the wrap both depend on the width, so this is a horizontal
+            # *and* vertical reflow, not just a move): the value's column and the
+            # dot run change, and the label's height/width change when it wraps,
+            # so the two width-dependent fields (label, dots) are recreated and
+            # the five fixed-content fields (the flag/delimiter markers and the
+            # value -- whose buffer holds the user's input) are moved, preserving
+            # their contents.  Separators and explicitly-placed fields keep their
+            # columns.  Each logical field's block (wrap_rows label lines + the
+            # value row) is kept whole on one page.  While here, measure the
+            # widest field so the rebuilt window holds them all (ncurses allows
+            # an over-sized window on a smaller screen, so post_form() never
+            # fails with E_NO_ROOM and crashes the loop).
             my $yy        = 0;
             my $max_right = 0;
             $npages = 0;
             foreach my $li ( 0 .. $#{ $form{fields} } ) {
-                my $wr = $form{fields}[$li]{wrap_rows} || 0;
+                my $f      = $form{fields}[$li];
+                my $is_sep = ( $f->{type} == $SEPARATOR );
+                my $reflow =
+                  ( $LAYOUT == $NORMAL and $FIELD_VALUE_POS == -1 and !$is_sep );
+                my $label   = $f->{label};
+                my $len     = $f->{len};
+                my $label_x = $FIELD_LMARGIN + ( $f->{htab} || 0 ) * $HTAB_COLS;
+                my $wr      = $f->{wrap_rows} || 0;
+
+                my ( $val_x, $dots_x, $lvald_x, $rvald_x, $rflags_x, $label_w );
+                if ($reflow) {
+                    $val_x = $COLS - $len - 1 - $rflags_size;
+                    $val_x = $label_x + 1 if $val_x < $label_x + 1;
+                    $wr      = 0;
+                    $label_w = length($label);
+                    if ( $label_x + length($label) + $FIELD_VALUE_GAP > $val_x ) {
+                        $label_w = $COLS - $label_x - $rflags_size - 1;
+                        $label_w = 1 if $label_w < 1;
+                        $wr = int( ( length($label) + $label_w - 1 ) / $label_w );
+                        $wr = 1 if $wr < 1;
+                    }
+                    $f->{wrap_rows} = $wr;
+                    $dots_x   = $wr ? $label_x : $label_x + length($label);
+                    $lvald_x  = $val_x - 1;
+                    $rvald_x  = $val_x + $len;
+                    $rflags_x = $COLS - $rflags_size;
+                }
+
                 my $bh = $wr ? $wr + 1 : 1;
-                $yy += ( $form{fields}[$li]{vtab} || 0 );
+                $yy += ( $f->{vtab} || 0 );
                 $yy = 0
                   if $yy >= $mwinr
                   or ( $yy > 0 and $yy + $bh > $mwinr );
                 my $page_start = ( $yy == 0 ) ? 1 : 0;
                 $npages++ if $page_start;
                 my $vr = $yy + $wr;
+
+                if ($reflow) {
+                    # Recreate the label (its height/width follow the wrap) ...
+                    free_field( $fp[ $li * 7 ] );
+                    my $lab =
+                        $wr
+                      ? new_field( $wr, $label_w, $yy, $label_x, 0, 0 )
+                      : new_field( 1, length($label), $yy, $label_x, 0, 0 );
+                    set_field_buffer( $lab, 0, $label );
+                    field_opts_off( $lab, O_ACTIVE );
+                    field_opts_off( $lab, O_EDIT );
+                    set_field_fore( $lab, $labelFg );
+                    set_field_back( $lab, $labelBg );
+                    $fp[ $li * 7 ] = $lab;
+
+                    # ... and the dot run (its width follows the value column).
+                    my $dots;
+                    if ($SHOW_DOTS) {
+                        $dots = '';
+                        for ( my $c = $dots_x - 1 ; $c < $lvald_x - 2 ; $c++ ) {
+                            $dots .= ( $c % 2 ) ? '.' : ' ';
+                        }
+                        $dots .= ': ';
+                    }
+                    else { $dots = ' ' }
+                    free_field( $fp[ $li * 7 + 5 ] );
+                    my $dot = new_field( 1, length($dots), $vr, $dots_x, 0, 0 );
+                    set_field_buffer( $dot, 0, $dots );
+                    field_opts_off( $dot, O_ACTIVE );
+                    field_opts_off( $dot, O_EDIT );
+                    $fp[ $li * 7 + 5 ] = $dot;
+
+                    # Move the markers and the value field to the new columns.
+                    move_field( $fp[ $li * 7 + 1 ], $vr, 0 );
+                    move_field( $fp[ $li * 7 + 2 ], $vr, $rflags_x );
+                    move_field( $fp[ $li * 7 + 3 ], $vr, $lvald_x );
+                    move_field( $fp[ $li * 7 + 4 ], $vr, $rvald_x );
+                    move_field( $fp[ $li * 7 + 6 ], $vr, $val_x );
+                }
+                else {
+                    # Separator / explicit placement: keep columns, move rows.
+                    foreach my $k ( 0 .. 6 ) {
+                        my ( $fr, $fc, $frw, $fcl, $fnr, $fnb );
+                        field_info( $fp[ $li * 7 + $k ], $fr, $fc, $frw, $fcl,
+                            $fnr, $fnb );
+                        move_field( $fp[ $li * 7 + $k ],
+                            ( $k == 0 ? $yy : $vr ), $fcl );
+                    }
+                }
+
                 foreach my $k ( 0 .. 6 ) {
-                    my $cf = $fp[ $li * 7 + $k ];
-                    # field_info() fills its output parameters; keep the column,
-                    # only the row changes when the page layout reflows.
-                    my ( $frows, $fcols, $frow, $fcol, $fnrow, $fnbuf );
-                    field_info( $cf, $frows, $fcols, $frow, $fcol, $fnrow,
-                        $fnbuf );
-                    move_field( $cf, ( $k == 0 ? $yy : $vr ), $fcol );
-                    $max_right = $fcol + $fcols if $fcol + $fcols > $max_right;
+                    my ( $fr, $fc, $frw, $fcl, $fnr, $fnb );
+                    field_info( $fp[ $li * 7 + $k ], $fr, $fc, $frw, $fcl, $fnr,
+                        $fnb );
+                    $max_right = $fcl + $fc if $fcl + $fc > $max_right;
                 }
                 set_new_page( $fp[ $li * 7 ], $page_start );
                 $yy = $vr + 1;
             }
+
+            # The label and dot fields were recreated, so rebuild the packed
+            # field set the new form is constructed from.
+            @fset = map { ${$_} } @fp;
+            push @fset, 0;
+            $fields_buf = pack 'L!*', @fset;
             $eff_cols = $max_right if $eff_cols < $max_right;
             trace(
 "resize_form: LINES=$LINES COLS=$COLS eff=${eff_lines}x${eff_cols} mwinr=$mwinr max_right=$max_right",

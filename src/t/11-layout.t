@@ -27,7 +27,7 @@ my $ilog   = `cd "$src" && sh install.sh -b -p "$prefix" 2>&1`;
 plan skip_all => "install failed: $ilog"
   unless $? == 0 && -x "$prefix/bin/ccfe";
 
-plan tests => 7;
+plan tests => 8;
 
 my $objs   = "$prefix/share/ccfe/objects/ccfe";
 my $logf   = "$prefix/log/" . ( $ENV{USER} || getpwuid($<) ) . ".log";
@@ -67,11 +67,18 @@ sub run_form {
     print {$fh} "action { run:true }\n";
     close($fh);
 
-    my ( $screen, $log ) = run_form( 'compact', 80, 24, [ 100, 30 ] );
+    my ( $screen, $log ) = run_form( 'compact', 80, 24, [ 110, 30 ] );
     my @mr = $log =~ /max_right=(\d+)/g;
     ok( scalar @mr, 'resize traced the form width (max_right)' );
     cmp_ok( $mr[0], '>', 60,
         "  value column is right-aligned, using the width (max_right=$mr[0])" );
+
+    # Horizontal re-flow: after a resize the value column re-right-aligns to the
+    # NEW width, so the form's right edge tracks the terminal (it does not stay
+    # pinned at the build width).
+    cmp_ok( $mr[-1], '>', 100,
+        "  value column re-expands to the new width on resize (max_right=$mr[-1])"
+    );
 }
 
 # --- a long label + a wide value still posts (no E_NO_ROOM) -----------------

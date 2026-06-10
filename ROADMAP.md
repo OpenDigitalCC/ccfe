@@ -88,11 +88,14 @@ edge (classic SMIT), so they expand to use the width of a wide terminal; when a
 label is too long to leave `$FIELD_VALUE_GAP` columns before that value (a long
 label on a narrow terminal) the label wraps onto its own line(s) and the value
 drops to the row below, so it is never pushed off-screen or truncated.
-`t/11-layout.t`. Open: **horizontal re-flow on resize** — the value column and
-wrapping are fixed at the launch width and only the *vertical* layout reflows on
-resize, so resizing much narrower can push values off the right of an over-sized
-window; re-right-aligning / re-wrapping to the new width needs a field rebuild
-on resize. Also `do_list` / `run_browse` reflow.
+`t/11-layout.t`.
+
+✅ **Horizontal re-flow on resize** (done): `resize_form` re-right-aligns the
+value column and re-wraps long labels to the new width (not just the vertical
+re-pagination), recreating the two width-dependent fields (label, dot run) and
+moving the rest, so values track the terminal's right edge and stay on-screen
+as it grows or shrinks. Open: `do_list` / `run_browse` reflow; word-boundary
+(rather than character) label wrapping.
 
 ## M7 — De-globalisation / full modularisation  _(REFACTOR §3 — deferred to end)_
 Extract `MenuFile`/`FormFile`/`Action`/`Layout`/`Exec`/`UI::*` into
