@@ -21,15 +21,32 @@ deploy, easier to maintain, and nicer to use.
   conformance, a source-level regression guard, and a pty-driven tty smoke
   test (`t/`), all core-only.
 
-**What this document covers:** the next steps — security hardening (restricting
-what a menu user can do), a modular/functional restructure for maintainability,
-automated quality gates (`perlcritic`/`perltidy`/CI), optional colour, and a set
-of further value-adding ideas. None of these change the on-disk file formats.
+**Also now delivered** (post-v1.60 — see the git log and the section noted):
 
-CCFE remains a single 4.6k-line script with no `use strict`/`use warnings`,
-~200 lines of global state, and `local`-based dynamic scope. The parsing layer
-(`load_menu`/`load_form`) is already curses-free — the v1.60 parser tests load
-it headlessly — which is the seam the restructure below builds on.
+- **Security / restricted mode** (§2) — opt-in `restricted = yes` disables the
+  F7 shell escape, the runnable-script save, and gates `system:`/`exec:` behind
+  an allowlist; env hardening + `CCFE_FIELD_*` exposure are always on.
+- **`lib/CCFE/` foundation** (§3) — the package tree exists; the security
+  policy (`CCFE::Restrict`) and colour (`CCFE::Theme`) are extracted as pure,
+  modern-Perl (`use v5.36`) modules, loaded via an `__FILE__`-relative
+  `use lib`, shipped by the installer, and unit-tested. The legacy `require
+  5.8.0` floor is gone.
+- **Quality gates** (§4) — `.perlcriticrc`, `.perltidyrc`, a `Makefile`
+  (`make check`) and a GitHub Actions CI workflow, enforced on the new modules.
+- **Optional colour** (§5) — `CCFE::Theme` pre-creates the standard colour
+  pairs so any `*_attr` can use `COLOR_PAIR(n)`; monochrome fallback intact.
+- **`-k NAME` linter** (§6.4) — headless parse-check of a menu/form for authors
+  and CI.
+
+The test suite is now 105 tests (`make check`), still core + `libcurses-perl`
+only. **What remains** is the bulk of the §3 de-globalisation of the legacy
+single file, and the larger §6 items below (wide-char/UTF-8, full resize
+reflow, runtime-config instead of `sed` templating, packaging).
+
+CCFE's main program remains a single 4.6k-line script with no
+`use strict`/`use warnings` and ~200 lines of global state; the parsing layer
+(`load_menu`/`load_form`) is already curses-free, which is the seam the
+remaining restructure builds on.
 
 ---
 
@@ -263,11 +280,10 @@ Beyond the above, ordered roughly by value-to-effort:
    (with sane defaults relative to the binary) removes a fragile install step,
    makes the program runnable straight from the source tree, and simplifies
    packaging.
-4. **A `ccfe --check <file>` linter and machine-readable `--dump`.** Validate
-   `.conf`/`.menu`/`.form` with clear errors (fail fast on malformed plugins),
-   and emit the parsed structure as JSON/text for tooling, docs generation and
-   tests. The `CCFE_TESTING` headless hook already shows the parsers run without
-   a terminal — this productises that.
+4. **A `ccfe --check <file>` linter and machine-readable `--dump`.** ✅ The
+   linter shipped as `ccfe -k NAME` (parse-check, exit 0/1/2; see
+   `t/07-check-cli.t`). Still open: a machine-readable `--dump` of the parsed
+   structure (JSON/text) for tooling, docs generation and tests.
 5. **Versioned plugin manifest.** A small `plugin.meta` declaring the CCFE
    version a plugin targets, so the loader can warn on mismatch — useful as the
    plugin surface evolves.
