@@ -322,13 +322,15 @@ $DESCR.
   Usage: $CALLNAME [OPTION]... [SHORTCUT]
 
   Options:
-    -c      : print some Configuration parameters and exit
-    -d      : set verbose log for Debugging purposes
-    -h      : print this (Help) message and exit
-    -k NAME : checK that menu/form NAME parses, then exit (no terminal needed)
-    -l PATH : set forms and menus Library directory to PATH
-    -s      : print available Shortcuts and exit
-    -v      : print Version informations and exit
+    -c        : print some Configuration parameters and exit
+    -d        : set verbose log for Debugging purposes
+    -D NAME   : Dump menu/form NAME as JSON, then exit (no terminal needed)
+    --dump N  : long form of -D
+    -h        : print this (Help) message and exit
+    -k NAME   : checK that menu/form NAME parses, then exit (no terminal needed)
+    -l PATH   : set forms and menus Library directory to PATH
+    -s        : print available Shortcuts and exit
+    -v        : print Version informations and exit
 
   SHORTCUT: initial form or menu name (without extension)
 
@@ -4883,6 +4885,87 @@ sub check_shortcut {
     return 1;
 }
 
+# A field's type bitmask -> a stable name for machine-readable output.
+sub field_type_name {
+    my ($t) = @_;
+    $t = 0 unless defined $t;
+    return 'separator' if $t & $SEPARATOR;
+    return 'ucstring'  if $t == $UCSTRING;
+    return 'string'    if $t == $STRING;
+    return 'numeric'   if $t == $NUMERIC;
+    return 'boolean'   if $t & $BOOLEAN;        # also NULLBOOLEAN (6)
+    return "type$t";
+}
+
+# `--dump NAME` / `-D NAME`: parse a menu or form (no terminal) and print it as
+# JSON on stdout, for scripting, automation and the audit.  Exits like -k: 0 on
+# success, 1 on a parse error, 2 when the name is not found.
+sub dump_shortcut {
+    my ($name) = @_;
+    my $ext = get_shortcut($name);
+    unless ($ext) {
+        print STDERR
+          "$CALLNAME: no menu or form \"$name\" on the search path\n";
+        return 2;
+    }
+    require JSON::PP;
+    my $is_menu = ( $ext eq $MENUEXT );
+    my $es = $is_menu ? load_menu($name) : load_form($name);
+    if ( $es != $ES_NO_ERR ) {
+        printf STDERR "ERROR: %s \"%s\": %s\n", ( $is_menu ? 'menu' : 'form' ),
+          $name, ( $es_str[$es] || "parse error ($es)" );
+        return 1;
+    }
+
+    my $out;
+    if ($is_menu) {
+        $out = {
+            kind  => 'menu',
+            name  => $name,
+            title => $menu{title},
+            top   => [ @{ $menu{top} || [] } ],
+            items => [
+                map { {
+                    id     => $_->{id},
+                    descr  => $_->{descr},
+                    action => $_->{action},
+                } } @{ $menu{items} || [] }
+            ],
+        };
+    }
+    else {
+        $out = {
+            kind   => 'form',
+            name   => $name,
+            title  => $form{title},
+            top    => [ @{ $form{top} || [] } ],
+            action => $form{action},
+            fields => [
+                map {
+                    my $f = $_;
+                    my %d = (
+                        id       => $f->{id},
+                        label    => $f->{label},
+                        type     => field_type_name( $f->{type} ),
+                        len      => defined $f->{len} ? $f->{len} + 0 : undef,
+                        required => (
+                            $f->{required}
+                            ? JSON::PP::true()
+                            : JSON::PP::false()
+                        ),
+                    );
+                    $d{default} = $f->{default}
+                      if defined $f->{default} && $f->{default} ne '';
+                    $d{list_cmd} = JSON::PP::true() if $f->{list_cmd};
+                    \%d;
+                } @{ $form{fields} || [] }
+            ],
+        };
+    }
+    print JSON::PP->new->canonical->pretty->encode($out);
+    return 0;
+}
+
 sub list_shortcuts {
     my @unique = ();
     my @all    = ();
@@ -4998,7 +5081,10 @@ return 1 if $ENV{CCFE_TESTING};
 $Getopt::Std::STANDARD_HELP_VERSION = $TRUE;
 $Getopt::Std::OUTPUT_HELP_VERSION   = '';
 %options                            = ();
-getopts( "vhsdck:l:", \%options ) or usage();
+# Accept the long form `--dump NAME` as an alias for `-D NAME` (Getopt::Std
+# itself only does single-letter options).
+@ARGV = map { $_ eq '--dump' ? '-D' : $_ } @ARGV;
+getopts( "vhsdcD:k:l:", \%options ) or usage();
 if ( defined $options{v} ) {
     my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
     my ( $dd, $mm, $yy ) = split /\//, $VERSION_DATE;
@@ -5038,6 +5124,7 @@ $es_str[$ES_NO_ITEMS]   = $ES_NO_ITEMS_MSG;
 # validate .menu/.form files.  Exits 0 on success, 1 on a parse error, 2 if
 # the name is not found on the search path.
 exit check_shortcut( $options{k} ) if defined $options{k};
+exit dump_shortcut( $options{D} )  if defined $options{D};
 
 %keys = (
     help => {

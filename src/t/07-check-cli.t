@@ -58,4 +58,30 @@ close($fh);
 is( $rc, 1, 'malformed menu: exit 1' );
 like( $o, qr/^ERROR: menu "broken"/, '  reports a parse error' );
 
+# ---- the --dump / -D machine-readable output ----------------------------
+require JSON::PP;
+
+# --dump NAME (long form) prints a parseable menu as JSON
+my $mjson = `"$bin" --dump demo 2>/dev/null`;
+is( $? >> 8, 0, '--dump menu: exit 0' );
+my $m = eval { JSON::PP::decode_json($mjson) };
+ok( $m && $m->{kind} eq 'menu', '  output is JSON with kind=menu' );
+ok( ref $m->{items} eq 'ARRAY' && @{ $m->{items} },
+    '  items are a non-empty array' );
+ok( ( grep { defined $_->{id} && exists $_->{action} } @{ $m->{items} } ),
+    '  each item carries id/descr/action' );
+
+# -D NAME (short form) prints a form, with typed fields
+my $fjson = `"$bin" -D sysmon.d/sar 2>/dev/null`;
+is( $? >> 8, 0, '-D form: exit 0' );
+my $f = eval { JSON::PP::decode_json($fjson) };
+ok( $f && $f->{kind} eq 'form', '  output is JSON with kind=form' );
+ok( ref $f->{fields} eq 'ARRAY', '  fields are an array' );
+ok( ( grep { defined $_->{type} } @{ $f->{fields} } ),
+    '  fields carry a type name' );
+
+# a missing name dumps nothing and exits 2 (like -k)
+`"$bin" --dump does_not_exist_xyz 2>/dev/null`;
+is( $? >> 8, 2, '--dump missing name: exit 2' );
+
 done_testing();

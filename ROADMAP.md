@@ -126,6 +126,13 @@ browser, giving the panelled SMIT look (e.g. white-on-blue). Ships as
 `color_pair()` background actually paints. Open: a 256-colour / true-colour
 palette, and per-instance theme selection without copying a config.
 
+✅ **Machine-readable `--dump`** (done): `ccfe --dump NAME` (or `-D NAME`)
+parses a menu or form with the headless parser and prints it as JSON on stdout
+— menu items (id/descr/action) or form fields (id, label, type name, len,
+required, default, list_cmd) plus the title/top/action — then exits (0 ok, 1
+parse error, 2 not found), like `-k`.  For scripting, automation and the audit.
+`t/07-check-cli.t`.
+
 ## M7 — De-globalisation / full modularisation  _(REFACTOR §3 — deferred to end)_
 Extract `MenuFile`/`FormFile`/`Action`/`Layout`/`Exec`/`UI::*` into
 `lib/CCFE`, add `strict`/`warnings`, replace globals/`local` scope with an
