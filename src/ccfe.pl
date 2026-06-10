@@ -2280,17 +2280,23 @@ sub do_menu {
         # the current $LINES/$COLS.  A closure over do_menu's lexicals, so the
         # layout can be re-run for a terminal resize without duplicating it.
         my $draw_menu = sub {
+            # Never build below the layout's minimum (80x24): ncurses clips the
+            # oversize window to a smaller terminal, and this keeps sub-window
+            # creation valid so a tiny terminal cannot crash us.
+            my $eff_lines = $LINES < 24 ? 24 : $LINES;
+            my $eff_cols  = $COLS < 80  ? 80 : $COLS;
             $mwinr =
-              $LINES -
+              $eff_lines -
               ( $MS_HEADER_ROWS + $MS_TOP_ROWS + $MS_BOTTOM_ROWS
                   + $MS_FOOTER_ROWS );
-            $win = newwin( $LINES, $COLS, 0, 0 );
+            $win = newwin( $eff_lines, $eff_cols, 0, 0 );
             $pan = new_panel($win);
             bkgd( $win, $MENU_SCREEN_ATTR );
             set_menu_format( $cmenu, $mwinr, 1 );
             scale_menu( $cmenu, $rows, $cols );
-            $mlmargin = int( ( $COLS - $cols ) / 2 );
+            $mlmargin = int( ( $eff_cols - $cols ) / 2 );
             $mlmargin = 1 if ( $LAYOUT == $SIMPLE );
+            $mlmargin = 0 if $mlmargin < 0;
             $msub =
               derwin( $win, $rows, $cols, $MS_HEADER_ROWS + $MS_TOP_ROWS,
                 $mlmargin );
@@ -3478,13 +3484,17 @@ sub do_form {
             del_panel($pan) if $pan;
             delwin($fsub)   if $fsub;
             delwin($win)    if $win;
+            # Clamp to the layout minimum so a tiny terminal can't make the
+            # sub-window invalid (ncurses clips the oversize window).
+            my $eff_lines = $LINES < 24 ? 24 : $LINES;
+            my $eff_cols  = $COLS < 80  ? 80 : $COLS;
             $mwinr =
-              $LINES -
+              $eff_lines -
               ( $FS_HEADER_ROWS + $FS_TOP_ROWS + $FS_BOTTOM_ROWS
                   + $FS_FOOTER_ROWS );
-            $win  = newwin( $LINES, $COLS, 0, 0 );
+            $win  = newwin( $eff_lines, $eff_cols, 0, 0 );
             $pan  = new_panel($win);
-            $fsub = derwin( $win, $mwinr, $COLS,
+            $fsub = derwin( $win, $mwinr, $eff_cols,
                 $FS_HEADER_ROWS + $FS_TOP_ROWS, 0 );
             set_form_win( $cform, $win );
             set_form_sub( $cform, $fsub );
@@ -4795,6 +4805,13 @@ exit check_shortcut( $options{k} ) if defined $options{k};
   qw( help redraw back show_action save shell_escape exit find find_next);
 
 initscr;
+$CURSES_ACTIVE = $YES;
+
+# Safety net: if anything (even a die from deep in the Curses XS) tears the
+# program down while the screen is in curses mode, restore the terminal so the
+# user is not left needing `reset`.  endwin() is harmless if already called.
+END { endwin() if $CURSES_ACTIVE }
+
 if ( ( $COLS < 80 ) or ( $LINES < 24 ) ) {
     endwin();
     print STDERR "$CALLNAME: $ERR_LITTLE_SCREEN[0]\n";
