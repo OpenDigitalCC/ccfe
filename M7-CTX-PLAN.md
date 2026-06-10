@@ -21,7 +21,7 @@ different threading value:
 
 | Group | Examples | Count | Mutated after startup? | Thread it? |
 |-------|----------|-------|------------------------|------------|
-| **A. Constants** | `$NO/$YES`, `$ES_*`, type consts (`$STRING`…), row dims (`$MS_*`,`$FS_*`,`$RS_*`), `%bool_vals`/`%type_vals`/`%sep_type_vals`, margins | ~120 | No | **No** — move to `CCFE::Const`, leave read-only |
+| **A. Constants** | `$NO/$YES`, `$ES_*`, type consts (`$STRING`…), row dims (`$MS_*`,`$FS_*`,`$RS_*`), `%bool_vals`/`%type_vals`/`%sep_type_vals`, margins | ~120 | No | **No** — leave as read-only package vars; `our`-declare them at the Phase 6 capstone (a `CCFE::Const` extraction is optional polish, not required for threading or strict) |
 | **B. Config settings** | `$LAYOUT`, `$HIDE_CURSOR`, `$ENABLE_MOUSE`, `$SHOW_DOTS`, `$FIELD_VALUE_POS`, the 17 colour-attr vars (`$labelFg`…`$MENU_*_ATTR`), `%keys`, `$RESTRICTED`/`@RESTRICTED_ALLOW` | ~30 | Once, by `load_config` | **Yes** — one read-only `$ctx->{cfg}` sub-object |
 | **C. Runtime mutable state** | `%form` (~160 sites), `%menu` (~38), `%field_vals` (8), `@fp`, `$cform`, `$SCREEN_DIR`, `$last_item_id`, `$pad_lines`, `$exec_args` | ~250 sites | Continuously, per screen | **Yes** — this is the real target |
 | **D. Curses / process** | `$LINES`, `$COLS` (Curses-owned, 81 reads), `$cpid`/`$tmpfh` (SIGINT handler) | — | By the library / signals | **No** — not ours; leave |
@@ -64,11 +64,19 @@ fixture green. The pty tests (`t/03` smoke, `t/08` multipage, `t/10` resize) are
 the integration guard — they drive `do_menu`/`do_form` with real state, so a
 threading mistake shows up as a crash or a mis-drawn screen, not a silent pass.
 
-### Phase 0 — container + constants namespace  *(low risk, mechanical)*
-- Add `CCFE::Const` (or a `ctx_new()` constructor) and a `$ctx` hashref built
-  once in the main body. Seed `$ctx->{cfg}` empty.
-- No behaviour change; nothing reads `$ctx` yet. Lands the scaffolding + the
-  group-A constants move so later diffs are pure threading, not mixed.
+### Phase 0 — container scaffolding + deb floor  *(done — low risk)*
+- `CCFE::Context::new()` returns a fresh run-state hashref (`{ cfg => {} }`);
+  `$ctx` is built once in `ccfe.pl`'s main body, just before `load_config`.
+  Nothing reads it yet — pure scaffolding, no behaviour change. Unit-tested in
+  `t/18-context.t`.
+- Folded in the latent packaging fix: `debian/control` now declares
+  `perl (>= 5.36.0)` in `Depends` and `Build-Depends` (the `lib/CCFE/*` modules
+  already require 5.36, so the floor was under-specified). The next release
+  changelog records it.
+- **Deferred from this phase:** the group-A constants → `CCFE::Const` move.
+  It is not load-bearing for threading, and for the capstone the constants only
+  need `our`-declaring in place; moving ~120 of them up front is churn/risk for
+  no near-term gain. Handle at Phase 6 (or skip — it is optional polish).
 
 ### Phase 1 — `%field_vals` → `$ctx->{field_vals}`  *(8 sites — the pattern-setter)*
 - Smallest structure, but it is read by the **nested** `sync_fields_val` /

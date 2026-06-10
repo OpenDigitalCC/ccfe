@@ -51,6 +51,7 @@ use CCFE::FormFile ();    # pure .form parser (see load_form)
 use CCFE::Config   ();    # pure .conf section tokenizer (see load_config)
 use CCFE::Action   ();    # pure action-string parser (see do_menu/do_form)
 use CCFE::Layout   ();    # pure form value-column/page geometry (see do_form)
+use CCFE::Context  ();    # explicit run-state container (M7 de-globalisation)
 use FindBin ();    # to locate the program at runtime (see the path block below)
 
 # Optional display-width support.  In a UTF-8 locale a label/title can occupy
@@ -5055,6 +5056,11 @@ $MENU_ITEM_ATTR   = A_NORMAL;
 $MENU_SEL_ATTR    = A_REVERSE;
 $TITLE_ATTR       = A_BOLD;
 $KEY_ATTR         = undef;     # undef = the original bkgd-relative highlight
+
+# The explicit run-state container (M7 de-globalisation, REFACTOR.md §3.2).
+# Created here at startup and threaded into the screen subs as each phase moves
+# a structure off the package globals onto it; see M7-CTX-PLAN.md.
+my $ctx = CCFE::Context::new();
 
 if ( $res = load_config ) {
     trace("$es_str[$res] loading configuration file");

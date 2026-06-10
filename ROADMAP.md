@@ -201,8 +201,13 @@ the conformance tests.
   is now `field_geometry()` / `page_advance()` in a module both sites share; the
   `new_field`/`move_field` calls and tracing stay in `ccfe.pl`. Unit-tested with
   hand-computed expectations in `t/17-layout.t` (27 cases); the resize/layout/
-  multipage tty tests and full suite (302 tests) stay green. Next: the `$ctx`
-  threading to retire the remaining globals.
+  multipage tty tests and full suite (302 tests) stay green.
+- 🔄 **`$ctx` threading** (in progress): replacing `ccfe.pl`'s package globals
+  and `local` dynamic scope with one explicit run-state object. Planned in
+  **M7-CTX-PLAN.md** (phases 0–6, all in scope). **Phase 0 done:**
+  `CCFE::Context::new()` container built at startup (unused until Phase 1),
+  `t/18-context.t`, and the latent `perl (>= 5.36.0)` floor added to
+  `debian/control`. Next: Phase 1 (`%field_vals`, the nested-sub pattern-setter).
 
 ## M8 — Non-functional close-out audit  _(final gate)_
 Five dimensions: **test coverage, code quality, performance, security,
