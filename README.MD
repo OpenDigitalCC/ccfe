@@ -216,6 +216,35 @@ ccfe -k mytools          # OK: menu "mytools" -- title "...", 3 item(s)
 ccfe -k sysmon.d/sar     # checks a form; exits non-zero on a parse error
 ```
 
+## Backing up & version-controlling your setup
+
+Your CCFE setup is just text files: the config (`ccfe.conf`, plus any instance
+`<name>.conf`) and your menus/forms. They live under your install prefix and,
+for personal additions, under `~/.ccfe/`:
+
+```
+$PREFIX/etc/ccfe.conf            system config
+$PREFIX/lib/ccfe/                system menus & forms
+~/.ccfe/<name>/                  your per-user menus & forms
+~/.ccfe/<name>.conf              your per-user config (if used)
+```
+
+Because they're plain text, put them under version control — keep a small git
+repo of just your config and menus so changes are reviewable and reversible:
+
+```sh
+mkdir -p ~/ccfe-config && cd ~/ccfe-config
+git init
+cp "$PREFIX/etc/ccfe.conf" .
+cp -r ~/.ccfe/ccfe ./menus        # your per-user menus, if any
+git add . && git commit -m "My CCFE config and menus"
+```
+
+To restore on a new machine, install CCFE (or the package), then copy these
+files back into place. `ccfe -k <name>` parse-checks a menu/form after you
+restore or edit it. (A future release reorganises these paths and adds a
+guided config/backup workflow — see `ROADMAP.md`.)
+
 ## Tests
 
 ```sh
