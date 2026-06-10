@@ -3490,6 +3490,10 @@ sub do_form {
               $eff_lines -
               ( $FS_HEADER_ROWS + $FS_TOP_ROWS + $FS_BOTTOM_ROWS
                   + $FS_FOOTER_ROWS );
+            trace(
+"resize_form: LINES=$LINES COLS=$COLS eff=${eff_lines}x${eff_cols} mwinr=$mwinr",
+                $LOG_NORMAL
+            );
 
             # Commit the field currently being edited to its buffer so the
             # value survives the free_form/new_form cycle below.
@@ -3522,11 +3526,26 @@ sub do_form {
             del_panel($pan) if $pan;
             delwin($fsub)   if $fsub;
             delwin($win)    if $win;
-            $win  = newwin( $eff_lines, $eff_cols, 0, 0 );
+            $win = newwin( $eff_lines, $eff_cols, 0, 0 );
+
+            # Guard the rebuilt curses objects: if any comes back NULL (an
+            # empty string from the XS binding) continuing would call form
+            # routines on an invalid handle and crash -- or, worse, leak a
+            # libform error code out as the process exit status.  Restore the
+            # terminal and abort cleanly with a diagnostic instead.
+            if ( !$win ) {
+                fatal("resize_form: newwin(${eff_lines}x${eff_cols}) failed");
+            }
             $pan  = new_panel($win);
             $fsub = derwin( $win, $mwinr, $eff_cols,
                 $FS_HEADER_ROWS + $FS_TOP_ROWS, 0 );
+            if ( !$fsub ) {
+                fatal("resize_form: derwin(${mwinr}x${eff_cols}) failed");
+            }
             $cform = new_form($fields_buf);
+            if ( !$cform ) {
+                fatal('resize_form: new_form() failed');
+            }
             set_form_win( $cform, $win );
             set_form_sub( $cform, $fsub );
             form_opts_off( $cform, O_BS_OVERLOAD );
@@ -3537,14 +3556,16 @@ sub do_form {
             init_top( $win, $NO, $FS_HEADER_ROWS, $FS_TOP_ROWS,
                 @{ $form{top} } );
             init_footer( $win, $NO, $FS_FOOTER_ROWS, @FSKeys );
-            post_form($cform);
+            my $pr = post_form($cform);
+            trace( "resize_form: post_form => $pr ($npages page(s))",
+                $LOG_NORMAL );
             form_driver( $cform, $ovl_mode ? REQ_OVL_MODE : REQ_INS_MODE );
             form_driver( $cform, REQ_END_LINE );
             clearok( $win, 1 );
             refresh($win);
         };
 
-        $es = $OK_ES;
+        $es = $ES_NO_ERR;
         while ( $es != $ES_EXIT and !defined($exec_args) ) {
           SWITCH: {
                 my $fi    = int( field_index( current_field($cform) ) / 7 );
@@ -5003,5 +5024,17 @@ if ( $es and $es < $ES_USER_REQ ) {
     refresh();
     endwin();
     print STDERR "$CALLNAME: $es_str[$es] $ERR_LOAD_INITIAL_OBJ \"$shcut\"\n";
+}
+
+# Never let a stray libcurses error code (e.g. E_NOT_CONNECTED == -11, which
+# would surface to the shell as exit status 245) leak out as our exit status.
+# A negative or out-of-range $es means something internal went wrong; report it
+# in the trace and exit with a clean, conventional code instead.
+if ( !defined($es) ) {
+    $es = $ES_NO_ERR;
+}
+elsif ( $es < 0 or $es > 255 ) {
+    trace("internal: clamping out-of-range exit status \"$es\" to 1");
+    $es = 1;
 }
 exit $es;

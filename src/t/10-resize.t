@@ -26,9 +26,12 @@ my $prefix = tempdir( CLEANUP => 1 );
 my $log    = `cd "$src" && sh install.sh -b -p "$prefix" 2>&1`;
 plan skip_all => "install failed: $log" unless $? == 0 && -x "$prefix/bin/ccfe";
 
-plan tests => 7;
+plan tests => 9;
 
 use constant SIGSEGV => 11;
+# A libform error code (E_NOT_CONNECTED == -11) leaking to exit() shows up to
+# the shell as status 245 (256 - 11).  The exit-status guard must prevent that.
+use constant LEAKED_ERR_STATUS => 245;
 
 # Open NAME, count occurrences of /$marker/ before and after growing the
 # terminal from 80x24 to 120x40; return ($signal, $before, $after).
@@ -101,4 +104,25 @@ sub last_pages {    # the M of the latest "Pg:N/M"
     $pty->send("\033");
     my ( undef, $s ) = $pty->wait(3);
     isnt( $s, SIGSEGV, 'shrinking below the minimum size does not crash' );
+}
+
+# Shrinking a form to a tiny terminal must not crash, and must never leak a
+# libform error status (245) out to the shell.  The form rebuild guards a NULL
+# window/sub/form, and the exit-status clamp blocks any negative code.
+{
+    my $pty = CCFE::Test::Pty->spawn( 80, 24, "$prefix/bin/ccfe", 'long' );
+    $pty->pump(1.2);
+    $pty->resize( 20, 6 );
+    $pty->pump(0.9);
+    $pty->resize( 10, 4 );
+    $pty->pump(0.9);
+    $pty->resize( 100, 30 );
+    $pty->pump(0.9);
+    $pty->send("\033");
+    $pty->pump(0.3);
+    $pty->send("\033");
+    my ( $exit, $sig ) = $pty->wait(3);
+    isnt( $sig, SIGSEGV, 'shrinking a form to a tiny terminal does not crash' );
+    isnt( $exit, LEAKED_ERR_STATUS,
+        '  form never exits with a leaked libform status (245)' );
 }
