@@ -115,6 +115,17 @@ accented or CJK label lays out by the columns it occupies, not its byte count.
 (`substr` still cuts by byte), and multi-byte field **input** (the byte-only
 Perl Curses API makes typing non-ASCII into a field hard).
 
+✅ **Full fg/bg colour palette** (done): beyond the seven standard
+foreground-over-default pairs, a theme can now request any foreground-over-
+background pair with `color_pair('white','blue')` in a `*_attr` value.
+`CCFE::Theme::pair_for()` reserves a pair number at config-eval time (before
+`start_color()`) and `init_dynamic_pairs()` creates them once colour is up; the
+screen background (`screen_attr`) is applied to menus, forms **and** the output
+browser, giving the panelled SMIT look (e.g. white-on-blue). Ships as
+`ccfe.conf.smit-panel`; `t/06-color.t` covers the allocator and that a
+`color_pair()` background actually paints. Open: a 256-colour / true-colour
+palette, and per-instance theme selection without copying a config.
+
 ## M7 — De-globalisation / full modularisation  _(REFACTOR §3 — deferred to end)_
 Extract `MenuFile`/`FormFile`/`Action`/`Layout`/`Exec`/`UI::*` into
 `lib/CCFE`, add `strict`/`warnings`, replace globals/`local` scope with an

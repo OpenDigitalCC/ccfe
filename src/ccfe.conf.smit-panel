@@ -1,0 +1,67 @@
+# The Curses Command Front-end sample configuration file:
+# a *panelled* colour theme -- white text on a blue screen with coloured bars,
+# the fuller "background colour" SMIT look (versus the plain foreground-only
+# ccfe.conf.smit-color).
+#
+# Needs a colour terminal; on a monochrome one (or with NO_COLOR set, or
+# screen_layout = Simple) CCFE falls back to the plain look automatically.
+#
+# Backgrounds come from foreground/background colour pairs written as
+#   color_pair('<fg>', '<bg>')
+# where <fg>/<bg> are: black red green yellow blue magenta cyan white
+# (omit <bg>, or use 'default'/'-', for the terminal's own background).
+# These combine with A_BOLD / A_REVERSE / A_UNDERLINE just like COLOR_PAIR(n).
+# The plain numbered foreground pairs (COLOR_PAIR(1)=red .. 7=white over the
+# default background) are still available too.
+#
+# Use directly as ccfe.conf, or as a `smit` instance config (see ccfe.conf(5)).
+
+global {
+  screen_layout = Normal
+  hide_cursor   = YES
+  shell         = /bin/sh
+  log_level     = 1
+  key_f2        = list
+  key_f3        = sel_items
+  key_f4        = back
+  key_f5        = show_action
+  key_f6        = save
+  key_f7        = shell_escape
+  key_f8        = redraw
+  key_f9        = exit
+}
+
+menu_global {
+  mark_noaction_items = YES
+  screen_attr   = color_pair('white', 'blue')              # white on a blue panel
+  item_attr     = color_pair('white', 'blue')
+  selected_attr = color_pair('blue', 'cyan') | A_BOLD      # highlight bar
+  title_attr    = color_pair('yellow', 'blue') | A_BOLD    # yellow header on blue
+  key_attr      = color_pair('white', 'green') | A_BOLD    # control keys on green
+}
+
+browser_global {
+  max_rows    = 5000
+  stdout_attr = color_pair('white', 'blue')
+  stderr_attr = color_pair('white', 'red') | A_BOLD        # errors on a red bar
+  info_attr   = color_pair('blue', 'cyan')                 # status bar
+  end_marker  = **** end of output ****
+}
+
+field_attr {
+  label_fg         = color_pair('white', 'blue')           # labels on the panel
+  label_bg         = color_pair('white', 'blue')
+  value_fg         = color_pair('black', 'white')           # data-entry box
+  value_bg         = color_pair('black', 'white')
+  changed_value_fg = color_pair('blue', 'white') | A_BOLD
+  changed_value_bg = color_pair('blue', 'white')
+}
+
+active_field_attr {
+  label_fg         = color_pair('yellow', 'blue') | A_BOLD  # current label
+  label_bg         = color_pair('yellow', 'blue')
+  value_fg         = color_pair('black', 'cyan')            # current entry box
+  value_bg         = color_pair('black', 'cyan')
+  changed_value_fg = color_pair('blue', 'cyan') | A_BOLD
+  changed_value_bg = color_pair('blue', 'cyan')
+}

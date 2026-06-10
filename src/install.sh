@@ -166,7 +166,8 @@ install ()
     fi
 
     # Shipped colour/style themes (program assets -- always refreshed):
-    cp ccfe.conf.smit ccfe.conf.smit-color ccfe.conf.console $THEMEDIR/
+    cp ccfe.conf.smit ccfe.conf.smit-color ccfe.conf.smit-panel \
+       ccfe.conf.console $THEMEDIR/
 
     cp msg/C/ccfe $MSGDIR/C/ccfe
 

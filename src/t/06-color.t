@@ -35,9 +35,26 @@ is_deeply(
     'standard pair order'
 );
 
+# ---- dynamic foreground/background pairs -------------------------------
+my $p1 = CCFE::Theme::pair_for( 'white', 'blue' );
+cmp_ok( $p1, '>=', 8, 'a fg/bg pair is numbered after the 7 standard pairs' );
+is( CCFE::Theme::pair_for( 'white', 'blue' ),
+    $p1, '  the same fg/bg combo reuses its pair number' );
+isnt( CCFE::Theme::pair_for( 'yellow', 'red' ),
+    $p1, '  a different combo gets a different pair number' );
+is( CCFE::Theme::pair_for( 'nosuchcolour', 'blue' ),
+    0, '  an unknown colour degrades to the default pair (0)' );
+my %defs = map { $_->[0] => "$_->[1]:$_->[2]" } CCFE::Theme::dynamic_pairs();
+is(
+    $defs{$p1},
+    CCFE::Theme::color_number('white') . ':'
+      . CCFE::Theme::color_number('blue'),
+    '  dynamic_pairs() records the (fg,bg) for each allocated pair'
+);
+
 # ---- end-to-end: configured colour attributes paint in colour ----------
 SKIP: {
-    my $n = 3;
+    my $n = 4;
     eval { require CCFE::Test::Pty; 1 }
       or skip( 'pty helper unavailable', $n );
     skip( 'no Linux pseudo-terminal', $n ) unless CCFE::Test::Pty->available;
@@ -55,13 +72,16 @@ SKIP: {
     my $conf = "$prefix/etc/ccfe.conf";
     my $txt  = do { local ( @ARGV, $/ ) = $conf; <> };
     $txt =~ s/^\s*stdout_attr\s*=.*$/  stdout_attr = COLOR_PAIR(2)/m;
-    $txt =~ s/^menu_global \{/menu_global {\n  screen_attr   = COLOR_PAIR(6)\n  selected_attr = COLOR_PAIR(3) | A_REVERSE | A_BOLD/m;
+    $txt =~ s/^menu_global \{/menu_global {\n  screen_attr   = color_pair('white', 'blue')\n  selected_attr = COLOR_PAIR(3) | A_REVERSE | A_BOLD/m;
     open( my $fh, '>', $conf ) or skip( "rewrite conf: $!", $n );
     print {$fh} $txt;
     close($fh);
 
     # An ANSI foreground-colour SGR: ESC [ ... 3X (m|;)  -- 32 = green.
     my $colour_re = qr/\x1b\[[0-9;]*3[0-7][;m]/;
+
+    # An ANSI background-colour SGR: ESC [ ... 4X (m|;)  -- 44 = blue.
+    my $bg_re = qr/\x1b\[[0-9;]*4[0-7][;m]/;
 
     # Open a shortcut, optionally press Enter, return the raw terminal bytes.
     my $drive = sub {
@@ -85,8 +105,13 @@ SKIP: {
         'a configured COLOR_PAIR paints run output in colour' );
 
     # the menu screen itself painted via the menu_global theme
-    like( $drive->('sysmon'), $colour_re,
+    my $menu_raw = $drive->('sysmon');
+    like( $menu_raw, $colour_re,
         'a menu_global colour theme paints the menu in colour' );
+
+    # a color_pair('fg','bg') screen_attr paints a background colour (panel look)
+    like( $menu_raw, $bg_re,
+        'color_pair() gives the menu a background colour (panelled look)' );
 
     # NO_COLOR forces monochrome
     unlike( $drive->( 'ccfe', enter => 1, NO_COLOR => 1 ), $colour_re,

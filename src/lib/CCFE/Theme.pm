@@ -80,4 +80,57 @@ sub init_standard_pairs () {
     return $n;
 }
 
+# --- arbitrary foreground/background pairs --------------------------------
+#
+# The standard pairs (1..7) colour the foreground over the terminal's default
+# background.  A full theme also wants background colours (a "white on blue"
+# panel look), which needs a pair carrying both colours.  Those pairs are
+# allocated lazily by pair_for(), numbered after the standard set.
+#
+# Ordering: a theme's *_attr strings are evaluated when the config is read,
+# which is BEFORE start_color().  So pair_for() only assigns and remembers a
+# pair NUMBER (no Curses call) -- exactly as COLOR_PAIR(6) is just bits until
+# the pair is created -- and init_dynamic_pairs() actually creates them once
+# colour is up.  A number is stable for a given (fg,bg) within a run.
+
+my $DYN_BASE  = scalar(@PAIR_ORDER) + 1;    # first dynamic pair number (8)
+my $next_pair = $DYN_BASE;
+my %pair_cache;                             # "fg:bg" (numbers) -> pair number
+my @pair_defs;                              # [ pairnum, fg, bg ] to create later
+
+# Pair number for a (fg, bg) colour-name combo.  $bg defaults to the terminal
+# default.  Allocates (and remembers for init_dynamic_pairs) a fresh number on
+# first request for a combo; returns 0 (the default pair) for an unknown colour
+# so a typo degrades to plain text rather than dying.
+sub pair_for ( $fg, $bg = undef ) {
+    my $f = color_number($fg);
+    my $b = color_number($bg);
+    return 0 unless defined $f and defined $b;
+    my $key = "$f:$b";
+    return $pair_cache{$key} if exists $pair_cache{$key};
+    my $n = $next_pair++;
+    $pair_cache{$key} = $n;
+    push @pair_defs, [ $n, $f, $b ];
+    return $n;
+}
+
+# Effectful: create every pair pair_for() handed out.  Call after
+# start_color()/use_default_colors() (and after init_standard_pairs()).
+# Skips any pair beyond the terminal's COLOR_PAIRS capacity.  Returns the
+# number created.
+sub init_dynamic_pairs () {
+    my $max = eval { Curses::COLOR_PAIRS() } || 0;
+    my $created = 0;
+    for my $d (@pair_defs) {
+        next if $max and $d->[0] >= $max;
+        Curses::init_pair( @$d );
+        $created++;
+    }
+    return $created;
+}
+
+# Test/introspection helper: the (fg,bg) pairs allocated so far, as
+# [pairnum, fg, bg] triples.
+sub dynamic_pairs () { return @pair_defs }
+
 1;

@@ -293,6 +293,16 @@ sub disp_width {
     return length($s);
 }
 
+# Theme helper, callable from a config *_attr value: the attribute bits for a
+# foreground-over-background colour pair, e.g. `screen_attr = color_pair('white',
+# 'blue')`.  $bg defaults to the terminal's own background (so color_pair('cyan')
+# == a plain cyan foreground).  The pair is created after start_color(); see the
+# colour-enable block below and CCFE::Theme::pair_for().
+sub color_pair {
+    my ( $fg, $bg ) = @_;
+    return COLOR_PAIR( CCFE::Theme::pair_for( $fg, $bg ) );
+}
+
 sub fatal {
     trace("FATAL: @_");
     clrtobot( 0, 0 );
@@ -3526,6 +3536,12 @@ sub do_form {
         $fsub =
           derwin( $win, $mwinr, $COLS, $FS_HEADER_ROWS + $FS_TOP_ROWS, 0 );
 
+        # Apply the screen background colour (a themed fg/bg pair gives the
+        # panelled look) to the form window and its field area, matching what
+        # do_menu does; the monochrome default (A_NORMAL) leaves it unchanged.
+        bkgd( $win,  $MENU_SCREEN_ATTR );
+        bkgd( $fsub, $MENU_SCREEN_ATTR );
+
         set_form_win( $cform, $win );
         set_form_sub( $cform, $fsub );
 
@@ -3725,6 +3741,8 @@ sub do_form {
             if ( !$fsub ) {
                 fatal("resize_form: derwin(${mwinr}x${eff_cols}) failed");
             }
+            bkgd( $win,  $MENU_SCREEN_ATTR );
+            bkgd( $fsub, $MENU_SCREEN_ATTR );
             $cform = new_form($fields_buf);
             if ( !$cform ) {
                 fatal('resize_form: new_form() failed');
@@ -4409,6 +4427,7 @@ sub run_browse {
     $hwin = subwin( $win, $RS_HEADER_ROWS, $COLS, 0,               0 );
     $twin = subwin( $win, $RS_TOP_ROWS,    $COLS, $RS_HEADER_ROWS, 0 );
     $pan  = new_panel($win);
+    bkgd( $win, $MENU_SCREEN_ATTR );    # themed screen background (panel look)
 
     init_title( $hwin, $RS_HEADER_ROWS, $RB_TITLE );
     init_footer( $win, $NO, $RS_FOOTER_ROWS, qw(int) );
@@ -4650,6 +4669,7 @@ sub run_browse {
             $hwin = subwin( $win, $RS_HEADER_ROWS, $rc, 0, 0 );
             $twin = subwin( $win, $RS_TOP_ROWS, $rc, $RS_HEADER_ROWS, 0 );
             $pan  = new_panel($win);
+            bkgd( $win, $MENU_SCREEN_ATTR );
             init_title( $hwin, $RS_HEADER_ROWS, $RB_TITLE );
             init_footer( $win, $NO, $RS_FOOTER_ROWS, @RSKeys );
             scrollok( $mwin, 1 );
@@ -5178,14 +5198,19 @@ if ($RESTRICTED) {
 # NO_COLOR is not set and we are not in the SIMPLE monochrome layout) we
 # enable it and pre-create the standard foreground colour pairs, so a
 # configuration can reference COLOR_PAIR(n) in any of the *_attr settings
-# (e.g. `stderr_attr = COLOR_PAIR(1) | A_BOLD`).  Otherwise nothing changes
-# and the appearance is exactly as before.  See CCFE::Theme / REFACTOR.md.
+# (e.g. `stderr_attr = COLOR_PAIR(1) | A_BOLD`).  A theme can also ask for a
+# foreground-over-background pair with `color_pair('white','blue')` (a panelled
+# look): the *_attr eval ran at config-load time, before start_color(), so each
+# such call only reserved a pair number -- init_dynamic_pairs() creates them
+# here.  Otherwise nothing changes and the appearance is exactly as before.
+# See CCFE::Theme / REFACTOR.md.
 if ( has_colors() and !$ENV{NO_COLOR} and $LAYOUT != $SIMPLE ) {
     start_color();
     eval { use_default_colors() };    # lets pairs use the terminal's own bg
     CCFE::Theme::init_standard_pairs();
+    my $dyn = CCFE::Theme::init_dynamic_pairs();
     $HAS_COLOR = $YES;
-    trace('colour enabled (standard foreground pairs created)');
+    trace("colour enabled (standard pairs + $dyn fg/bg pair(s) created)");
 }
 if ( !$PERMIT_DEBUG ) {
     trace('debugging disabled by configuration!');
