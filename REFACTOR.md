@@ -182,6 +182,32 @@ CPAN required) and wire it into CI so regressions are caught mechanically.
    much of the pure core the tests exercise — most useful once §3 makes the
    core testable.
 
+### 4.1 Modern Perl idioms
+
+The program was written for Perl 5.8 (the `require 5.8.0;` floor, now removed —
+the runtime is Perl 5.40 on current Debian). New `lib/CCFE/` modules already
+target modern Perl with `use v5.36` (which turns on `strict`, `warnings` and
+subroutine **signatures** in one line). The legacy single file can adopt the
+same idioms as it is de-globalised (§3); most are exactly what `perlcritic`
+will flag:
+
+| Modern feature | Replaces in CCFE | Note |
+|---|---|---|
+| `use v5.36` (strict+warnings+signatures+`say`) | no `strict`/`warnings`, `my ($a,$b)=@_;` in nearly every sub | the prerequisite; gate behind de-globalisation for `ccfe.pl` |
+| Subroutine **signatures** `sub f ($a,$b)` | `@_` unpacking boilerplate | arity-checked, self-documenting |
+| `//` and `//=` (defined-or) | `defined($x) ? $x : …` (e.g. `$ARGV[0] ? … : $REALNAME`, field defaults) | correct for `0`/`''` |
+| `builtin::trim`, `true`/`false`, `is_bool` | the hand-rolled `trim()`, the `$YES`/`$NO` ints | core in 5.40 |
+| `builtin::blessed` / `reftype`, the `isa` operator | the fragile `if ($item eq '')` allocation-failure checks on Curses objects | a real correctness fix |
+| three-arg lexical `open(my $fh,'<',$f)` | two-arg bareword `open(INF,$f)` / `open(OUTF,">$fname")` | strict-clean and avoids mode-injection from odd filenames |
+| `Cwd::getcwd` | backtick `` `pwd` `` (≈5 sites, incl. the `'pwd'` string typo) | no shell, faster |
+| `system { $prog } @argv` / list-form exec | `system("$cmd")` / `open3(…, $SHELL,'-c',$cmd)` | no shell parsing — ties into the §2 injection work |
+| postfix deref `$ref->@*`, `$ref->%*` | `@{ $menu{items} }`, `$#{ $form{fields} }` | readability |
+| lexical subs `my sub` | nested named subs/closures (e.g. inside `do_form`) | tighter scope |
+
+Apply opportunistically as each area is modularised; don't rewrite the legacy
+file wholesale. `perlcritic` (§4.2) mechanically surfaces the two-arg opens,
+bareword filehandles, string `eval`, and missing-`strict` cases.
+
 ---
 
 ## 5. Colour & theming
