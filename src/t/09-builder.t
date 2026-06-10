@@ -59,6 +59,12 @@ is( $rc, 0, 'add-field exits 0' );
 is( $rc, 0, 'set-action exits 0' );
 like( $o, qr/OK: form "myform"/, '  form validates once it has an action' );
 
+# ---- backend: list (used by the F2 dropdowns) --------------------------
+( $o, $rc ) = build('list-menus');
+like( $o, qr/^mymenu$/m, 'list-menus reports created menus by name' );
+( $o, $rc ) = build('list-forms');
+like( $o, qr/^myform$/m, 'list-forms reports created forms by name' );
+
 # ---- backend: config ----------------------------------------------------
 ( $o, $rc ) = build( 'set-config', 'restricted', 'yes' );
 is( $rc, 0, 'set-config exits 0' );

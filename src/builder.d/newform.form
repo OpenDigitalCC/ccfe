@@ -20,5 +20,5 @@ separator {
   vtab = 1
 }
 action { run:
-  "$CCFE_BIN_DIR/ccfe-build" new-form "$CCFE_FIELD_FORMNAME" "$CCFE_FIELD_TITLE"
+  "${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" new-form "$CCFE_FIELD_FORMNAME" "$CCFE_FIELD_TITLE"
 }

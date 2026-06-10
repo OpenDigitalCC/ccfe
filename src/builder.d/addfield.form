@@ -1,9 +1,10 @@
 title { Add a field to a form }
 field {
-  id      = FORMNAME
-  len     = 24
-  type    = STRING
-  label   = Form name to add to
+  id       = FORMNAME
+  len      = 24
+  type     = STRING
+  list_cmd = command:single-val:"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" list-forms
+  label    = Form name to add to (F2 for a list)
 }
 field {
   id      = FIELDID
@@ -28,6 +29,6 @@ field {
   label   = Type (F2 for a list)
 }
 action { run:
-  "$CCFE_BIN_DIR/ccfe-build" add-field "$CCFE_FIELD_FORMNAME" \
+  "${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" add-field "$CCFE_FIELD_FORMNAME" \
       "$CCFE_FIELD_FIELDID" "$CCFE_FIELD_LABEL" "$CCFE_FIELD_TYPE"
 }

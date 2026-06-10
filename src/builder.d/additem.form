@@ -1,9 +1,10 @@
 title { Add an item to a menu }
 field {
-  id      = MENUNAME
-  len     = 24
-  type    = STRING
-  label   = Menu name to add to
+  id       = MENUNAME
+  len      = 24
+  type     = STRING
+  list_cmd = command:single-val:"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" list-menus
+  label    = Menu name to add to (F2 for a list)
 }
 field {
   id      = ITEMID
@@ -27,6 +28,6 @@ field {
   label   = Action (e.g. run:df -h, menu:other, form:x)
 }
 action { run:
-  "$CCFE_BIN_DIR/ccfe-build" add-item "$CCFE_FIELD_MENUNAME" \
+  "${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" add-item "$CCFE_FIELD_MENUNAME" \
       "$CCFE_FIELD_ITEMID" "$CCFE_FIELD_DESCR" "$CCFE_FIELD_ACTION"
 }

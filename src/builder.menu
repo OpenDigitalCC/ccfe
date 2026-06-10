@@ -38,5 +38,5 @@ item {
 item {
   id     = LIST
   descr  = List my menus and forms
-  action = run:"$CCFE_BIN_DIR/ccfe-build" list
+  action = run:"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" list
 }
