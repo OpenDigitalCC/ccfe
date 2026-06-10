@@ -81,9 +81,15 @@ to crash a form (value fields are right-aligned to the launch width → once the
 terminal is narrower than the value column, `post_form` returned `E_NO_ROOM`,
 the form was left unposted and the loop faulted, surfacing as exit 245);
 `do_form` now widens the rebuilt window to hold every field so `post_form`
-always succeeds. Open: a **true** horizontal re-layout that re-right-aligns the
-values to the *visible* width (so narrow terminals still show them, rather than
-the values sitting off-screen in an over-sized window), and `do_list` /
+always succeeds.
+
+✅ **Compact value column + label wrap** (done): values group just right of the
+form's longest label (`longest + gap`, gap = `$FIELD_VALUE_GAP`) instead of
+right-aligning to the screen edge, so the dot run is short and forms stay narrow
+enough to read on small terminals; a value too wide to fit there slides right.
+A label too long to sit beside its (slid) value wraps onto its own line(s) with
+the value on the row below. `t/11-layout.t`. Open: re-flowing a build-time wrap
+when the terminal is *grown* (needs a field rebuild on resize), and `do_list` /
 `run_browse` reflow.
 
 ## M7 — De-globalisation / full modularisation  _(REFACTOR §3 — deferred to end)_
