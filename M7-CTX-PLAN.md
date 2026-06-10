@@ -78,13 +78,25 @@ threading mistake shows up as a crash or a mis-drawn screen, not a silent pass.
   need `our`-declaring in place; moving ~120 of them up front is churn/risk for
   no near-term gain. Handle at Phase 6 (or skip — it is optional polish).
 
-### Phase 1 — `%field_vals` → `$ctx->{field_vals}`  *(8 sites — the pattern-setter)*
-- Smallest structure, but it is read by the **nested** `sync_fields_val` /
-  `save_persistent` / `load_persistent`, so this phase *is* where the §2
-  nested-sub conversion gets proven on a small surface.
-- Convert those three inner subs to take `$ctx` (option b). Replace `local
-  %field_vals` with `$ctx->{field_vals} = {}` per `do_form` call.
-- **Gate:** `t/08` (field defaults/values) + persistent-save tests must pass.
+### Phase 1 — `%field_vals` → per-call lexical  *(done — the pattern-setter)*
+- Reality check vs. the plan: only **one** nested sub actually reads
+  `%field_vals` — `load_persistent` (not `sync_fields_val`/`save_persistent`,
+  which the inventory had wrongly assumed). 6 sites total, all inside `do_form`.
+- **Design refinement (applies to Phases 2–3 too):** `%field_vals` is `local`,
+  i.e. *per-call* recursion state, so it became a per-call **lexical**
+  `my $field_vals = {}` — **not** a key on the single startup `$ctx`. A shared
+  `$ctx->{field_vals} = {}` per call would clobber a parent screen on nesting;
+  the lexical preserves the old `local` save/restore exactly. The startup `$ctx`
+  stays for the genuinely shared state (cfg/process). So per-screen state
+  (field_vals, menu, form, fp, cform) lives in per-call containers; `$ctx` holds
+  the shared parts. Nested `load_persistent` takes the map as an explicit
+  parameter (option b), sidestepping the named-sub closure trap.
+- **Coverage gap closed:** the gate the plan named ("field-values + persistent
+  tests") did not exist — the pty tests only navigate default/empty fields.
+  Added `t/19-form-init.t`, which drives a form whose `init { command:… }`
+  pre-fills a field and asserts the value renders, exercising the field_vals
+  write (init parse) and read (field creation) sites this phase changed.
+- **Gate:** full suite (309 tests) + the new `t/19` green.
 
 ### Phase 2 — `%menu` → `$ctx->{menu}`  *(38 sites)*
 - `load_menu` fills `$ctx->{menu}` (it already returns a structure from

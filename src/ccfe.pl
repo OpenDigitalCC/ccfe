@@ -2651,7 +2651,11 @@ sub do_form {
         $hidden, $hscroll, $script, $val, $form_dir
     );
     my ($fpad);
-    local %field_vals;
+    # M7 de-globalisation (Phase 1): the per-form field-value map is a per-call
+    # lexical, not a shared global -- this preserves the old `local %field_vals`
+    # recursion semantics (a nested screen gets its own) and is threaded into
+    # the nested load_persistent() explicitly rather than via dynamic scope.
+    my $field_vals = {};
     local %form;
     my ( @fields_to_remove, @fields_to_enable, @fields_to_disable );
 
@@ -2855,6 +2859,7 @@ sub do_form {
     }
 
     sub load_persistent {
+        my ($field_vals) = @_;
         my @res = ();
         my ( $fname, $hash );
 
@@ -2876,7 +2881,7 @@ sub do_form {
                     next if /^\s*#/;
                     chop;
                     my ( $id, $val ) = split /\s*=\s*/;
-                    $field_vals{$id} = $val;
+                    $field_vals->{$id} = $val;
                     trace( "  $id=\"$val\"", $LOG_FIELDS_VAL );
                 }
             }
@@ -2916,7 +2921,7 @@ sub do_form {
             if ( $action eq 'command' ) {
                 curs_set($OFF) if $HIDE_CURSOR;
                 my ( $wpan, $wwin ) = open_wait_msg;
-                undef %field_vals;
+                %{$field_vals} = ();
                 my $prev_path = $ENV{PATH};
 
                 my @res = ();
@@ -2963,7 +2968,7 @@ sub do_form {
                           ;    #$LOG_FIELDS_VAL
                     }
                     else {
-                        $field_vals{$id} = $val;
+                        $field_vals->{$id} = $val;
                         trace( "  $s=\"$val\"", $LOG_FIELDS_VAL );
                     }
                 }
@@ -2979,7 +2984,7 @@ sub do_form {
                 trace("unknown form init type \"$action\"");
             }
         }
-        load_persistent;
+        load_persistent($field_vals);
 
         $y           = 0;
         $npages      = 0;
@@ -3012,7 +3017,8 @@ sub do_form {
                 $all_ids .= " " if !( $form{fields}[$i]{option} );
                 $all_ids .= "%{$id}" if $id !~ /^$FSEP_ID_PRFX/;
                 if ( $type == $SEPARATOR and !defined($label) ) {
-                    $label = $field_vals{$id} ? $field_vals{$id} : 'ERROR!';
+                    $label =
+                      $field_vals->{$id} ? $field_vals->{$id} : 'ERROR!';
                 }
                 if ( $LAYOUT == $SIMPLE ) {
                     $len = $COLS - ( 52 + $rflags_size + 2 )
@@ -3026,7 +3032,7 @@ sub do_form {
                 my $lw = disp_width($label);    # label width in columns
                 $val = '';
                 $val = $default if defined($default);
-                $val = $field_vals{$id} if defined( $field_vals{$id} );
+                $val = $field_vals->{$id} if defined( $field_vals->{$id} );
                 $val = substr( $val, 0, $len )
                   if ( $hscroll == $NO )
                   and ( length($val) > $len );

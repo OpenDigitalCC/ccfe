@@ -205,9 +205,12 @@ the conformance tests.
 - 🔄 **`$ctx` threading** (in progress): replacing `ccfe.pl`'s package globals
   and `local` dynamic scope with one explicit run-state object. Planned in
   **M7-CTX-PLAN.md** (phases 0–6, all in scope). **Phase 0 done:**
-  `CCFE::Context::new()` container built at startup (unused until Phase 1),
-  `t/18-context.t`, and the latent `perl (>= 5.36.0)` floor added to
-  `debian/control`. Next: Phase 1 (`%field_vals`, the nested-sub pattern-setter).
+  `CCFE::Context::new()` container built at startup, `t/18-context.t`, and the
+  latent `perl (>= 5.36.0)` floor added to `debian/control`. **Phase 1 done:**
+  `%field_vals` turned from a `local` global into a per-call lexical threaded
+  explicitly into `load_persistent` (proving the named-sub conversion on the
+  smallest surface); `t/19-form-init.t` added to cover the previously-untested
+  init→field-value path. 309 tests green. Next: Phase 2 (`%menu`).
 
 ## M8 — Non-functional close-out audit  _(final gate)_
 Five dimensions: **test coverage, code quality, performance, security,
