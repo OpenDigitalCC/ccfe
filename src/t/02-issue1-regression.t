@@ -18,7 +18,7 @@
 #
 use strict;
 use warnings;
-use Test::More tests => 9;
+use Test::More tests => 10;
 use FindBin qw($Bin);
 
 my $src = "$Bin/..";
@@ -67,6 +67,10 @@ like( $msgs, qr/^LIST_CMD_ERR_MSG\s*=/m,
     'LIST_CMD_ERR_MSG is defined in msg/C/ccfe' );
 like( $msgs, qr/^LIST_CMD_ERR_TITLE\s*=/m,
     'LIST_CMD_ERR_TITLE is defined in msg/C/ccfe' );
+
+# An empty list_cmd result is distinguished from "no list at all".
+like( $msgs, qr/^EMPTY_LIST_MSG\s*=/m,
+    'EMPTY_LIST_MSG (list_cmd ran but produced nothing) is defined' );
 
 # 5. The dangling-items-buffer crash (the broader root cause of issue #1).
 #    new_menu()/new_form() keep the packed pointer without copying it, so the

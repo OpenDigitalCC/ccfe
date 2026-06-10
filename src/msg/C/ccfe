@@ -8,10 +8,15 @@
 #   ERR_LITTLE_SCREEN[1], are all displayed together.
 ###############################################################################
 
-# Title and message string for pop-up window displayed when
-# list_cmd returns an empty list:
+# Title and message for the pop-up shown when a field has no list to
+# choose from (no list_cmd):
 NULL_LIST_TITLE  = "WARNING"
 NULL_LIST_MSG    = "Sorry, list not available for this field!"
+
+# Title and message for the pop-up shown when a field's list_cmd ran but
+# produced no entries (e.g. nothing has been created yet):
+EMPTY_LIST_TITLE = "EMPTY LIST"
+EMPTY_LIST_MSG   = "Nothing to choose from yet."
 
 # Title and message string for pop-up window displayed when the
 # command behind a field's list_cmd fails without writing any error

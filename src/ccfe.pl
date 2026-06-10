@@ -424,6 +424,8 @@ sub load_msgs {
 
     my @msg_id = qw(NULL_LIST_MSG
       NULL_LIST_TITLE
+      EMPTY_LIST_MSG
+      EMPTY_LIST_TITLE
       LIST_CMD_ERR_MSG
       LIST_CMD_ERR_TITLE
       RESTRICTED_MSG
@@ -3825,7 +3827,7 @@ sub do_form {
                     }
                     else {
                         trace( "empty list by list_cmd", $LOG_LIST_CMD );
-                        disp_msg( $win, $NULL_LIST_MSG, $NULL_LIST_TITLE );
+                        disp_msg( $win, $EMPTY_LIST_MSG, $EMPTY_LIST_TITLE );
                     }
                     if ( $form{fields}[$ci]{type} & $BOOLEAN ) {
                         $val = ralign( $val, $BOOLEAN_FIELD_SIZE );
