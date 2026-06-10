@@ -300,6 +300,44 @@ sub valid_shell {
     return $found;
 }
 
+# ---- restricted-mode policy (security: prevent escape from the menu) -----
+#
+# When RESTRICTED is enabled (via the GLOBAL config) CCFE is a constrained
+# front-end: the menu user must only be able to do what the menus allow.
+# These helpers are consulted at every escape-capable site so the policy
+# lives in one place.  See REFACTOR.md section 2.
+
+# system:/exec: hand over the terminal or replace the process, so they are
+# the main escape risk (e.g. an editor's ":!sh").  In RESTRICTED mode their
+# target program must appear in the RESTRICTED_ALLOW allowlist; run:/menu:/
+# form: are not gated here (run: output is shown in a pager-like view).
+sub restricted_denies_verb {
+    my ( $verb, $args ) = @_;
+    return $NO unless $RESTRICTED;
+    return $NO unless $verb eq 'system' or $verb eq 'exec';
+    my ($prog) = ( defined $args ? $args : '' ) =~ /^\s*(\S+)/;
+    $prog = basename($prog) if defined $prog;
+    return $NO if defined $prog and in( $prog, @RESTRICTED_ALLOW );
+    trace("RESTRICTED: denied $verb:\"$args\" (not in RESTRICTED_ALLOW)");
+    return $YES;
+}
+
+sub restricted_denies_shell {
+    return $NO unless $RESTRICTED;
+    trace('RESTRICTED: interactive shell escape denied');
+    return $YES;
+}
+
+# Reduce the blast radius of every command CCFE runs: a sane IFS and no
+# loader/shell-init-hijack variables inherited into child processes.  Called
+# once at startup -- CCFE itself does not rely on these after the dynamic
+# libraries are already loaded.
+sub harden_child_env {
+    $ENV{IFS} = " \t\n";
+    delete @ENV{qw( BASH_ENV ENV CDPATH )};
+    delete $ENV{$_} for grep { /^LD_/ } keys %ENV;
+}
+
 sub trace {
     my ( $msg, $log_level ) = @_;
     my @months = qw( Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec );
@@ -355,6 +393,8 @@ sub load_msgs {
       NULL_LIST_TITLE
       LIST_CMD_ERR_MSG
       LIST_CMD_ERR_TITLE
+      RESTRICTED_MSG
+      RESTRICTED_TITLE
       NULL_FACTION_MSG
       NULL_FACTION_TITLE
       SAVE_FIELDVAL_MSG
@@ -1703,6 +1743,27 @@ sub load_config {
                                         $USER_SHELL = $attrv;
                                         last ASWITCH;
                                     }
+                                    elsif (/^RESTRICTED$/) {
+                                        if (
+                                            defined( $bool_vals{ lc($attrv) } )
+                                          )
+                                        {
+                                            $RESTRICTED =
+                                              $bool_vals{ lc($attrv) };
+                                        }
+                                        else {
+                                            trace(
+"wrong value \"$attrv\" for \"$attrk\" attribute"
+                                            );
+                                            $res = $ES_SYNTAX_ERR;
+                                        }
+                                        last ASWITCH;
+                                    }
+                                    elsif (/^RESTRICTED_ALLOW$/) {
+                                        push @RESTRICTED_ALLOW,
+                                          split /\s*,\s*/, $attrv;
+                                        last ASWITCH;
+                                    }
                                     elsif (/^LOAD_USER_OBJECTS$/) {
                                         if (
                                             defined( $bool_vals{ lc($attrv) } )
@@ -2208,7 +2269,10 @@ sub do_menu {
                 last;
             }
             elsif ( $ch == $keys{shell_escape}{code} ) {
-                if ( valid_shell($USER_SHELL) ) {
+                if ( restricted_denies_shell() ) {
+                    ;    # disabled in RESTRICTED mode (also off the key bar)
+                }
+                elsif ( valid_shell($USER_SHELL) ) {
                     curs_set($ON) if $HIDE_CURSOR;
                     call_shell;
                     curs_set($OFF) if $HIDE_CURSOR;
@@ -2301,13 +2365,23 @@ sub do_menu {
                         }
                     }
                     elsif ( $action eq 'system' ) {
-                        curs_set($ON) if $HIDE_CURSOR;
-                        call_system( $wait_key, $args );
-                        curs_set($OFF) if $HIDE_CURSOR;
+                        if ( restricted_denies_verb( 'system', $args ) ) {
+                            disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
+                        }
+                        else {
+                            curs_set($ON) if $HIDE_CURSOR;
+                            call_system( $wait_key, $args );
+                            curs_set($OFF) if $HIDE_CURSOR;
+                        }
                         refresh($win);
                     }
                     elsif ( $action eq 'exec' ) {
-                        $exec_args = $args;
+                        if ( restricted_denies_verb( 'exec', $args ) ) {
+                            disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
+                        }
+                        else {
+                            $exec_args = $args;
+                        }
                     }
                     elsif ( $action eq 'run' ) {
                         $es = run_browse( $menu{items}[$ci]{descr},
@@ -2789,6 +2863,19 @@ sub do_form {
         foreach my $i ( 0 .. $#{ $form{fields} } ) {
             $val = '';
             $id  = $form{fields}[$i]{id};
+
+            # Expose every field's raw value as an environment variable so an
+            # action command can read it safely (e.g. "$CCFE_FIELD_INFILE")
+            # instead of interpolating %{INFILE} into a shell string, which is
+            # a command-injection vector.  See REFACTOR.md section 2.
+            if ( defined $id and $id ne '' ) {
+                my $raw = $form{fields}[$i]{value};
+                $raw = '' unless defined $raw;
+                $raw =~ s/^\s+//;
+                $raw =~ s/\s+$//;
+                $ENV{"CCFE_FIELD_$id"} = $raw;
+            }
+
             unless ( !$form{fields}[$i]{changed}
                 and $form{fields}[$i]{ignore_unchgd} )
             {
@@ -3558,11 +3645,21 @@ sub do_form {
                     }
                     elsif ( $action eq 'system' ) {
                         prepare_action( \$args );
-                        call_system( $wait_key, $args );
+                        if ( restricted_denies_verb( 'system', $args ) ) {
+                            disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
+                        }
+                        else {
+                            call_system( $wait_key, $args );
+                        }
                     }
                     elsif ( $action eq 'exec' ) {
                         prepare_action( \$args );
-                        $exec_args = $args;
+                        if ( restricted_denies_verb( 'exec', $args ) ) {
+                            disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
+                        }
+                        else {
+                            $exec_args = $args;
+                        }
                     }
                     else {
                         trace("unknown form action type \"$action\"");
@@ -3739,7 +3836,10 @@ sub do_form {
                 }
             }
             elsif ( $ch == $keys{shell_escape}{code} ) {
-                if ( valid_shell($USER_SHELL) ) {
+                if ( restricted_denies_shell() ) {
+                    ;    # disabled in RESTRICTED mode (also off the key bar)
+                }
+                elsif ( valid_shell($USER_SHELL) ) {
                     call_shell;
                     refresh($win);
                 }
@@ -4129,7 +4229,10 @@ sub run_browse {
             $py = 0 if $py < 0;
         }
         elsif ( $ch == $keys{shell_escape}{code} ) {
-            if ( valid_shell($USER_SHELL) ) {
+            if ( restricted_denies_shell() ) {
+                ;    # disabled in RESTRICTED mode (also off the key bar)
+            }
+            elsif ( valid_shell($USER_SHELL) ) {
                 curs_set($ON) if $HIDE_CURSOR;
                 call_shell;
                 curs_set($OFF) if $HIDE_CURSOR;
@@ -4158,17 +4261,17 @@ sub run_browse {
             trim( \$cmd_descr );
             $save_fname = basename($save_fname);
             my $val;
-            ( $es, $val ) = do_list(
-                $win,
-                $SAVE_TYPE_TITLE,
-                'single-val',
-                [
-                    "$SAVE_SIMPLE $SAVE_SIMPLE_DESCR",
-                    "$SAVE_DETAILED $SAVE_DETAILED_DESCR",
-                    "$SAVE_SCRIPT $SAVE_SCRIPT_DESCR"
-                ],
-                undef
+            my @save_types = (
+                "$SAVE_SIMPLE $SAVE_SIMPLE_DESCR",
+                "$SAVE_DETAILED $SAVE_DETAILED_DESCR",
             );
+            # The runnable-script save is an escape vector (writes a chmod +x
+            # #!shell file): omit it in RESTRICTED mode.  Plain text saves stay.
+            push @save_types, "$SAVE_SCRIPT $SAVE_SCRIPT_DESCR"
+              unless $RESTRICTED;
+            ( $es, $val ) =
+              do_list( $win, $SAVE_TYPE_TITLE, 'single-val', \@save_types,
+                undef );
             prefresh(
                 $p, $py, 0, $RS_HEADER_ROWS + $RS_TOP_ROWS,
                 0, $RS_HEADER_ROWS + $RS_TOP_ROWS + $mwinr - 1,
@@ -4221,7 +4324,7 @@ sub run_browse {
                                 print OUTF or die('DIED');
                             }
                         }
-                        elsif ( $val eq $SAVE_SCRIPT ) {
+                        elsif ( $val eq $SAVE_SCRIPT and !$RESTRICTED ) {
                             print OUTF "#!$OPEN3_SHELL\n";
                             print OUTF "# $cmd_descr\n";
                             print OUTF "$cmd\n";
@@ -4582,9 +4685,24 @@ $OPEN3_SHELL      = '/bin/sh';
 $USER_SHELL       = ( getpwuid($>) )[8];
 @fval_delim       = ( ' ', ' ' );
 $FIELD_VALUE_POS  = -1;
+$RESTRICTED       = $NO;
+@RESTRICTED_ALLOW = ();
 
 if ( $res = load_config ) {
     trace("$es_str[$res] loading configuration file");
+}
+harden_child_env();
+if ($RESTRICTED) {
+    # Hide the now-inert escape keys from the on-screen key bars; the key
+    # handlers also enforce the policy, so this is defence in depth + UX.
+    @MSKeys = grep { $_ ne 'shell_escape' } @MSKeys;
+    @FSKeys = grep { $_ ne 'shell_escape' } @FSKeys;
+    @RSKeys = grep { $_ ne 'shell_escape' } @RSKeys;
+    trace(
+        sprintf 'RESTRICTED mode ON: shell escape + save-to-script disabled; '
+          . 'system:/exec: limited to [%s]',
+        join( ', ', @RESTRICTED_ALLOW ) || 'nothing'
+    );
 }
 if ( !$PERMIT_DEBUG ) {
     trace('debugging disabled by configuration!');

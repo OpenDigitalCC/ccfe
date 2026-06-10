@@ -19,6 +19,11 @@ NULL_LIST_MSG    = "Sorry, list not available for this field!"
 LIST_CMD_ERR_TITLE = "WARNING"
 LIST_CMD_ERR_MSG   = "Sorry, the command building this list failed!"
 
+# Title and message string for pop-up window displayed when an action is
+# blocked by RESTRICTED mode (see the RESTRICTED config option):
+RESTRICTED_TITLE = "NOT PERMITTED"
+RESTRICTED_MSG   = "Sorry, that action is not permitted here."
+
 # Title and message string for pop-up window displayed when
 # a form is without action{} block or with wrong select-item{} block:
 NULL_FACTION_TITLE = "ERROR"
