@@ -20,8 +20,6 @@
 #  Author: Massimo Loschi <ccfedevel@gmail.com>
 #
 
-require 5.8.0;
-
 use Curses;
 use Sys::Hostname;
 use File::Basename;
@@ -35,6 +33,13 @@ use Text::Balanced qw(extract_bracketed);
 use IO::Select;
 use File::Temp qw(tempfile);
 use Digest::MD5 qw(md5_hex);
+
+# Locate CCFE's own Perl modules relative to this file, so they are found both
+# from the source tree (src/lib) and when installed (bin/../lib/perl5).  Using
+# __FILE__ (not $0/FindBin) keeps this correct even when the program is
+# require()d headlessly from the test suite.
+use lib do { my $d = dirname(__FILE__); ( "$d/lib", "$d/../lib/perl5" ) };
+use CCFE::Restrict ();
 
 $VERSION      = '1.60';
 $VERSION_DATE = '09/06/2026';
@@ -307,35 +312,29 @@ sub valid_shell {
 # These helpers are consulted at every escape-capable site so the policy
 # lives in one place.  See REFACTOR.md section 2.
 
-# system:/exec: hand over the terminal or replace the process, so they are
-# the main escape risk (e.g. an editor's ":!sh").  In RESTRICTED mode their
-# target program must appear in the RESTRICTED_ALLOW allowlist; run:/menu:/
-# form: are not gated here (run: output is shown in a pager-like view).
+# Thin tracing wrappers over the pure CCFE::Restrict policy: the decisions
+# live in the module (unit-tested headlessly), the program just supplies its
+# configuration and logs a denial.
 sub restricted_denies_verb {
     my ( $verb, $args ) = @_;
-    return $NO unless $RESTRICTED;
-    return $NO unless $verb eq 'system' or $verb eq 'exec';
-    my ($prog) = ( defined $args ? $args : '' ) =~ /^\s*(\S+)/;
-    $prog = basename($prog) if defined $prog;
-    return $NO if defined $prog and in( $prog, @RESTRICTED_ALLOW );
-    trace("RESTRICTED: denied $verb:\"$args\" (not in RESTRICTED_ALLOW)");
-    return $YES;
+    my $deny =
+      CCFE::Restrict::denies_verb( $RESTRICTED, \@RESTRICTED_ALLOW, $verb,
+        $args );
+    trace("RESTRICTED: denied $verb:\"$args\" (not in RESTRICTED_ALLOW)")
+      if $deny;
+    return $deny;
 }
 
 sub restricted_denies_shell {
-    return $NO unless $RESTRICTED;
-    trace('RESTRICTED: interactive shell escape denied');
-    return $YES;
+    my $deny = CCFE::Restrict::denies_shell($RESTRICTED);
+    trace('RESTRICTED: interactive shell escape denied') if $deny;
+    return $deny;
 }
 
-# Reduce the blast radius of every command CCFE runs: a sane IFS and no
-# loader/shell-init-hijack variables inherited into child processes.  Called
-# once at startup -- CCFE itself does not rely on these after the dynamic
-# libraries are already loaded.
+# Called once at startup -- CCFE itself does not rely on these variables after
+# the dynamic libraries are already loaded.
 sub harden_child_env {
-    $ENV{IFS} = " \t\n";
-    delete @ENV{qw( BASH_ENV ENV CDPATH )};
-    delete $ENV{$_} for grep { /^LD_/ } keys %ENV;
+    return CCFE::Restrict::harden_env( \%ENV );
 }
 
 sub trace {

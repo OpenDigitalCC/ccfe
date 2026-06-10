@@ -141,6 +141,11 @@ install ()
   sed -e "/^\$PREFIX = /d ; s/^\$ETCDIR = .*$/\$ETCDIR = '$exp_etcdir';/ ; s/^\$BINDIR = .*$/\$BINDIR = '$exp_bindir';/ ;s/^\$LIBDIR = .*$/\$LIBDIR = '$exp_libdir';/ ;s/^\$LOGDIR = .*$/\$LOGDIR = '$exp_logdir';/ ;s/^\$MSGDIR = .*$/\$MSGDIR = '$exp_msgdir';/ ;" ccfe.pl > $BINDIR/ccfe
   chmod 755 $BINDIR/ccfe
 
+  # CCFE's own Perl modules; ccfe finds them at bin/../lib/perl5 (see the
+  # `use lib` in ccfe.pl).  Refreshed on update too, like the program itself.
+  mkdir -p $LIBDIR/perl5
+  cp -r lib/CCFE $LIBDIR/perl5/
+
   if [ $update -eq 0 ]; then
     cp ccfe.conf $ETCDIR/
     cp msg/C/ccfe $MSGDIR/C/ccfe
