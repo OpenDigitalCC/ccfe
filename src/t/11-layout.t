@@ -1,0 +1,96 @@
+#!/usr/bin/perl
+#
+# Compact form layout (ROADMAP M6): in NORMAL layout the value column sits
+# just right of the page's longest label (a short dot run, ~4 columns), not
+# right-aligned to the screen edge.  This keeps forms narrow so values stay
+# on-screen on smaller terminals.  A value too wide to fit at that shared
+# column slides right far enough to fit, so a long label combined with a wide
+# value can never push the value off the screen (which would leave the form
+# unposted -- the builder-form regression this guards).
+#
+use strict;
+use warnings;
+use FindBin qw($Bin);
+use lib "$Bin/lib";
+use File::Temp qw(tempdir);
+use Test::More;
+
+my $src = "$Bin/..";
+
+eval { require CCFE::Test::Pty; 1 } or plan skip_all => "pty helper: $@";
+plan skip_all => 'no Linux pseudo-terminal' unless CCFE::Test::Pty->available;
+plan skip_all => 'Curses not installed'     unless eval { require Curses; 1 };
+plan skip_all => 'no installer' unless -f "$src/install.sh";
+
+my $prefix = tempdir( CLEANUP => 1 );
+my $ilog   = `cd "$src" && sh install.sh -b -p "$prefix" 2>&1`;
+plan skip_all => "install failed: $ilog"
+  unless $? == 0 && -x "$prefix/bin/ccfe";
+
+plan tests => 4;
+
+my $objs   = "$prefix/share/ccfe/objects/ccfe";
+my $logf   = "$prefix/log/" . ( $ENV{USER} || getpwuid($<) ) . ".log";
+
+# Run a form under -d on a pty and return its screen plus the debug log.
+sub run_form {
+    my ( $name, $cols, $rows, @resizes ) = @_;
+    unlink $logf;
+    my $pty = CCFE::Test::Pty->spawn( $cols, $rows, "$prefix/bin/ccfe", '-d',
+        $name );
+    $pty->pump(1.3);
+    for my $wh (@resizes) {
+        $pty->resize( @$wh );
+        $pty->pump(1.0);
+    }
+    my $screen = $pty->screen;
+    $pty->send("\033");
+    $pty->pump(0.3);
+    $pty->send("\033");
+    $pty->wait(3);
+    my $log = '';
+    if ( open( my $fh, '<', $logf ) ) { local $/; $log = <$fh>; close($fh) }
+    return ( $screen, $log );
+}
+
+# --- a normal form: value column is compact, not right-aligned --------------
+# Short labels, short values: the form's natural width (the resize trace's
+# max_right) must be far below the 80-column screen -- i.e. the values sit
+# near the labels.  The old right-aligned layout pinned max_right to ~COLS.
+{
+    open( my $fh, '>', "$objs/compact.form" ) or die "write: $!";
+    print {$fh} "title { Compact }\n";
+    print {$fh}
+      "field {\n  id    = F$_\n  len   = 5\n  type  = STRING\n  label = Item $_\n}\n"
+      for 1 .. 6;
+    print {$fh} "action { run:true }\n";
+    close($fh);
+
+    my ( $screen, $log ) = run_form( 'compact', 80, 24, [ 100, 30 ] );
+    my @mr = $log =~ /max_right=(\d+)/g;
+    ok( scalar @mr, 'resize traced the form width (max_right)' );
+    cmp_ok( $mr[0], '<', 40,
+        "  value column is compact, not screen-right (max_right=$mr[0])" );
+}
+
+# --- a long label + a wide value still posts (no E_NO_ROOM) -----------------
+# Longest label ~34 cols and a 40-wide value would overflow an 80-col screen
+# if the value were planted at the shared column; it must slide right to fit so
+# post_form succeeds.  This is exactly the builder newmenu shape.
+{
+    open( my $fh, '>', "$objs/wide.form" ) or die "write: $!";
+    print {$fh} "title { Wide }\n";
+    print {$fh}
+      "field {\n  id    = NAME\n  len   = 24\n  type  = STRING\n  label = A fairly long descriptive field label\n}\n";
+    print {$fh}
+      "field {\n  id    = BODY\n  len   = 40\n  type  = STRING\n  label = Body\n}\n";
+    print {$fh} "action { run:true }\n";
+    close($fh);
+
+    my ( $screen, $log ) = run_form( 'wide', 80, 24 );
+    my @posts = $log =~ /do_form: post_form => (-?\d+)/g;
+    ok( scalar @posts, 'initial build traced post_form' );
+    is( ( scalar grep { $_ != 0 } @posts ),
+        0,
+        '  long label + wide value still posts at 80 cols (no E_NO_ROOM)' );
+}

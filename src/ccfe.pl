@@ -2880,6 +2880,7 @@ sub do_form {
     my @actopts;
     my ($pan);
     my ( $win, $mwinr, $dots, $c );
+    my ( @page_vcol, $cur_pg );
     my ( $exit_id, $exit_descr );
     my (
         $id,     $all_ids, $label,  $len, $type, $default,
@@ -3220,6 +3221,37 @@ sub do_form {
         $npages      = 0;
         $lflags_size = $FIELD_LMARGIN;
         $rflags_size = $FIELD_RMARGIN;
+
+        # Pre-pass (NORMAL layout, auto value position): work out the value
+        # column for each page = the longest label end on that page + a small
+        # gap, so values are grouped just right of the labels instead of being
+        # right-aligned to the screen edge (short dot runs, compact width, and
+        # values that stay visible on a narrow terminal).  This mirrors the
+        # build loop's page/$y bookkeeping exactly so page boundaries line up;
+        # separators span the full width and do not constrain the column.
+        @page_vcol = ();
+        if ( $LAYOUT == $NORMAL and $FIELD_VALUE_POS == -1 ) {
+            my $py = 0;
+            my $pg = -1;
+            foreach my $fld ( @{ $form{fields} } ) {
+                next if in( $fld->{id}, @fields_to_remove );
+                $py += ( $fld->{vtab} || 0 );
+                $py = 0 if $py >= $mwinr;
+                $pg++ if $py == 0;
+                $pg = 0 if $pg < 0;    # first field with a leading vtab
+                unless ( $fld->{type} == $SEPARATOR ) {
+                    my $lx = $FIELD_LMARGIN + ( $fld->{htab} || 0 ) * $HTAB_COLS;
+                    my $le = $lx + length( $fld->{label} // '' );
+                    $page_vcol[$pg] = $le
+                      if !defined $page_vcol[$pg] || $le > $page_vcol[$pg];
+                }
+                $py++;
+            }
+            $_ = ( defined $_ ? $_ : $FIELD_LMARGIN ) + $FIELD_VALUE_GAP
+              for @page_vcol;
+        }
+        $cur_pg = -1;
+
         $i           = 0;
         $nfields     = $#{ $form{fields} };
         while ( $i <= $#{ $form{fields} } ) {
@@ -3259,13 +3291,6 @@ sub do_form {
                   $lflags_size +
                   $form{fields}[$i]{htab} * $HTAB_COLS;
                 my $dots_x = $label_x + length($label);
-                my $val_x  = $FIELD_VALUE_POS;
-                if ( $val_x == -1 ) {
-                    $val_x = $COLS - $len - 1 - $rflags_size;
-                }
-                my $lvald_x  = $val_x - 1;
-                my $rvald_x  = $val_x + $len;
-                my $rflags_x = $COLS - $rflags_size;
                 $val = '';
                 $val = $default if defined($default);
                 $val = $field_vals{$id} if defined( $field_vals{$id} );
@@ -3275,6 +3300,45 @@ sub do_form {
 
                 $y += $form{fields}[$i]{vtab};
                 $y = 0 if ( $y >= $mwinr );
+                $cur_pg++ if !$y;    # new page: track it for the value column
+
+                # Value/flag columns, now that this field's page is known.  In
+                # NORMAL layout with auto placement the value sits just right of
+                # the page's longest label (the pre-pass shared column); a value
+                # too wide to fit there starts as far right as it fits instead
+                # (a wide value naturally fills the right of the row).  Otherwise
+                # keep the explicit position / the SIMPLE right-aligned column.
+                my $auto = ( $LAYOUT == $NORMAL and $FIELD_VALUE_POS == -1 );
+                my $val_x = $FIELD_VALUE_POS;
+                if ( $val_x == -1 ) {
+                    if ( $LAYOUT == $NORMAL ) {
+                        my $shared    = $page_vcol[ $cur_pg < 0 ? 0 : $cur_pg ];
+                        my $rightmost = $COLS - $len - 1 - $rflags_size;
+                        $val_x = ( $shared <= $rightmost ) ? $shared : $rightmost;
+                        $val_x = $label_x + 1 if $val_x < $label_x + 1;
+                    }
+                    else {
+                        $val_x = $COLS - $len - 1 - $rflags_size;
+                    }
+                }
+
+                # Keep at least the gap between label and value.  If a label is
+                # genuinely too long for this width even after the value slid
+                # right, truncate it so it cannot overlap the value (a proper
+                # wrap is the planned refinement); recompute the dot-run start.
+                if ($auto) {
+                    my $label_end_max = $val_x - $FIELD_VALUE_GAP;
+                    if ( $label_x + length($label) > $label_end_max ) {
+                        my $room = $label_end_max - $label_x;
+                        $room   = 1 if $room < 1;
+                        $label  = substr( $label, 0, $room );
+                        $dots_x = $label_x + length($label);
+                    }
+                }
+                my $lvald_x  = $val_x - 1;
+                my $rvald_x  = $val_x + $len;
+                my $rflags_x = $auto ? $val_x + $len + 1 : $COLS - $rflags_size;
+
                 $field = new_field( 1, length($label), $y, $label_x, 0, 0 );
                 if ( $field eq '' ) { fatal("new_field(LABEL $label) failed") }
                 set_field_buffer( $field, 0, $label );
@@ -3465,7 +3529,8 @@ sub do_form {
         disp_page( $win, form_page($cform) + 1, $npages, 'form', $formname );
         init_top( $win, $NO, $FS_HEADER_ROWS, $FS_TOP_ROWS, @{ $form{top} } );
         init_footer( $win, $NO, $FS_FOOTER_ROWS, @FSKeys );
-        post_form($cform);
+        my $post_rc = post_form($cform);
+        trace( "do_form: post_form => $post_rc ($npages page(s))", $LOG_NORMAL );
         if ($ovl_mode) {
             form_driver( $cform, REQ_OVL_MODE );
         }
@@ -4930,6 +4995,11 @@ $OPEN3_SHELL      = '/bin/sh';
 $USER_SHELL       = ( getpwuid($>) )[8];
 @fval_delim       = ( ' ', ' ' );
 $FIELD_VALUE_POS  = -1;
+# Auto value placement (FIELD_VALUE_POS == -1, NORMAL layout): the value column
+# sits this many columns past the longest label on the page, instead of being
+# right-aligned to the screen edge.  This keeps the dot run short and the form
+# compact, so values stay on-screen on narrow terminals.
+$FIELD_VALUE_GAP  = 4;
 $RESTRICTED       = $NO;
 @RESTRICTED_ALLOW = ();
 $HAS_COLOR        = $NO;
