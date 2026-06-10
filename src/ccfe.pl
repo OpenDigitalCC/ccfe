@@ -3490,10 +3490,6 @@ sub do_form {
               $eff_lines -
               ( $FS_HEADER_ROWS + $FS_TOP_ROWS + $FS_BOTTOM_ROWS
                   + $FS_FOOTER_ROWS );
-            trace(
-"resize_form: LINES=$LINES COLS=$COLS eff=${eff_lines}x${eff_cols} mwinr=$mwinr",
-                $LOG_NORMAL
-            );
 
             # Commit the field currently being edited to its buffer so the
             # value survives the free_form/new_form cycle below.
@@ -3503,7 +3499,17 @@ sub do_form {
 
             # Re-run the vertical page layout (mirrors the build loop): a field
             # starts a new page when the running row reaches the page height.
-            my $yy = 0;
+            # While here, measure the form's widest field: the value fields are
+            # right-aligned to the launch-time width, so on a narrower terminal
+            # they sit outside an 80-column window and post_form() fails with
+            # E_NO_ROOM, leaving the form unposted -- which then crashes the
+            # event loop (current_field() is NULL).  ncurses permits an
+            # over-sized window on a smaller screen (just as the 24-row vertical
+            # clamp relies on), so we widen the rebuilt window to hold every
+            # field instead.  (A true horizontal reflow that re-right-aligns the
+            # values to the visible width is the remaining ROADMAP M6 polish.)
+            my $yy        = 0;
+            my $max_right = 0;
             $npages = 0;
             foreach my $li ( 0 .. $#{ $form{fields} } ) {
                 $yy += ( $form{fields}[$li]{vtab} || 0 );
@@ -3518,10 +3524,16 @@ sub do_form {
                     field_info( $cf, $frows, $fcols, $frow, $fcol, $fnrow,
                         $fnbuf );
                     move_field( $cf, $yy, $fcol );
+                    $max_right = $fcol + $fcols if $fcol + $fcols > $max_right;
                 }
                 set_new_page( $fp[ $li * 7 ], $page_start );
                 $yy++;
             }
+            $eff_cols = $max_right if $eff_cols < $max_right;
+            trace(
+"resize_form: LINES=$LINES COLS=$COLS eff=${eff_lines}x${eff_cols} mwinr=$mwinr max_right=$max_right",
+                $LOG_NORMAL
+            );
 
             del_panel($pan) if $pan;
             delwin($fsub)   if $fsub;

@@ -26,7 +26,7 @@ my $prefix = tempdir( CLEANUP => 1 );
 my $log    = `cd "$src" && sh install.sh -b -p "$prefix" 2>&1`;
 plan skip_all => "install failed: $log" unless $? == 0 && -x "$prefix/bin/ccfe";
 
-plan tests => 9;
+plan tests => 10;
 
 use constant SIGSEGV => 11;
 # A libform error code (E_NOT_CONNECTED == -11) leaking to exit() shows up to
@@ -106,15 +106,23 @@ sub last_pages {    # the M of the latest "Pg:N/M"
     isnt( $s, SIGSEGV, 'shrinking below the minimum size does not crash' );
 }
 
-# Shrinking a form to a tiny terminal must not crash, and must never leak a
-# libform error status (245) out to the shell.  The form rebuild guards a NULL
-# window/sub/form, and the exit-status clamp blocks any negative code.
+# Launch a form on a WIDE terminal, then shrink narrow.  This is the real bug:
+# the value fields are right-aligned to the launch width, so once the terminal
+# is narrower than the value column, post_form() fails with E_NO_ROOM (-6), the
+# form is left unposted, and the next loop iteration crashes on a NULL current
+# field (surfacing to the shell as the leaked status 245).  A launch at 80x24
+# does NOT reproduce it -- the window has to start wider than it ends.  Whether
+# the unposted form actually crashes is platform-dependent, so we assert the
+# deterministic precondition instead: resize_form must never leave post_form
+# failing.  It widens the rebuilt window to hold every field, so the -d trace
+# shows "post_form => 0" at every size.
 {
-    my $pty = CCFE::Test::Pty->spawn( 80, 24, "$prefix/bin/ccfe", 'long' );
+    my $pty = CCFE::Test::Pty->spawn( 120, 40, "$prefix/bin/ccfe", '-d',
+        'long' );
     $pty->pump(1.2);
-    $pty->resize( 20, 6 );
+    $pty->resize( 88, 24 );    # narrower than the right-aligned value column
     $pty->pump(0.9);
-    $pty->resize( 10, 4 );
+    $pty->resize( 40, 10 );    # tiny
     $pty->pump(0.9);
     $pty->resize( 100, 30 );
     $pty->pump(0.9);
@@ -122,7 +130,17 @@ sub last_pages {    # the M of the latest "Pg:N/M"
     $pty->pump(0.3);
     $pty->send("\033");
     my ( $exit, $sig ) = $pty->wait(3);
-    isnt( $sig, SIGSEGV, 'shrinking a form to a tiny terminal does not crash' );
-    isnt( $exit, LEAKED_ERR_STATUS,
-        '  form never exits with a leaked libform status (245)' );
+    isnt( $sig, SIGSEGV,
+        'wide-launch form shrunk narrow does not crash' );
+
+    my $log = '';
+    if ( open( my $lh, '<', "$prefix/log/$ENV{USER}.log" ) ) {
+        local $/;
+        $log = <$lh>;
+        close($lh);
+    }
+    my @posts = $log =~ /resize_form: post_form => (-?\d+)/g;
+    ok( scalar(@posts), '  resize_form ran (post_form traced)' );
+    is( ( scalar grep { $_ != 0 } @posts ),
+        0, '  post_form never fails (no E_NO_ROOM) after a narrow resize' );
 }
