@@ -66,3 +66,9 @@ active_field_attr {
 #   form_global {
 #     show_dots = NO
 #   }
+
+# Mouse is off by default (so terminal click-to-select text keeps working).
+# To point at menu items -- click selects, double-click activates -- set:
+#   global {
+#     mouse = YES
+#   }

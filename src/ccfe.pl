@@ -1770,6 +1770,22 @@ sub load_config {
                                         }
                                         last ASWITCH;
                                     }
+                                    elsif (/^MOUSE$/) {
+                                        if (
+                                            defined( $bool_vals{ lc($attrv) } )
+                                          )
+                                        {
+                                            $ENABLE_MOUSE =
+                                              $bool_vals{ lc($attrv) };
+                                        }
+                                        else {
+                                            trace(
+"wrong value \"$attrv\" for \"$attrk\" attribute"
+                                            );
+                                            $res = $ES_SYNTAX_ERR;
+                                        }
+                                        last ASWITCH;
+                                    }
                                     elsif (/^SHOW_SCREEN_NAME$/) {
                                         if (
                                             defined( $bool_vals{ lc($attrv) } )
@@ -2358,6 +2374,37 @@ sub do_menu {
                 item_count($cmenu), 'menu', $menuname );
 
             $ch = getch($win);
+            if ( $MOUSE_ON and $ch == KEY_MOUSE ) {
+                # Point at a menu item: a left click moves the selection to the
+                # clicked row; a double click also activates it (re-dispatched
+                # as Enter, below).  Clicks outside the item rows are ignored.
+                # getmouse() fills a packed MEVENT { short id; int x,y,z;
+                # mmask_t bstate } -- we need the event row and the buttons.
+                my $activate = $NO;
+                my $mev      = '';
+                if ( getmouse($mev) == OK and length($mev) >= 20 ) {
+                    my $my = ( unpack( 'x4 l2', $mev ) )[1];
+                    my $mb =
+                      length($mev) >= 24
+                      ? unpack( 'x16 L!', $mev )
+                      : unpack( 'x16 V', $mev );
+                    my $row = $my - ( $MS_HEADER_ROWS + $MS_TOP_ROWS );
+                    my $t   = top_row($cmenu) + $row;
+                    if (    $row >= 0
+                        and $row < $rows
+                        and $t >= 0
+                        and $t < item_count($cmenu) )
+                    {
+                        my $cur = item_index( current_item($cmenu) );
+                        menu_driver( $cmenu,
+                            $t > $cur ? REQ_DOWN_ITEM : REQ_UP_ITEM )
+                          for 1 .. abs( $t - $cur );
+                        $activate = $YES if $mb & BUTTON1_DOUBLE_CLICKED();
+                    }
+                }
+                next unless $activate;
+                $ch = "\r";    # double-click: fall through to the Enter branch
+            }
             if ( $ch == KEY_UP ) {
                 menu_driver( $cmenu, REQ_UP_ITEM );
             }
@@ -5247,6 +5294,10 @@ trace( 'Changed CWD to ' . getcwd() );
 $HIDE_CURSOR      = $YES;
 $SHOW_SCREEN_NAME = $YES;
 $INITIAL_OVL_MODE = $NO;
+# Mouse is opt-in (config `mouse = YES`): grabbing mouse events stops the
+# terminal's own click-to-select text, which keyboard-first users may want.
+$ENABLE_MOUSE     = $NO;
+$MOUSE_ON         = $NO;
 $FIELD_PAD        = 95;
 $HFIELD_PAD       = 42;
 $SHOW_CHGD_FIELDS = $YES;
@@ -5320,6 +5371,21 @@ if ( has_colors() and !$ENV{NO_COLOR} and $LAYOUT != $SIMPLE ) {
 if ( !$PERMIT_DEBUG ) {
     trace('debugging disabled by configuration!');
     $DEBUG = $NO;
+}
+# Mouse (opt-in via `mouse = YES`): grab single and double left-clicks so a
+# menu item can be pointed at (click selects, double-click activates).  A short
+# double-click interval keeps a deliberate double-click responsive.
+if ($ENABLE_MOUSE) {
+    my $old = 0;
+    my $set = mousemask( BUTTON1_CLICKED() | BUTTON1_DOUBLE_CLICKED(), $old );
+    if ($set) {
+        mouseinterval(200);
+        $MOUSE_ON = $YES;
+        trace('mouse enabled (click to select, double-click to activate)');
+    }
+    else {
+        trace('mouse requested but the terminal has none');
+    }
 }
 trace("Using \"$USER_SHELL\" for user shell escape");
 trace("Using \"$OPEN3_SHELL\" for commands execution");

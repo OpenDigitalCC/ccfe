@@ -133,6 +133,13 @@ required, default, list_cmd) plus the title/top/action — then exits (0 ok, 1
 parse error, 2 not found), like `-k`.  For scripting, automation and the audit.
 `t/07-check-cli.t`.
 
+✅ **Mouse** (done, opt-in): with `mouse = YES` in the config, `do_menu` grabs
+left clicks — a single click moves the selection to the clicked item, a double
+click activates it (re-dispatched as Enter).  Off by default so the terminal's
+own click-to-select text keeps working.  Uses `mousemask` + the packed `MEVENT`
+from `getmouse`.  `t/12-mouse.t`.  Open: clickable footer function-keys, and
+mouse in forms / the pop-up list / the output browser.
+
 ## M7 — De-globalisation / full modularisation  _(REFACTOR §3 — deferred to end)_
 Extract `MenuFile`/`FormFile`/`Action`/`Layout`/`Exec`/`UI::*` into
 `lib/CCFE`, add `strict`/`warnings`, replace globals/`local` scope with an
