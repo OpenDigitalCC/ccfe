@@ -101,6 +101,11 @@ documentation**. Produce a short report, fix what's cheap, file the rest.
   `/usr/bin/ccfe` symlink, runs from the packaged tree). RPM spec and Alpine
   `APKBUILD` provided under `packaging/` (mirror the deb; not built here — no
   `rpmbuild`/`abuild`). Fixed `use lib` to resolve a symlinked invocation.
+- ✅ **M4** — multi-page forms: pagination existed but page **navigation was
+  invisible** — libform switches the logical page but doesn't repaint a derwin
+  sub-window, and ncurses' update optimisation missed the change. Fixed with
+  `redraw_form_page()` (unpost/post + `clearok`). A 40-field form now paginates
+  and navigates (PgUp/PgDn); regression test `t/08-multipage-form.t`.
 
 ### Done before this roadmap (post-v1.60)
 Security/restricted mode, the `CCFE::Restrict`/`CCFE::Theme` module

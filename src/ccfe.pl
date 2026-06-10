@@ -2833,6 +2833,20 @@ sub do_list {
     return $es, @selected;
 }
 
+# After a page change (REQ_NEXT_PAGE/REQ_PREV_PAGE) libform updates the
+# logical page but does not repaint a derwin sub-window on its own; un-posting
+# and re-posting the form draws the now-current page's fields (the field
+# buffers, i.e. anything the user typed, are preserved).  ncurses' update
+# optimisation also does not reliably notice the sub-window changing under the
+# switch, so clearok() forces a full repaint on the next refresh.
+sub redraw_form_page {
+    my ( $cform, $win ) = @_;
+    unpost_form($cform);
+    post_form($cform);
+    clearok( $win, 1 );
+    return;
+}
+
 sub do_form {
     my ( $formname, $title, @argv ) = @_;
 
@@ -3498,28 +3512,25 @@ sub do_form {
             elsif ( $ch == KEY_NPAGE ) {
                 set_field_attr;
                 form_driver( $cform, REQ_NEXT_PAGE );
+                redraw_form_page( $cform, $win );
                 set_field_active_attr;
                 form_driver( $cform, REQ_END_LINE );
                 disp_page( $win, form_page($cform) + 1,
                     $npages, 'form', $formname );
-                refresh($fsub);
+                touchwin($win);
+                refresh($win);
             }
             elsif ( $ch == KEY_PPAGE ) {
                 if ( $npages > 1 ) {
                     set_field_attr;
                     form_driver( $cform, REQ_PREV_PAGE );
-
-                    $i = field_index( current_field($cform) ) + 1;
-                    while ( $i <= $#fp && !new_page( $fp[$i] ) ) {
-                        $i++;
-                    }
-                    set_current_field( $cform, $fp[ $i - 1 ] );
-
+                    redraw_form_page( $cform, $win );
                     set_field_active_attr;
                     form_driver( $cform, REQ_END_LINE );
                     disp_page( $win, form_page($cform) + 1,
                         $npages, 'form', $formname );
-                    refresh($fsub);
+                    touchwin($win);
+                    refresh($win);
                 }
             }
             elsif ( $ch == KEY_HOME ) {
