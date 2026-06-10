@@ -1,0 +1,18 @@
+# Perl::Tidy configuration for CCFE.
+#
+# These settings reproduce the existing house style (the codebase is already
+# essentially default-perltidy), so applying `perltidy` is low-churn and keeps
+# new modules consistent with the legacy file.
+#
+#   perltidy -b src/lib/CCFE/*.pm     # format in place (.bak kept)
+#   perltidy --version
+
+-i=4            # 4-column indentation
+-l=80           # wrap at 80 columns
+-ci=2           # continuation indent
+-vt=0           # vertical tightness: opening tokens on their own line
+-pt=1           # paren tightness: spaces only around complex contents
+-bt=1           # brace tightness: same
+-sbt=1          # square-bracket tightness: same
+-nsfs           # no space before semicolon in for(;;)
+-nolq           # don't outdent long quoted strings

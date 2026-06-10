@@ -1,0 +1,22 @@
+# Perl::Critic configuration for CCFE.
+#
+# Policy: new code under src/lib/CCFE/ is held to severity 3 ("harsh"),
+# aiming for 2 over time.  The legacy single file src/ccfe.pl is NOT linted
+# here yet -- it predates use strict and would bury the signal; it is brought
+# under the gate incrementally as it is de-globalised (see REFACTOR.md sec 3-4).
+# CI therefore runs:  perlcritic src/lib
+#
+# Run with the default severity from this file:
+#   perlcritic src/lib
+# Or stricter, to see what tightening to 2 would flag:
+#   perlcritic --severity 2 src/lib
+
+severity = 3
+
+# `use v5.36` is the idiomatic modern way to turn on the feature bundle
+# (strict, warnings, signatures); it is not a version-string smell.
+[-ValuesAndExpressions::ProhibitVersionStrings]
+
+# We do not mandate the /x flag on every regular expression; it adds noise to
+# trivial patterns.  Complex patterns should still use it by good judgement.
+[-RegularExpressions::RequireExtendedFormatting]

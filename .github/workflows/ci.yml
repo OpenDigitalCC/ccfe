@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (standard Debian packages only)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            perl libcurses-perl ncurses-base ncurses-term \
+            libperl-critic-perl perltidy
+
+      - name: Compile check
+        working-directory: src
+        run: perl -c ccfe.pl
+
+      - name: Test suite
+        working-directory: src
+        # The pty-driven tty test (t/03) skips itself automatically when no
+        # Linux pseudo-terminal is available; the rest run headlessly.
+        run: prove -lr t/
+
+      - name: Perl::Critic (new modules)
+        # Enforced on src/lib only; the legacy single file is exempt until it
+        # is de-globalised (see .perlcriticrc and REFACTOR.md).
+        run: perlcritic --profile .perlcriticrc src/lib
+
+      - name: Formatting check (perltidy on new modules)
+        run: |
+          status=0
+          for f in $(find src/lib -name '*.pm'); do
+            if ! perltidy --profile=.perltidyrc -st "$f" 2>/dev/null \
+                 | diff -q - "$f" >/dev/null; then
+              echo "Not tidy: $f (run: perltidy --profile=.perltidyrc -b $f)"
+              status=1
+            fi
+          done
+          exit $status
