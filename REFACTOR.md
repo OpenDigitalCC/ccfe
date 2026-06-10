@@ -279,11 +279,10 @@ Beyond the above, ordered roughly by value-to-effort:
 2. **Finish resize reflow.** v1.60 made `KEY_RESIZE` trigger a redraw; complete
    it by tearing down and rebuilding windows from fresh `$LINES`/`$COLS` on
    `SIGWINCH`, so resizing reflows instead of just repainting the old geometry.
-3. **Drop the `sed` path-templating; configure at runtime.** The installer
-   rewrites `$LIBDIR`/`$MSGDIR`/… into the script. Reading those from config
-   (with sane defaults relative to the binary) removes a fragile install step,
-   makes the program runnable straight from the source tree, and simplifies
-   packaging.
+3. **Drop the `sed` path-templating; configure at runtime.** ✅ Done (v2):
+   `ccfe.pl` resolves its paths from its own location (FindBin) with
+   `CCFE_*_DIR` env overrides, so it installs byte-identical, is relocatable,
+   and packages cleanly. The installer just copies the program.
 4. **A `ccfe --check <file>` linter and machine-readable `--dump`.** ✅ The
    linter shipped as `ccfe -k NAME` (parse-check, exit 0/1/2; see
    `t/07-check-cli.t`). Still open: a machine-readable `--dump` of the parsed

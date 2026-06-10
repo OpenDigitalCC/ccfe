@@ -41,20 +41,27 @@ use Digest::MD5 qw(md5_hex);
 use lib do { my $d = dirname(__FILE__); ( "$d/lib", "$d/../lib/perl5" ) };
 use CCFE::Restrict ();
 use CCFE::Theme    ();
+use FindBin ();    # to locate the program at runtime (see the path block below)
 
 $VERSION      = '2.0';
 $VERSION_DATE = '10/06/2026';
 $VERSION_YEAR = '2009, 2026';
 
-$PREFIX = "/usr/local/ccfe";
+# Install paths are resolved at runtime from this program's own location, so
+# the same unmodified file works at any prefix -- no install-time templating.
+# $PREFIX is the directory above bin/ (FindBin::RealBin resolves a PATH lookup
+# or a symlinked instance name to the real bin dir).  Each directory may be
+# overridden by an environment variable, which is how an FHS package points at
+# a split tree (e.g. CCFE_ETC_DIR=/etc/ccfe).
+$PREFIX = $ENV{CCFE_PREFIX} || dirname($FindBin::RealBin);
 
-$ETCDIR   = "$PREFIX/etc";
-$BINDIR   = "$PREFIX/bin";
+$ETCDIR   = $ENV{CCFE_ETC_DIR}   || "$PREFIX/etc";
+$BINDIR   = $ENV{CCFE_BIN_DIR}   || "$PREFIX/bin";
 $LIBDIR   = "$PREFIX/lib";
-$LOGDIR   = "$PREFIX/log";
-$MSGDIR   = "$PREFIX/msg";
-$OBJDIR   = "$PREFIX/share/ccfe/objects";
-$THEMEDIR = "$PREFIX/share/ccfe/themes";
+$LOGDIR   = $ENV{CCFE_LOG_DIR}   || "$PREFIX/log";
+$MSGDIR   = $ENV{CCFE_MSG_DIR}   || "$PREFIX/msg";
+$OBJDIR   = $ENV{CCFE_OBJ_DIR}   || "$PREFIX/share/ccfe/objects";
+$THEMEDIR = $ENV{CCFE_THEME_DIR} || "$PREFIX/share/ccfe/themes";
 
 $REALNAME        = 'ccfe';
 $DESCR           = 'The Curses Command Front-end';
@@ -4625,20 +4632,11 @@ For more information about these matters, see the file named COPYING.
 EOT
     exit 0;
 }
+# -l restricts the search to a single objects directory (explicit override).
+# Environment overrides (CCFE_OBJ_DIR etc.) are applied up front in the path
+# block and keep the normal search path, so they don't need handling here.
 if ( defined( $options{l} ) ) {
     $OBJDIR  = $options{l};
-    $WRKDIR  = $OBJDIR;
-    @mf_path = ($OBJDIR);
-}
-# CCFE_OBJ_DIR overrides the objects (menus/forms) dir; CCFE_LIB_DIR is the
-# pre-v2 name, still honoured for compatibility.
-if ( defined( $ENV{'CCFE_OBJ_DIR'} ) ) {
-    $OBJDIR  = $ENV{'CCFE_OBJ_DIR'};
-    $WRKDIR  = $OBJDIR;
-    @mf_path = ($OBJDIR);
-}
-elsif ( defined( $ENV{'CCFE_LIB_DIR'} ) ) {
-    $OBJDIR  = $ENV{'CCFE_LIB_DIR'};
     $WRKDIR  = $OBJDIR;
     @mf_path = ($OBJDIR);
 }

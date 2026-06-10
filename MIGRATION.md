@@ -50,4 +50,10 @@ if set.
   `LIB_DIR`. `LIB_DIR` is retained for older plugin scripts.
 - The `CCFE_OBJ_DIR` environment variable overrides the objects directory;
   the old `CCFE_LIB_DIR` is still honoured.
+- **Paths are now resolved at runtime** from the program's own location, so
+  the installed `ccfe` is byte-identical to the source and the whole install
+  is **relocatable** — move the prefix and it still works. A split (FHS-style)
+  layout is selected with environment variables:
+  `CCFE_PREFIX`, `CCFE_ETC_DIR`, `CCFE_MSG_DIR`, `CCFE_LOG_DIR`,
+  `CCFE_OBJ_DIR`, `CCFE_THEME_DIR` (e.g. `CCFE_ETC_DIR=/etc/ccfe`).
 - Nothing about the `.menu` / `.form` / `.item` / `.conf` syntax changed.

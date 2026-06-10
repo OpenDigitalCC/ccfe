@@ -141,8 +141,11 @@ install ()
     chmod 1777 $LOGDIR
   fi
   
+  # ccfe.pl is installed UNMODIFIED: it resolves its paths at runtime from its
+  # own location (bin/..), so there is no install-time templating.  A custom
+  # split layout (e.g. an FHS package) is selected with CCFE_*_DIR env vars.
   echo "Copying program files..."
-  sed -e "/^\$PREFIX = /d ; s/^\$ETCDIR   = .*$/\$ETCDIR   = '$exp_etcdir';/ ; s/^\$BINDIR   = .*$/\$BINDIR   = '$exp_bindir';/ ;s/^\$LIBDIR   = .*$/\$LIBDIR   = '$exp_libdir';/ ;s/^\$LOGDIR   = .*$/\$LOGDIR   = '$exp_logdir';/ ;s/^\$MSGDIR   = .*$/\$MSGDIR   = '$exp_msgdir';/ ;s/^\$OBJDIR   = .*$/\$OBJDIR   = '$exp_objdir';/ ;s/^\$THEMEDIR = .*$/\$THEMEDIR = '$exp_themedir';/ ;" ccfe.pl > $BINDIR/ccfe
+  cp ccfe.pl $BINDIR/ccfe
   chmod 755 $BINDIR/ccfe
 
   # CCFE's own Perl modules; ccfe finds them at bin/../lib/perl5 (see the
@@ -356,7 +359,5 @@ then
   exp_logdir=$(echo $LOGDIR | sed -e 's/\//\\\//g')
   exp_msgdir=$(echo $MSGDIR | sed -e 's/\//\\\//g')
   exp_docdir=$(echo $DOCDIR | sed -e 's/\//\\\//g')
-  exp_objdir=$(echo $OBJDIR | sed -e 's/\//\\\//g')
-  exp_themedir=$(echo $THEMEDIR | sed -e 's/\//\\\//g')
   install
 fi

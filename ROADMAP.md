@@ -92,6 +92,10 @@ documentation**. Produce a short report, fix what's cheap, file the rest.
   dirs (with `~/.ccfe` fallback); installer, search paths, `print_config`
   (`OBJ_DIR`/`THEME_DIR`), the sysmon plugin installer and the docs updated;
   `MIGRATION.md` added. 106 tests green.
+- ✅ **M2** — runtime configuration: `ccfe.pl` resolves its paths from its own
+  location (FindBin), so it installs **byte-identical** (no `sed` templating),
+  is **relocatable**, runs via `PATH`, and supports `CCFE_*_DIR` env overrides
+  for split/FHS layouts. Verified by moving an install and invoking by name.
 
 ### Done before this roadmap (post-v1.60)
 Security/restricted mode, the `CCFE::Restrict`/`CCFE::Theme` module
