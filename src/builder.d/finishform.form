@@ -1,0 +1,23 @@
+title { Finish a form -- set its action }
+field {
+  id      = FORMNAME
+  len     = 24
+  type    = STRING
+  label   = Form name
+}
+field {
+  id      = ACTION
+  len     = 50
+  type    = STRING
+  hscroll = YES
+  label   = Action (e.g. run:mycmd, or run:echo "$CCFE_FIELD_NAME")
+}
+separator { type = LINE }
+separator {
+  type = TEXT_CENTER
+  text = Tip: read a field value safely as $CCFE_FIELD_<ID> in the action.
+  vtab = 1
+}
+action { run:
+  "$CCFE_BIN_DIR/ccfe-build" set-action "$CCFE_FIELD_FORMNAME" "$CCFE_FIELD_ACTION"
+}

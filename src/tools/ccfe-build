@@ -1,0 +1,134 @@
+#!/bin/sh
+#
+# ccfe-build -- backend for CCFE's guided builders (ROADMAP M5).
+#
+# Creates and extends menus, forms and config in the user's XDG directories
+# and validates objects with `ccfe -k`.  It is invoked by the builder forms
+# (see builder.menu / builder.d/) via run: actions, which pass the form field
+# values as $CCFE_FIELD_* environment variables -- so user input never goes
+# through shell interpolation (it arrives as ordinary arguments here).
+#
+# Usage:
+#   ccfe-build new-menu   NAME TITLE
+#   ccfe-build add-item   MENU ID DESCR ACTION
+#   ccfe-build new-form   NAME TITLE
+#   ccfe-build add-field  FORM ID LABEL [TYPE]
+#   ccfe-build set-action FORM ACTION
+#   ccfe-build set-config KEY VALUE        # global { } setting in the user conf
+#   ccfe-build list                        # list the user's objects
+#
+#  Copyright (C) 2026 CCFE contributors.  GPL-2.0-or-later.
+
+set -eu
+
+realname=ccfe
+objdir="${XDG_DATA_HOME:-$HOME/.local/share}/$realname/$realname"
+cfgdir="${XDG_CONFIG_HOME:-$HOME/.config}/$realname"
+conf="$cfgdir/$realname.conf"
+
+# The CCFE binary (set by ccfe for its children; else found on PATH).
+ccfe="${CCFE_BIN_DIR:-}/ccfe"
+[ -x "$ccfe" ] || ccfe=ccfe
+
+die() { echo "ccfe-build: $*" >&2; exit 1; }
+
+valid_name() {
+  case "$1" in
+    '' | *[!A-Za-z0-9_.-]* | .* ) return 1 ;;
+    * ) return 0 ;;
+  esac
+}
+
+validate() { "$ccfe" -k "$1"; }
+
+ensure_dirs() { mkdir -p "$objdir" "$cfgdir"; }
+
+cmd=${1:-}
+[ -n "$cmd" ] || die "no command (try: new-menu, add-item, new-form, add-field, set-action, set-config, list)"
+shift
+
+case "$cmd" in
+  new-menu)
+    name=${1:-}; title=${2:-}
+    valid_name "$name" || die "invalid menu name \"$name\" (use letters, digits, _ . -)"
+    ensure_dirs
+    f="$objdir/$name.menu"
+    [ -e "$f" ] && die "menu already exists: $f"
+    { printf 'title {\n  %s\n}\n' "$title"; } > "$f"
+    chmod 0644 "$f"
+    echo "Created menu: $f"
+    echo "Now add items with the \"Add a menu item\" form."
+    ;;
+
+  add-item)
+    name=${1:-}; id=${2:-}; descr=${3:-}; action=${4:-}
+    if [ -z "$id" ] || [ -z "$action" ]; then
+      die "add-item needs MENU ID DESCR ACTION"
+    fi
+    f="$objdir/$name.menu"
+    [ -f "$f" ] || die "no such menu: $f (create it first)"
+    { printf 'item {\n  id     = %s\n  descr  = %s\n  action = %s\n}\n' \
+        "$id" "$descr" "$action"; } >> "$f"
+    echo "Added item \"$id\" to menu \"$name\""
+    validate "$name"
+    ;;
+
+  new-form)
+    name=${1:-}; title=${2:-}
+    valid_name "$name" || die "invalid form name \"$name\""
+    ensure_dirs
+    f="$objdir/$name.form"
+    [ -e "$f" ] && die "form already exists: $f"
+    { printf 'title {\n  %s\n}\n' "$title"; } > "$f"
+    chmod 0644 "$f"
+    echo "Created form: $f  (add fields, then set-action)"
+    ;;
+
+  add-field)
+    name=${1:-}; id=${2:-}; label=${3:-}; type=${4:-STRING}
+    [ -n "$id" ] || die "add-field needs FORM ID LABEL [TYPE]"
+    f="$objdir/$name.form"
+    [ -f "$f" ] || die "no such form: $f"
+    { printf 'field {\n  id    = %s\n  len   = 20\n  type  = %s\n  label = %s\n}\n' \
+        "$id" "$type" "$label"; } >> "$f"
+    echo "Added field \"$id\" ($type) to form \"$name\""
+    ;;
+
+  set-action)
+    name=${1:-}; action=${2:-}
+    [ -n "$action" ] || die "set-action needs FORM ACTION"
+    f="$objdir/$name.form"
+    [ -f "$f" ] || die "no such form: $f"
+    { printf 'action { %s }\n' "$action"; } >> "$f"
+    echo "Set action on form \"$name\""
+    validate "$name"
+    ;;
+
+  set-config)
+    key=${1:-}; val=${2:-}
+    [ -n "$key" ] || die "set-config needs KEY VALUE"
+    ensure_dirs
+    [ -f "$conf" ] || printf 'global {\n}\n' > "$conf"
+    # Replace an existing key in global { }, or insert before its closing brace.
+    tmp="$conf.tmp.$$"
+    if grep -qE "^[[:space:]]*${key}[[:space:]]*=" "$conf"; then
+      sed "s|^[[:space:]]*${key}[[:space:]]*=.*|  ${key} = ${val}|" "$conf" > "$tmp"
+    else
+      awk -v k="$key" -v v="$val" '
+        /^}/ && !done { print "  " k " = " v; done=1 } { print }' "$conf" > "$tmp"
+    fi
+    mv "$tmp" "$conf"
+    chmod 0644 "$conf"
+    echo "Set $key = $val in $conf"
+    ;;
+
+  list)
+    echo "Objects in $objdir:"
+    ls -1 "$objdir" 2>/dev/null || echo "  (none yet)"
+    echo "Config: $conf"
+    ;;
+
+  *)
+    die "unknown command: $cmd"
+    ;;
+esac

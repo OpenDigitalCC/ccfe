@@ -4768,6 +4768,7 @@ umask 0077;
 chomp( $ENV{'CCFE_IWD'} = `pwd` );
 $ENV{'CCFE_LIB_DIR'} = $LIBDIR;    # kept for pre-v2 plugins
 $ENV{'CCFE_OBJ_DIR'} = $OBJDIR;    # menus/forms (objects) dir
+$ENV{'CCFE_BIN_DIR'} = $BINDIR;    # so actions can find sibling tools (ccfe-build)
 $WRKDIR = "$OBJDIR/$CALLNAME" if !defined($WRKDIR);
 my $shcut = $ARGV[0] ? $ARGV[0] : $REALNAME;
 trace(

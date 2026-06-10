@@ -1,0 +1,24 @@
+title { Create a new form }
+field {
+  id      = FORMNAME
+  len     = 24
+  type    = STRING
+  label   = Form name (letters, digits, _ . -)
+}
+field {
+  id      = TITLE
+  len     = 40
+  type    = STRING
+  htab    = 1
+  hscroll = YES
+  label   = Form title
+}
+separator { type = LINE }
+separator {
+  type = TEXT_CENTER
+  text = After creating it, add fields then set an action.
+  vtab = 1
+}
+action { run:
+  "$CCFE_BIN_DIR/ccfe-build" new-form "$CCFE_FIELD_FORMNAME" "$CCFE_FIELD_TITLE"
+}

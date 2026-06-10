@@ -1,0 +1,33 @@
+title { Add a field to a form }
+field {
+  id      = FORMNAME
+  len     = 24
+  type    = STRING
+  label   = Form name to add to
+}
+field {
+  id      = FIELDID
+  len     = 16
+  type    = UCSTRING
+  htab    = 1
+  label   = Field id (e.g. NAME)
+}
+field {
+  id      = LABEL
+  len     = 40
+  type    = STRING
+  hscroll = YES
+  label   = Field label (the prompt)
+}
+field {
+  id      = TYPE
+  len     = 10
+  type    = UCSTRING
+  default = const: STRING
+  list_cmd = const:single-val:"STRING","UCSTRING","NUMERIC","BOOLEAN"
+  label   = Type (F2 for a list)
+}
+action { run:
+  "$CCFE_BIN_DIR/ccfe-build" add-field "$CCFE_FIELD_FORMNAME" \
+      "$CCFE_FIELD_FIELDID" "$CCFE_FIELD_LABEL" "$CCFE_FIELD_TYPE"
+}

@@ -1,0 +1,24 @@
+title { Create a new menu }
+field {
+  id      = MENUNAME
+  len     = 24
+  type    = STRING
+  label   = Menu name (letters, digits, _ . -)
+}
+field {
+  id      = TITLE
+  len     = 40
+  type    = STRING
+  htab    = 1
+  hscroll = YES
+  label   = Menu title (shown at the top)
+}
+separator { type = LINE }
+separator {
+  type = TEXT_CENTER
+  text = Press <Enter>/<F3> to create it; then use "Add an item".
+  vtab = 1
+}
+action { run:
+  "$CCFE_BIN_DIR/ccfe-build" new-menu "$CCFE_FIELD_MENUNAME" "$CCFE_FIELD_TITLE"
+}

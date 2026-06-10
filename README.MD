@@ -216,6 +216,16 @@ then run `ccfe mytools`. See the manual pages under `src/man/` (or
 file-format reference, and `ccfe-plugin-sysmon` for forms and `list_cmd`
 dropdowns.
 
+### Build menus and forms without an editor
+
+CCFE can build CCFE. Run `ccfe builder` for a guided menu that creates and
+extends menus, forms and config — writing them to your XDG directory and
+validating each with `ccfe -k`. It is plain CCFE content driving the
+`ccfe-build` helper (the same helper is usable directly:
+`ccfe-build new-menu mytools "My tools"`, `ccfe-build add-item mytools DISK
+"Disk usage" "run:df -h"`). Field values reach the helper through
+`$CCFE_FIELD_*`, so nothing you type is shell-interpolated.
+
 Validate a menu or form without opening the UI (useful for authors and CI):
 
 ```sh

@@ -147,6 +147,8 @@ install ()
   echo "Copying program files..."
   cp ccfe.pl $BINDIR/ccfe
   chmod 755 $BINDIR/ccfe
+  cp tools/ccfe-build $BINDIR/ccfe-build
+  chmod 755 $BINDIR/ccfe-build
 
   # CCFE's own Perl modules; ccfe finds them at bin/../lib/perl5 (see the
   # `use lib` in ccfe.pl).  Refreshed on update too, like the program itself.
@@ -170,6 +172,10 @@ install ()
     # Demos:
     cp -r demo.menu $OBJDIR/ccfe
     cp -r demo.d $OBJDIR/ccfe
+
+    # Guided builders (the "ccfe builder" menu drives ccfe-build):
+    cp builder.menu $OBJDIR/ccfe
+    cp -r builder.d $OBJDIR/ccfe
     PATH=$BINDIR:$PATH
     export PATH
     cd ccfe-plugin-sysmon

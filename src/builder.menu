@@ -1,0 +1,42 @@
+title {
+  CCFE builder
+}
+top {
+  Create and edit your own menus, forms and settings -- no editor needed.
+  New objects are written to your personal CCFE directory.
+}
+item {
+  id     = NEWMENU
+  descr  = Create a new menu
+  action = form:builder.d/newmenu
+}
+item {
+  id     = ADDITEM
+  descr  = Add an item to a menu
+  action = form:builder.d/additem
+}
+item {
+  id     = NEWFORM
+  descr  = Create a new form
+  action = form:builder.d/newform
+}
+item {
+  id     = ADDFIELD
+  descr  = Add a field to a form
+  action = form:builder.d/addfield
+}
+item {
+  id     = FINISH
+  descr  = Finish a form (set its action)
+  action = form:builder.d/finishform
+}
+item {
+  id     = SETTINGS
+  descr  = Change a setting (ccfe.conf)
+  action = form:builder.d/settings
+}
+item {
+  id     = LIST
+  descr  = List my menus and forms
+  action = run:"$CCFE_BIN_DIR/ccfe-build" list
+}

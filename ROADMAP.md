@@ -106,6 +106,10 @@ documentation**. Produce a short report, fix what's cheap, file the rest.
   sub-window, and ncurses' update optimisation missed the change. Fixed with
   `redraw_form_page()` (unpost/post + `clearok`). A 40-field form now paginates
   and navigates (PgUp/PgDn); regression test `t/08-multipage-form.t`.
+- ✅ **M5** — guided builders: `ccfe builder` (a menu + forms) and the
+  `ccfe-build` backend let users create/extend menus, forms and config — "CCFE
+  building CCFE" — writing to the XDG dir, validating with `ccfe -k`, and taking
+  input injection-safely via `$CCFE_FIELD_*`. Tests in `t/09-builder.t`.
 
 ### Done before this roadmap (post-v1.60)
 Security/restricted mode, the `CCFE::Restrict`/`CCFE::Theme` module

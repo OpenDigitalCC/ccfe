@@ -1,0 +1,32 @@
+title { Add an item to a menu }
+field {
+  id      = MENUNAME
+  len     = 24
+  type    = STRING
+  label   = Menu name to add to
+}
+field {
+  id      = ITEMID
+  len     = 16
+  type    = UCSTRING
+  htab    = 1
+  label   = Item id (e.g. DISK)
+}
+field {
+  id      = DESCR
+  len     = 40
+  type    = STRING
+  hscroll = YES
+  label   = Description (shown in the menu)
+}
+field {
+  id      = ACTION
+  len     = 40
+  type    = STRING
+  hscroll = YES
+  label   = Action (e.g. run:df -h, menu:other, form:x)
+}
+action { run:
+  "$CCFE_BIN_DIR/ccfe-build" add-item "$CCFE_FIELD_MENUNAME" \
+      "$CCFE_FIELD_ITEMID" "$CCFE_FIELD_DESCR" "$CCFE_FIELD_ACTION"
+}
