@@ -185,8 +185,14 @@ the conformance tests.
   plus term-specific (`FIELD_ATTR.$TERM`) and `$COLS`-dependent handling -- so
   that (effectful, scope-bound) dispatch stays in `load_config` verbatim. Unit-
   tested in `t/15-config.t` (17 cases); the colour/theme integration test
-  (`t/06-color.t`) and full suite (252 tests) stay green. Next: `Action`, the
-  pure `Layout` helpers, and finally the `$ctx` threading.
+  (`t/06-color.t`) and full suite (252 tests) stay green.
+- 🔄 **`CCFE::Action`** (done): the action-string parse (`VERB[(opts)]:ARGS` ->
+  `{verb, opts, args}`) -- the same five-line split/regex duplicated in
+  `do_menu` and `do_form` -- is now a pure module. The dispatch (running the
+  verb, prompting for `confirm`, honouring `log`/`wait_key`, spawning commands)
+  stays in `ccfe.pl` as it draws lists and runs processes. Unit-tested in
+  `t/16-action.t` (23 cases); the menu/form tty tests and full suite (275 tests)
+  stay green. Next: the pure `Layout` helpers, and finally the `$ctx` threading.
 
 ## M8 — Non-functional close-out audit  _(final gate)_
 Five dimensions: **test coverage, code quality, performance, security,

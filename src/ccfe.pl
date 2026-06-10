@@ -49,6 +49,7 @@ use CCFE::Theme    ();
 use CCFE::MenuFile ();    # pure .menu/.item parser (see load_menu)
 use CCFE::FormFile ();    # pure .form parser (see load_form)
 use CCFE::Config   ();    # pure .conf section tokenizer (see load_config)
+use CCFE::Action   ();    # pure action-string parser (see do_menu/do_form)
 use FindBin ();    # to locate the program at runtime (see the path block below)
 
 # Optional display-width support.  In a UTF-8 locale a label/title can occupy
@@ -2121,12 +2122,10 @@ sub do_menu {
                 $ci           = item_index( current_item($cmenu) );
                 $last_item_id = $menu{items}[$ci]{id};
                 if ( $menu{items}[$ci]{action} ) {
-                    ( $action, $args ) = split /:/, $menu{items}[$ci]{action},
-                      2;
-                    $action = lc $action;
-                    $action =~ /^([a-zA-Z]+)\(?([a-zA-Z_,]*)\)?$/;
-                    $action = $1;
-                    @actopts = split /,\s*/, $2;
+                    my $act = CCFE::Action::parse( $menu{items}[$ci]{action} );
+                    $action  = $act->{verb};
+                    $args    = $act->{args};
+                    @actopts = @{ $act->{opts} };
 
                     $wait_key      = $NO;
                     $LOG_REQUESTED = $NO;
@@ -3663,13 +3662,10 @@ sub do_form {
                 }
 
                 unless ($empty_required) {
-                    ( $action, $args ) = split /:/, $form{action}, 2;
-                    $action =~ s/^\s+//;
-                    $action = lc $action;
-
-                    $action =~ /^([a-zA-Z]+)\(?([a-zA-Z_,]*)\)?$/;
-                    $action = $1;
-                    @actopts = split /,\s*/, $2;
+                    my $act = CCFE::Action::parse( $form{action} );
+                    $action  = $act->{verb};
+                    $args    = $act->{args};
+                    @actopts = @{ $act->{opts} };
 
                     $wait_key      = $NO;
                     $LOG_REQUESTED = $NO;
