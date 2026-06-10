@@ -260,6 +260,7 @@ $DESCR.
     -c      : print some Configuration parameters and exit
     -d      : set verbose log for Debugging purposes
     -h      : print this (Help) message and exit
+    -k NAME : checK that menu/form NAME parses, then exit (no terminal needed)
     -l PATH : set forms and menus Library directory to PATH
     -s      : print available Shortcuts and exit
     -v      : print Version informations and exit
@@ -4411,6 +4412,35 @@ sub get_shortcut {
     return;
 }
 
+# Parse-check a menu or form by name (the `-k` linter).  Returns an exit code:
+# 0 = parses cleanly, 1 = parse error, 2 = not found on the search path.
+sub check_shortcut {
+    my ($name) = @_;
+    my $ext = get_shortcut($name);
+    unless ($ext) {
+        print STDERR
+          "$CALLNAME: no menu or form \"$name\" on the search path\n";
+        return 2;
+    }
+    my $is_menu = ( $ext eq $MENUEXT );
+    my $es = $is_menu ? load_menu($name) : load_form($name);
+    if ( $es == $ES_NO_ERR ) {
+        my $kind  = $is_menu ? 'menu' : 'form';
+        my $title = $is_menu ? $menu{title} : $form{title};
+        my $count =
+          $is_menu
+          ? scalar( @{ $menu{items}  || [] } )
+          : scalar( @{ $form{fields} || [] } );
+        my $unit = $is_menu ? 'item(s)' : 'field(s)';
+        printf "OK: %s \"%s\" -- title \"%s\", %d %s\n", $kind, $name,
+          ( defined $title ? $title : '' ), $count, $unit;
+        return 0;
+    }
+    printf STDERR "ERROR: %s \"%s\": %s\n", ( $is_menu ? 'menu' : 'form' ),
+      $name, ( $es_str[$es] || "parse error ($es)" );
+    return 1;
+}
+
 sub list_shortcuts {
     my @unique = ();
     my @all    = ();
@@ -4526,7 +4556,7 @@ return 1 if $ENV{CCFE_TESTING};
 $Getopt::Std::STANDARD_HELP_VERSION = $TRUE;
 $Getopt::Std::OUTPUT_HELP_VERSION   = '';
 %options                            = ();
-getopts( "vhsdcl:", \%options ) or usage();
+getopts( "vhsdck:l:", \%options ) or usage();
 if ( defined $options{v} ) {
     my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
     my ( $dd, $mm, $yy ) = split /\//, $VERSION_DATE;
@@ -4562,6 +4592,12 @@ $es_str[$ES_SYNTAX_ERR] = $ES_SYNTAX_ERR_MSG;
 $es_str[$ES_FOPEN_ERR]  = $ES_FOPEN_ERR_MSG;
 $es_str[$ES_NOT_FOUND]  = $ES_NOT_FOUND_MSG;
 $es_str[$ES_NO_ITEMS]   = $ES_NO_ITEMS_MSG;
+
+# `-k NAME`: parse-check a menu or form without starting the terminal.  Uses
+# the same headless parser the test suite does, so plugin authors and CI can
+# validate .menu/.form files.  Exits 0 on success, 1 on a parse error, 2 if
+# the name is not found on the search path.
+exit check_shortcut( $options{k} ) if defined $options{k};
 
 %keys = (
     help => {

@@ -189,6 +189,13 @@ then run `ccfe mytools`. See the manual pages under `src/man/` (or
 file-format reference, and `ccfe-plugin-sysmon` for forms and `list_cmd`
 dropdowns.
 
+Validate a menu or form without opening the UI (useful for authors and CI):
+
+```sh
+ccfe -k mytools          # OK: menu "mytools" -- title "...", 3 item(s)
+ccfe -k sysmon.d/sar     # checks a form; exits non-zero on a parse error
+```
+
 ## Tests
 
 ```sh
