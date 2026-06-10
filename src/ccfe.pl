@@ -2663,7 +2663,18 @@ sub do_form {
     local %form;
     my ( @fields_to_remove, @fields_to_enable, @fields_to_disable );
 
-    sub sync_fields_val {
+    # M7 de-globalisation (Phase 3): the form's nested helpers are anonymous
+    # closures, not named subs, so each do_form call's helpers capture that
+    # call's own form state ($cform/@fp/%form) -- a named sub would bind the
+    # first call's copy ("won't stay shared").  Forward-declared so any future
+    # mutual reference resolves; assigned below.
+    my (
+        $sync_fields_val,   $set_field_attr, $set_field_active_attr,
+        $check_val_changes, $prepare_action, $save_persistent,
+        $load_persistent
+    );
+
+    $sync_fields_val = sub {
         form_driver( $cform, REQ_VALIDATION );
         foreach my $i ( 0 .. $#{ $form{fields} } ) {
             $form{fields}[$i]{value} =
@@ -2673,9 +2684,9 @@ sub do_form {
                 $form{fields}[$i]{value} =~ s/^\s+//;
             }
         }
-    }
+    };
 
-    sub set_field_attr {
+    $set_field_attr = sub {
         my $lptr = $fp[ field_index( current_field($cform) ) - 6 ];
         my $vptr = $fp[ field_index( current_field($cform) ) ];
         my $fidx = int( field_index( current_field($cform) ) / 7 );
@@ -2683,9 +2694,9 @@ sub do_form {
         set_field_back( $lptr, $labelBg );
         set_field_fore( $vptr, $form{fields}[$fidx]{valueFg} );
         set_field_back( $vptr, $form{fields}[$fidx]{valueBg} );
-    }
+    };
 
-    sub set_field_active_attr {
+    $set_field_active_attr = sub {
         my ( $bg, $fg );
         my $fidx = int( field_index( current_field($cform) ) / 7 );
         if ( $SHOW_CHGD_FIELDS and $form{fields}[$fidx]{changed} ) {
@@ -2702,9 +2713,9 @@ sub do_form {
             $af_labelBg );
         set_field_fore( $fp[ field_index( current_field($cform) ) ], $fg );
         set_field_back( $fp[ field_index( current_field($cform) ) ], $bg );
-    }
+    };
 
-    sub check_val_changes {
+    $check_val_changes = sub {
         form_driver( $cform, REQ_VALIDATION );
         my $curr_val = field_buffer( current_field($cform), 0 );
         $curr_val =~ s/\s+$//;
@@ -2728,9 +2739,9 @@ sub do_form {
                 $form{fields}[$fi]{valueBg} = $valueBg;
             }
         }
-    }
+    };
 
-    sub prepare_action {
+    $prepare_action = sub {
         my ($action_ref) = @_;
 
         my ( $id, $val );
@@ -2806,9 +2817,9 @@ sub do_form {
 
         $$action_ref =~ s/^\s+//;
         $$action_ref =~ s/\s+$//;
-    }
+    };
 
-    sub save_persistent {
+    $save_persistent = sub {
         my ( $fname, $hash, $c );
 
         $c = 0;
@@ -2860,9 +2871,9 @@ sub do_form {
         else {
             trace( "Persistent data written to $fname", $LOG_FIELDS_VAL );
         }
-    }
+    };
 
-    sub load_persistent {
+    $load_persistent = sub {
         my ($field_vals) = @_;
         my @res = ();
         my ( $fname, $hash );
@@ -2890,7 +2901,7 @@ sub do_form {
                 }
             }
         }
-    }
+    };
 
     unless ( $es = load_form( $formname, \$form_dir ) ) {
         undef(@fields_to_remove);
@@ -2988,7 +2999,7 @@ sub do_form {
                 trace("unknown form init type \"$action\"");
             }
         }
-        load_persistent($field_vals);
+        $load_persistent->($field_vals);
 
         $y           = 0;
         $npages      = 0;
@@ -3551,10 +3562,10 @@ sub do_form {
             $ch = getch($win);
 
             if ( $ch == KEY_UP or $ch == KEY_DOWN ) {
-                set_field_attr;
+                $set_field_attr->();
                 form_driver( $cform, REQ_NEXT_FIELD ) if $ch == KEY_DOWN;
                 form_driver( $cform, REQ_PREV_FIELD ) if $ch == KEY_UP;
-                set_field_active_attr;
+                $set_field_active_attr->();
                 form_driver( $cform, REQ_END_LINE );
             }
             elsif ( $ch == KEY_LEFT ) {
@@ -3564,10 +3575,10 @@ sub do_form {
                 form_driver( $cform, REQ_RIGHT_CHAR );
             }
             elsif ( $ch == KEY_NPAGE ) {
-                set_field_attr;
+                $set_field_attr->();
                 form_driver( $cform, REQ_NEXT_PAGE );
                 redraw_form_page( $cform, $win );
-                set_field_active_attr;
+                $set_field_active_attr->();
                 form_driver( $cform, REQ_END_LINE );
                 disp_page( $win, form_page($cform) + 1,
                     $npages, 'form', $formname );
@@ -3576,10 +3587,10 @@ sub do_form {
             }
             elsif ( $ch == KEY_PPAGE ) {
                 if ( $npages > 1 ) {
-                    set_field_attr;
+                    $set_field_attr->();
                     form_driver( $cform, REQ_PREV_PAGE );
                     redraw_form_page( $cform, $win );
-                    set_field_active_attr;
+                    $set_field_active_attr->();
                     form_driver( $cform, REQ_END_LINE );
                     disp_page( $win, form_page($cform) + 1,
                         $npages, 'form', $formname );
@@ -3595,11 +3606,11 @@ sub do_form {
             }
             elsif ( $ch == KEY_BACKSPACE ) {
                 form_driver( $cform, REQ_DEL_PREV );
-                check_val_changes;
+                $check_val_changes->();
             }
             elsif ( $ch == KEY_DC ) {
                 form_driver( $cform, REQ_DEL_CHAR );
-                check_val_changes;
+                $check_val_changes->();
             }
             elsif ( $ch == KEY_IC ) {
                 if ($ovl_mode) {
@@ -3659,7 +3670,7 @@ sub do_form {
                             $vals[$newidx] );
                     }
                     form_driver( $cform, REQ_END_FIELD );
-                    check_val_changes;
+                    $check_val_changes->();
                 }
                 else {
                     trace("unknown list_cmd action/type \"$action\"/\"$type\"");
@@ -3667,7 +3678,7 @@ sub do_form {
                 }
             }
             elsif ( $ch eq "\r" or $ch eq "\n" ) {
-                sync_fields_val;
+                $sync_fields_val->();
 
                 my $empty_required = $NO;
                 foreach $i ( 0 .. $#{ $form{fields} } ) {
@@ -3720,9 +3731,9 @@ sub do_form {
                             }
                         }
                     }
-                    save_persistent;
+                    $save_persistent->();
                     if ( $action eq 'run' ) {
-                        prepare_action( \$args );
+                        $prepare_action->( \$args );
 
                         trace("action: \"$action\":\n");
                         trace( "\n\n" . '-' x 80,
@@ -3772,7 +3783,7 @@ sub do_form {
                         }
                     }
                     elsif ( $action eq 'system' ) {
-                        prepare_action( \$args );
+                        $prepare_action->( \$args );
                         if ( restricted_denies_verb( 'system', $args ) ) {
                             disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
                         }
@@ -3781,7 +3792,7 @@ sub do_form {
                         }
                     }
                     elsif ( $action eq 'exec' ) {
-                        prepare_action( \$args );
+                        $prepare_action->( \$args );
                         if ( restricted_denies_verb( 'exec', $args ) ) {
                             disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
                         }
@@ -3883,7 +3894,7 @@ sub do_form {
                     }
                     if ( $es != $ES_CANCEL and $es != $ES_EXIT ) {
                         set_field_buffer( current_field($cform), 0, $val );
-                        check_val_changes;
+                        $check_val_changes->();
                         form_driver( $cform, REQ_END_FIELD );
                     }
                 }
@@ -3893,11 +3904,11 @@ sub do_form {
                 curs_set($ON) if $HIDE_CURSOR;
             }
             elsif ( $ch == $keys{show_action}{code} ) {
-                sync_fields_val;
+                $sync_fields_val->();
                 my $args = $form{action};
                 $args =~ s/^(\b*[a-zA-Z]+)\(?([a-zA-Z_,]*)\)?/$1/;
                 if ($args) {
-                    prepare_action( \$args );
+                    $prepare_action->( \$args );
                     my @cmd = split /\n/, $args;
                     curs_set($OFF) if $HIDE_CURSOR;
                     ($es) = do_list( $win, $SHOW_ACTION_TITLE, 'display', \@cmd,
@@ -3923,7 +3934,7 @@ sub do_form {
                 form_driver( $cform, REQ_END_LINE );
             }
             elsif ( $ch == $keys{save}{code} ) {
-                sync_fields_val;
+                $sync_fields_val->();
                 $LOG_REQUESTED = $YES;
                 trace( "\n\n" . '-' x 80, $LOG_NORMAL );
                 my ( $ss, $mm, $hh, $dd, $mt, $yy ) = localtime(time);
@@ -3998,7 +4009,7 @@ sub do_form {
                 else {
                     form_driver( $cform, ord($ch) );
                 }
-                check_val_changes;
+                $check_val_changes->();
             }
             else {
                 beep();
