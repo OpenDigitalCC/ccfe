@@ -46,6 +46,7 @@ use lib do {
 };
 use CCFE::Restrict ();
 use CCFE::Theme    ();
+use CCFE::MenuFile ();    # pure .menu/.item parser (see load_menu)
 use FindBin ();    # to locate the program at runtime (see the path block below)
 
 # Optional display-width support.  In a UTF-8 locale a label/title can occupy
@@ -1106,79 +1107,15 @@ sub load_menu {
                 }
                 $text = join( '', @lines );
 
-                ( $val, undef, $key ) =
-                  extract_bracketed( $text, '{', '\s*[a-zA-Z]+\s*' );
-                while ($key) {
-                    $val =~ s/^\{\s*//;
-                    $val =~ s/\s*\n?\s*\}$//;
-                    $key =~ s/^\s+//;
-                    $key =~ s/\s+$//;
-                  SWITCH: {
-                        $_ = lc $key;
-                        if (/^title$/) {
-                            $menu{title} = $val;
-                            last SWITCH;
-                        }
-                        elsif (/^top$/) {
-                            @{ $menu{top} } = split /\s*\n\s*/, $val, 2;
-                            last SWITCH;
-                        }
-                        elsif (/^path$/) {
-                            $menu{path} = $val;
-                            last SWITCH;
-                        }
-                        elsif (/^item$/) {
-                            my $s;
-                            my @finfo = split /\s*\n\s*/, $val;
-                            foreach $s (@finfo) {
-                                ( $attrk, $attrv ) = split /\s*=\s*/, $s, 2;
-                              ASWITCH: {
-                                    $_ = lc $attrk;
-                                    if (/^id$/) {
-                                        for $i ( 0 .. $ic - 1 ) {
-                                            if (
-                                                $menu{items}[$i]{id} eq $attrv )
-                                            {
-                                                trace(
-"WARNING: duplicated item ID \"$attrv\""
-                                                );
-                                            }
-                                        }
-                                        $menu{items}[$ic]{id} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^descr$/) {
-                                        $menu{items}[$ic]{descr} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^action$/) {
-                                        $menu{items}[$ic]{action} = $attrv;
-                                        last ASWITCH;
-                                    }
-                                    else {
-                                        trace(
-                                            "unknown item attribute \"$attrk\""
-                                        );
-                                        $res = $ES_SYNTAX_ERR;
-                                    }
-                                }
-                            }
-                            $ic++;
-                            last SWITCH;
-                        }
-                        elsif (/^bottom$/) {
-                            @{ $menu{bottom} } = split /\s*\n\s*/, $val, 2;
-                            last SWITCH;
-                        }
-                        else {
-                            trace("unknown menu attribute \"$key\"");
-                            $res = $ES_SYNTAX_ERR;
-                        }
-                    }
-                    ( $val, undef, $key ) =
-                      extract_bracketed( $text, '{', '\s*[a-zA-Z]+\s*' );
-                }
-                $res = $ES_SYNTAX_ERR if !pos($text);
+                # The bracket parser is now a pure module (CCFE::MenuFile);
+                # load_menu keeps the file finding/reading and owns the side
+                # effects -- %menu, $SCREEN_DIR and the default top message.
+                my ( $parsed, $pstatus, $warns );
+                ( $parsed, $pstatus, $warns, $ic ) =
+                  CCFE::MenuFile::parse($text);
+                %menu = %{$parsed};
+                trace($_) for @{$warns};
+                $res = $ES_SYNTAX_ERR if $pstatus eq 'syntax_error';
                 if ( $res == $ES_NO_ERR ) {
                     @{ $menu{top} } = @MENU_TOP_MSG unless @{ $menu{top} };
                     $SCREEN_DIR = $dir;

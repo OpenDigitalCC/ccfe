@@ -157,6 +157,17 @@ Extract `MenuFile`/`FormFile`/`Action`/`Layout`/`Exec`/`UI::*` into
 explicit `$ctx`. Done last so it is performed once over settled code, gated by
 the conformance tests.
 
+### Progress
+- 🔄 **`CCFE::MenuFile`** (done): the `.menu`/`.item` bracket parser is now a
+  pure module returning a `{title,top,bottom,path,items}` structure (+ status
+  and warnings); `load_menu` keeps the file finding/reading and owns the side
+  effects (`%menu`, `$SCREEN_DIR`, the default top message). Refactored to a
+  flat dispatch (no cascading-if / deep-nest, so it passes the `src/lib`
+  Perl::Critic/perltidy gates the legacy file is exempt from). Unit-tested
+  directly in `t/13-menufile.t`; the demo/sysmon fixtures and tty smoke still
+  pass. Next: `CCFE::FormFile` (same shape), then `Config`, `Action`, the pure
+  `Layout` helpers, and finally the `$ctx` threading.
+
 ## M8 — Non-functional close-out audit  _(final gate)_
 Five dimensions: **test coverage, code quality, performance, security,
 documentation**. Produce a short report, fix what's cheap, file the rest.
