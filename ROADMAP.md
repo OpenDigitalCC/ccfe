@@ -70,8 +70,13 @@ mostly as CCFE content (dogfooding) plus a small backend that validates (reuse
 
 ## M6 — UX & quality polish  _(REFACTOR §5/§6, interleave)_
 Full fg/bg colour **palette** section (background colours / panelled SMIT
-look), wide-char/UTF-8 correctness, full resize reflow (SIGWINCH),
-machine-readable `--dump`, graceful in-curses errors, mouse, plugin manifest.
+look), wide-char/UTF-8 correctness, machine-readable `--dump`, graceful
+in-curses errors, mouse, plugin manifest.
+
+✅ **Resize reflow** (done): `do_menu` rebuilds its windows/menu and `do_form`
+its window+post on `KEY_RESIZE` at the new `$LINES`/`$COLS`; regression test
+`t/10-resize.t`. Open: full horizontal re-layout of form fields, and
+`do_list`/`run_browse` reflow.
 
 ## M7 — De-globalisation / full modularisation  _(REFACTOR §3 — deferred to end)_
 Extract `MenuFile`/`FormFile`/`Action`/`Layout`/`Exec`/`UI::*` into

@@ -276,9 +276,11 @@ Beyond the above, ordered roughly by value-to-effort:
    Move to display-column counting (core `Encode` + careful column logic, or a
    small width helper) now that `ncursesw` is the runtime. Important for
    internationalised menus and the existing `msg/` i18n.
-2. **Finish resize reflow.** v1.60 made `KEY_RESIZE` trigger a redraw; complete
-   it by tearing down and rebuilding windows from fresh `$LINES`/`$COLS` on
-   `SIGWINCH`, so resizing reflows instead of just repainting the old geometry.
+2. **Resize reflow.** ✅ Mostly done: `do_menu` rebuilds its windows and menu
+   geometry on `KEY_RESIZE` (a closure over its lexicals, re-run at the fresh
+   `$LINES`/`$COLS`) and `do_form` rebuilds its window and re-posts the form.
+   Still open: a full horizontal re-layout of form *fields* (they keep their
+   positions within the resized area), and reflow for `do_list`/`run_browse`.
 3. **Drop the `sed` path-templating; configure at runtime.** ✅ Done (v2):
    `ccfe.pl` resolves its paths from its own location (FindBin) with
    `CCFE_*_DIR` env overrides, so it installs byte-identical, is relocatable,

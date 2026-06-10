@@ -104,6 +104,18 @@ sub send {
     return $self;
 }
 
+# Resize the terminal: set a new window size and signal the child.  Changing
+# the pty size makes the kernel send SIGWINCH to the slave's foreground group;
+# we also send it explicitly for good measure.  ncurses turns that into a
+# KEY_RESIZE on the next read.
+sub resize {
+    my ( $self, $cols, $rows ) = @_;
+    my $winsize = pack( 'S4', $rows, $cols, 0, 0 );
+    ioctl( $self->{master}, TIOCSWINSZ, $winsize );
+    kill 'WINCH', $self->{pid};
+    return $self;
+}
+
 # Reap the child (if it has exited) and return (exit_code, signal).
 # Sends SIGKILL as a backstop if it is still alive after a grace period.
 sub wait {

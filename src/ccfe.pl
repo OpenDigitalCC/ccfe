@@ -2271,39 +2271,42 @@ sub do_menu {
         $cmenu = new_menu($items_buf);
         if ( $cmenu eq '' ) { fatal("do_menu.new_menu() failed") }
 
-        $mwinr =
-          $LINES -
-          ( $MS_HEADER_ROWS +
-              $MS_TOP_ROWS +
-              $MS_BOTTOM_ROWS +
-              $MS_FOOTER_ROWS );
-        $win = newwin( $LINES, $COLS, 0, 0 );
-        $pan = new_panel($win);
-        bkgd( $win, $MENU_SCREEN_ATTR );
-
         set_menu_mark( $cmenu, ' ' );
         set_menu_fore( $cmenu, $MENU_SEL_ATTR );
         set_menu_back( $cmenu, $MENU_ITEM_ATTR );
-        set_menu_format( $cmenu, $mwinr, 1 );
-        scale_menu( $cmenu, $rows, $cols );
-
-        $mlmargin = int( ( $COLS - $cols ) / 2 );
-        $mlmargin = 1 if ( $LAYOUT == $SIMPLE );
-
-        $msub = derwin( $win, $rows, $cols, $MS_HEADER_ROWS + $MS_TOP_ROWS,
-            $mlmargin );
-        set_menu_win( $cmenu, $win );
-        set_menu_sub( $cmenu, $msub );
-        bkgd( $msub, $MENU_SCREEN_ATTR );
-        keypad( $win, $ON );
-        clear($win);
-
         $title = $menu{title} if $menu{title};
-        init_title( $win, $MS_HEADER_ROWS, $title );
-        init_top( $win, $NO, $MS_HEADER_ROWS, $MS_TOP_ROWS, @{ $menu{top} } );
-        init_footer( $win, $NO, $MS_FOOTER_ROWS, @MSKeys );
-        post_menu($cmenu);
-        refresh($win);
+
+        # Build (and, on KEY_RESIZE, rebuild) the windows and menu geometry at
+        # the current $LINES/$COLS.  A closure over do_menu's lexicals, so the
+        # layout can be re-run for a terminal resize without duplicating it.
+        my $draw_menu = sub {
+            $mwinr =
+              $LINES -
+              ( $MS_HEADER_ROWS + $MS_TOP_ROWS + $MS_BOTTOM_ROWS
+                  + $MS_FOOTER_ROWS );
+            $win = newwin( $LINES, $COLS, 0, 0 );
+            $pan = new_panel($win);
+            bkgd( $win, $MENU_SCREEN_ATTR );
+            set_menu_format( $cmenu, $mwinr, 1 );
+            scale_menu( $cmenu, $rows, $cols );
+            $mlmargin = int( ( $COLS - $cols ) / 2 );
+            $mlmargin = 1 if ( $LAYOUT == $SIMPLE );
+            $msub =
+              derwin( $win, $rows, $cols, $MS_HEADER_ROWS + $MS_TOP_ROWS,
+                $mlmargin );
+            set_menu_win( $cmenu, $win );
+            set_menu_sub( $cmenu, $msub );
+            bkgd( $msub, $MENU_SCREEN_ATTR );
+            keypad( $win, $ON );
+            clear($win);
+            init_title( $win, $MS_HEADER_ROWS, $title );
+            init_top( $win, $NO, $MS_HEADER_ROWS, $MS_TOP_ROWS,
+                @{ $menu{top} } );
+            init_footer( $win, $NO, $MS_FOOTER_ROWS, @MSKeys );
+            post_menu($cmenu);
+            refresh($win);
+        };
+        $draw_menu->();
 
         $es = 0;
         while ( !defined($exec_args) ) {
@@ -2329,7 +2332,16 @@ sub do_menu {
             elsif ( $ch == KEY_END ) {
                 menu_driver( $cmenu, REQ_LAST_ITEM );
             }
-            elsif ( $ch == $keys{redraw}{code} or $ch == KEY_RESIZE ) {
+            elsif ( $ch == KEY_RESIZE ) {
+                # Terminal resized: tear the windows down and rebuild the menu
+                # at the new $LINES/$COLS (ncurses has already updated them).
+                unpost_menu($cmenu);
+                del_panel($pan);
+                delwin($msub);
+                delwin($win);
+                $draw_menu->();
+            }
+            elsif ( $ch == $keys{redraw}{code} ) {
                 refresh(curscr);
             }
             elsif ( $ch == $keys{back}{code} or ord($ch) == 27 ) {
@@ -2496,6 +2508,7 @@ sub do_menu {
         undef %menu;
 
         del_panel($pan);
+        delwin($msub);
         delwin($win);
     }
     return ( $es, $exit_id, $exit_descr );
@@ -3456,6 +3469,37 @@ sub do_form {
         refresh($win);
         curs_set($ON) if $HIDE_CURSOR;
 
+        # On a terminal resize, rebuild the window and re-post the form at the
+        # new $LINES/$COLS.  Field values are kept in their buffers and field
+        # positions are preserved within the resized form area (a full
+        # horizontal re-layout of fields is left to a future change).
+        my $resize_form = sub {
+            unpost_form($cform);
+            del_panel($pan) if $pan;
+            delwin($fsub)   if $fsub;
+            delwin($win)    if $win;
+            $mwinr =
+              $LINES -
+              ( $FS_HEADER_ROWS + $FS_TOP_ROWS + $FS_BOTTOM_ROWS
+                  + $FS_FOOTER_ROWS );
+            $win  = newwin( $LINES, $COLS, 0, 0 );
+            $pan  = new_panel($win);
+            $fsub = derwin( $win, $mwinr, $COLS,
+                $FS_HEADER_ROWS + $FS_TOP_ROWS, 0 );
+            set_form_win( $cform, $win );
+            set_form_sub( $cform, $fsub );
+            keypad( $win, $ON );
+            init_title( $win, $FS_HEADER_ROWS, $title );
+            disp_page( $win, form_page($cform) + 1, $npages, 'form',
+                $formname );
+            init_top( $win, $NO, $FS_HEADER_ROWS, $FS_TOP_ROWS,
+                @{ $form{top} } );
+            init_footer( $win, $NO, $FS_FOOTER_ROWS, @FSKeys );
+            post_form($cform);
+            clearok( $win, 1 );
+            refresh($win);
+        };
+
         $es = $OK_ES;
         while ( $es != $ES_EXIT and !defined($exec_args) ) {
           SWITCH: {
@@ -3926,7 +3970,10 @@ sub do_form {
                     disp_msg( $win, $BAD_SHELL_MSG, $BAD_SHELL_TITLE );
                 }
             }
-            elsif ( $ch == $keys{redraw}{code} or $ch == KEY_RESIZE ) {
+            elsif ( $ch == KEY_RESIZE ) {
+                $resize_form->();
+            }
+            elsif ( $ch == $keys{redraw}{code} ) {
                 refresh(curscr);
             }
             elsif ( $ch == $keys{exit}{code} ) {
