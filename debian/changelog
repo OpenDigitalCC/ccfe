@@ -1,3 +1,17 @@
+ccfe (2.1.1) unstable; urgency=medium
+
+  * Internal modularisation (ROADMAP M7); no functional change. The menu, form
+    and config file parsers, the action-string parser and the form value-column
+    /page geometry are extracted into pure, terminal-free CCFE::* modules under
+    lib/perl5, each unit-tested directly (CCFE::MenuFile, CCFE::FormFile,
+    CCFE::Config, CCFE::Action, CCFE::Layout). The two duplicated copies of the
+    action parse and of the resize geometry are now single shared
+    implementations, so they can no longer drift apart.
+  * Test suite grown to 302 tests; behaviour verified unchanged by the existing
+    on-screen resize/layout/multipage and colour integration tests.
+
+ -- CCFE maintainers <ccfedevel@gmail.com>  Wed, 11 Jun 2026 09:00:00 +0000
+
 ccfe (2.1) unstable; urgency=medium
 
   * Terminal-resize reflow: menus and forms re-paginate, re-right-align and

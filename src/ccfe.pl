@@ -63,7 +63,7 @@ use FindBin ();    # to locate the program at runtime (see the path block below)
 # single-byte locale.  See disp_width() below.
 our $HAVE_CHARWIDTH = eval { require Text::CharWidth; 1 };
 
-$VERSION      = '2.1';
+$VERSION      = '2.1.1';
 $VERSION_DATE = '11/06/2026';
 $VERSION_YEAR = '2009, 2026';
 
