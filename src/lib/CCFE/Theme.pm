@@ -95,8 +95,8 @@ sub init_standard_pairs () {
 
 my $DYN_BASE  = scalar(@PAIR_ORDER) + 1;    # first dynamic pair number (8)
 my $next_pair = $DYN_BASE;
-my %pair_cache;                             # "fg:bg" (numbers) -> pair number
-my @pair_defs;                              # [ pairnum, fg, bg ] to create later
+my %pair_cache;    # "fg:bg" (numbers) -> pair number
+my @pair_defs;     # [ pairnum, fg, bg ] to create later
 
 # Pair number for a (fg, bg) colour-name combo.  $bg defaults to the terminal
 # default.  Allocates (and remembers for init_dynamic_pairs) a fresh number on
@@ -119,11 +119,11 @@ sub pair_for ( $fg, $bg = undef ) {
 # Skips any pair beyond the terminal's COLOR_PAIRS capacity.  Returns the
 # number created.
 sub init_dynamic_pairs () {
-    my $max = eval { Curses::COLOR_PAIRS() } || 0;
+    my $max     = eval { Curses::COLOR_PAIRS() } || 0;
     my $created = 0;
     for my $d (@pair_defs) {
         next if $max and $d->[0] >= $max;
-        Curses::init_pair( @$d );
+        Curses::init_pair(@$d);
         $created++;
     }
     return $created;
