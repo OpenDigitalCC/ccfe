@@ -2786,7 +2786,25 @@ sub do_list {
         elsif ( $ch eq 'n' and in( 'find_next', @lw_keys ) ) {
             menu_driver( $cmenu, REQ_NEXT_MATCH );
         }
-        elsif ( $ch == $keys{redraw}{code} or $ch == KEY_RESIZE ) {
+        elsif ( $ch == KEY_RESIZE ) {
+            # Re-centre the pop-up for the new terminal size and repaint.  The
+            # list keeps its own size; a full content reflow (and reflowing the
+            # form/menu underneath, which does not see this event) is a further
+            # refinement.
+            $y0 = $LW_ROW0;
+            $y0 += $list_height - scalar @$ilist_ref
+              if scalar @$ilist_ref < $list_height;
+            $x0 = int( ( $COLS - $LW_COLS ) / 2 );
+            $x0 = 0 if $x0 < 0;
+            mvwin( $mwin, $y0, $x0 );
+            $mpad_x0 = $x0 + $mlmargin;
+            $mpad_y0 = $y0 + ( scalar @top_msg ) + $top_msg_y + 1;
+            $mpad_x1 = $x0 + $LW_COLS - 2;
+            $mpad_y1 = $mpad_y0 + $list_height;
+            clearok( curscr, 1 );
+            refresh(curscr);
+        }
+        elsif ( $ch == $keys{redraw}{code} ) {
             refresh(curscr);
         }
         elsif ( ( $ch == $keys{back}{code} or ord($ch) == 27 )
@@ -4583,7 +4601,38 @@ sub run_browse {
             $es = $ES_EXIT;
             last;
         }
-        elsif ( $ch == $keys{redraw}{code} or $ch == KEY_RESIZE ) {
+        elsif ( $ch == KEY_RESIZE ) {
+            # Rebuild the full-screen frame and viewport for the new size.  The
+            # output pad keeps its build-time wrap width (re-wrapping the
+            # captured output to the new width is a refinement); the page count
+            # follows the new height.
+            $mwinr =
+              $LINES - ( $RS_HEADER_ROWS + $RS_TOP_ROWS + $RS_BOTTOM_ROWS
+                  + $RS_FOOTER_ROWS );
+            $mwinr = 1 if $mwinr < 1;
+            my $rl = $LINES < 24 ? 24 : $LINES;
+            my $rc = $COLS < 80  ? 80 : $COLS;
+            del_panel($pan) if $pan;
+            delwin($mwin)   if $mwin;
+            delwin($hwin)   if $hwin;
+            delwin($twin)   if $twin;
+            delwin($win)    if $win;
+            $win = newwin( $rl, $rc, 0, 0 );
+            $mwin =
+              subwin( $win, $mwinr, $rc, $RS_HEADER_ROWS + $RS_TOP_ROWS, 0 );
+            $hwin = subwin( $win, $RS_HEADER_ROWS, $rc, 0, 0 );
+            $twin = subwin( $win, $RS_TOP_ROWS, $rc, $RS_HEADER_ROWS, 0 );
+            $pan  = new_panel($win);
+            init_title( $hwin, $RS_HEADER_ROWS, $RB_TITLE );
+            init_footer( $win, $NO, $RS_FOOTER_ROWS, @RSKeys );
+            scrollok( $mwin, 1 );
+            keypad( $mwin, $ON );
+            $npages =
+              round( $pad_lines / $mwinr + ( $pad_lines % $mwinr ? .5 : 0 ) );
+            clearok( curscr, 1 );
+            refresh($win);
+        }
+        elsif ( $ch == $keys{redraw}{code} ) {
             refresh(curscr);
         }
         elsif ( $ch == $keys{save}{code} ) {
@@ -5127,22 +5176,41 @@ if ( $shcut_type = get_shortcut($shcut) ) {
     noecho;
     curs_set($OFF) if $HIDE_CURSOR;
 
-  SWITCH: {
-        $_ = $shcut_type;
-        if (/$MENUEXT/) {
-            ( $es, $id, $descr ) = do_menu($shcut);
-            if ( $es and $es < $ES_USER_REQ ) {
-                trace("FATAL: $es_str[$es] while reading menu \"$shcut\"");
+    # Run the interaction under a guard: should anything die uncaught from deep
+    # in a menu/form (e.g. a Curses XS error), restore the terminal and report a
+    # clean one-line message instead of dumping a Perl backtrace onto a screen
+    # still in curses mode.  Expected outcomes (a normal exit, a bad object)
+    # flow through $es as before.
+    my $ok = eval {
+      SWITCH: {
+            $_ = $shcut_type;
+            if (/$MENUEXT/) {
+                ( $es, $id, $descr ) = do_menu($shcut);
+                if ( $es and $es < $ES_USER_REQ ) {
+                    trace("FATAL: $es_str[$es] while reading menu \"$shcut\"");
+                }
+                last SWITCH;
             }
-            last SWITCH;
-        }
-        if (/$FORMEXT/) {
-            $es = do_form($shcut);
-            if ( $es and $es < $ES_USER_REQ ) {
-                trace("FATAL: $es_str[$es] while reading form \"$shcut\"");
+            if (/$FORMEXT/) {
+                $es = do_form($shcut);
+                if ( $es and $es < $ES_USER_REQ ) {
+                    trace("FATAL: $es_str[$es] while reading form \"$shcut\"");
+                }
+                last SWITCH;
             }
-            last SWITCH;
         }
+        1;
+    };
+    if ( !$ok ) {
+        my $err = $@ || 'unknown error';
+        chomp $err;
+        $err =~ s/ at \S+ line \d+\.?\s*$//;    # drop Perl's "at FILE line N"
+        trace("FATAL: uncaught error during interaction: $@");
+        endwin() if $CURSES_ACTIVE;
+        $CURSES_ACTIVE = $NO;
+        system("clear");
+        print STDERR "$CALLNAME: internal error: $err\n";
+        exit 1;
     }
 
     clear();

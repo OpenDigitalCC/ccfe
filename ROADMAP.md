@@ -94,8 +94,16 @@ drops to the row below, so it is never pushed off-screen or truncated.
 value column and re-wraps long labels to the new width (not just the vertical
 re-pagination), recreating the two width-dependent fields (label, dot run) and
 moving the rest, so values track the terminal's right edge and stay on-screen
-as it grows or shrinks. Open: `do_list` / `run_browse` reflow; word-boundary
-(rather than character) label wrapping.
+as it grows or shrinks. `t/11-layout.t`.
+
+✅ **Pop-up resize + graceful errors** (done): `do_list` re-centres for the new
+size and `run_browse` rebuilds its full-screen frame/viewport on `KEY_RESIZE`
+(both clamped, no crash); and the top-level interaction runs under a guard that,
+on any uncaught die from a menu/form, restores the terminal and prints a clean
+one-line message instead of a Perl backtrace on a curses screen. Open for these
+pop-ups: re-wrapping their *content* to the new width, and propagating the
+resize to the menu/form underneath (it does not see the event while a pop-up is
+open); word-boundary (vs character) label wrapping.
 
 ## M7 — De-globalisation / full modularisation  _(REFACTOR §3 — deferred to end)_
 Extract `MenuFile`/`FormFile`/`Action`/`Layout`/`Exec`/`UI::*` into
