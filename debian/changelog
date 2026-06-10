@@ -1,3 +1,22 @@
+ccfe (2.1) unstable; urgency=medium
+
+  * Terminal-resize reflow: menus and forms re-paginate, re-right-align and
+    re-wrap to the new size; resizing no longer crashes or leaves values
+    off-screen; pop-up list / output browser re-centre and rebuild on resize.
+  * Forms lay out by display column, not byte count, so accented / wide-char
+    labels position correctly (optional libtext-charwidth-perl).
+  * Over-long labels wrap onto their own line(s) with the value below, rather
+    than being pushed off-screen.
+  * Full foreground/background colour palette: color_pair('fg','bg') in any
+    *_attr value gives a panelled SMIT look applied across menus, forms and the
+    output browser; new ccfe.conf.smit-panel theme.
+  * Field flag markers and the leader dots adopt the theme colour; show_dots
+    can switch the dot run off.
+  * F8 / redraw and resize now force a full repaint; uncaught errors restore
+    the terminal with a clean message.
+
+ -- CCFE maintainers <ccfedevel@gmail.com>  Wed, 11 Jun 2026 00:00:00 +0000
+
 ccfe (2.0) unstable; urgency=medium
 
   * CCFE 2.0.
