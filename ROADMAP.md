@@ -175,8 +175,18 @@ the conformance tests.
   layout not parsing), select-item resolution and the `%form`/`$SCREEN_DIR`
   side effects. This cut ~325 lines of inline parser to a ~20-line call. Unit-
   tested in `t/14-formfile.t` (40 cases); the multipage-form pty test and full
-  suite (235 tests) stay green. Next: `Config`, `Action`, the pure `Layout`
-  helpers, and finally the `$ctx` threading.
+  suite (235 tests) stay green.
+- 🔄 **`CCFE::Config`** (done): the top-level `SECTION { ... }` walk -- the third
+  copy of the same `extract_bracketed` loop -- is now a pure tokenizer returning
+  the sections in file order (`{name, body}` + status). Unlike the menu/form
+  parsers, the config parser's per-section dispatch is *not* purely extractable:
+  it is dominated by `eval "$VAR = ..."` colour/attribute assignments that must
+  run in `ccfe.pl`'s own package to see its colour helpers and curses constants,
+  plus term-specific (`FIELD_ATTR.$TERM`) and `$COLS`-dependent handling -- so
+  that (effectful, scope-bound) dispatch stays in `load_config` verbatim. Unit-
+  tested in `t/15-config.t` (17 cases); the colour/theme integration test
+  (`t/06-color.t`) and full suite (252 tests) stay green. Next: `Action`, the
+  pure `Layout` helpers, and finally the `$ctx` threading.
 
 ## M8 — Non-functional close-out audit  _(final gate)_
 Five dimensions: **test coverage, code quality, performance, security,

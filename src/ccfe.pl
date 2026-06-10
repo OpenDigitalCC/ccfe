@@ -48,6 +48,7 @@ use CCFE::Restrict ();
 use CCFE::Theme    ();
 use CCFE::MenuFile ();    # pure .menu/.item parser (see load_menu)
 use CCFE::FormFile ();    # pure .form parser (see load_form)
+use CCFE::Config   ();    # pure .conf section tokenizer (see load_config)
 use FindBin ();    # to locate the program at runtime (see the path block below)
 
 # Optional display-width support.  In a UTF-8 locale a label/title can occupy
@@ -1373,13 +1374,16 @@ sub load_config {
                 $text = join( '', @lines );
 
                 my $term = uc $ENV{TERM};
-                ( $val, undef, $key ) =
-                  extract_bracketed( $text, '{', '\s*[a-zA-Z_\.]+\s*' );
-                while ($key) {
-                    $val =~ s/^\{\s*//;
-                    $val =~ s/\s*\n?\s*\}$//;
-                    $key =~ s/^\s+//;
-                    $key =~ s/\s+$//;
+
+                # The top-level `SECTION { ... }` walk now lives in the pure
+                # CCFE::Config tokenizer (ROADMAP M7).  The (effectful,
+                # scope-bound) per-section dispatch below -- including the
+                # `eval "$VAR = ..."` colour/attribute assignments and the
+                # term-/$COLS-dependent handling -- stays here.
+                my ( $sections, $cstatus ) = CCFE::Config::parse($text);
+                foreach my $sec ( @{$sections} ) {
+                    $key = $sec->{name};
+                    $val = $sec->{body};
                   SWITCH: {
                         $_ = uc $key;
                         if (/^GLOBAL$/) {
@@ -1915,12 +1919,8 @@ sub load_config {
                             $res = $ES_SYNTAX_ERR;
                         }
                     }
-                    ( $val, undef, $key ) =
-                      extract_bracketed( $text, '{', '\s*[a-zA-Z_\.]+\s*' );
                 }
-                $res = $ES_SYNTAX_ERR if !pos($text);
-                if ( $res == $ES_NO_ERR ) {
-                }
+                $res = $ES_SYNTAX_ERR if $cstatus eq 'syntax_error';
             }
             else {
                 trace("error opening $fname: $!");
