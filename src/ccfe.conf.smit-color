@@ -60,3 +60,9 @@ active_field_attr {
   changed_value_fg = A_NORMAL
   changed_value_bg = A_REVERSE
 }
+
+# The leader dots between a label and its value can be turned off (they
+# become blank space) if you find them busy:
+#   form_global {
+#     show_dots = NO
+#   }

@@ -65,3 +65,9 @@ active_field_attr {
   changed_value_fg = color_pair('blue', 'cyan') | A_BOLD
   changed_value_bg = color_pair('blue', 'cyan')
 }
+
+# The leader dots between a label and its value can be turned off (they
+# become blank space) if you find them busy:
+#   form_global {
+#     show_dots = NO
+#   }

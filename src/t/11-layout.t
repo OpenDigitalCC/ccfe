@@ -27,7 +27,7 @@ my $ilog   = `cd "$src" && sh install.sh -b -p "$prefix" 2>&1`;
 plan skip_all => "install failed: $ilog"
   unless $? == 0 && -x "$prefix/bin/ccfe";
 
-plan tests => 9;
+plan tests => 10;
 
 my $objs   = "$prefix/share/ccfe/objects/ccfe";
 my $logf   = "$prefix/log/" . ( $ENV{USER} || getpwuid($<) ) . ".log";
@@ -144,4 +144,25 @@ SKIP: {
     my ( $screen, $log ) = run_form( 'u8', 80, 24 );
     unlike( $log, qr/wrapped label/,
         'a UTF-8 label is measured by display column, not byte count' );
+}
+
+# --- show_dots = NO replaces the dot run with blank space -------------------
+{
+    my $conf = "$prefix/etc/ccfe.conf";
+    my $txt = do { local ( @ARGV, $/ ) = $conf; <> };
+    $txt .= "\nform_global {\n  show_dots = NO\n}\n";
+    open( my $fh, '>', $conf ) or die "rewrite conf: $!";
+    print {$fh} $txt;
+    close($fh);
+
+    open( $fh, '>', "$objs/dots.form" ) or die "write: $!";
+    print {$fh} "title { Dots }\n";
+    print {$fh} "field {\n  id    = A\n  len   = 5\n  type  = STRING\n"
+      . "  label = Item one\n}\n";
+    print {$fh} "action { run:true }\n";
+    close($fh);
+
+    my ( $screen, $log ) = run_form( 'dots', 80, 24 );
+    unlike( $screen, qr/\. \./,
+        'show_dots = NO suppresses the dot run between label and value' );
 }

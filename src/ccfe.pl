@@ -2377,13 +2377,20 @@ sub do_menu {
             elsif ( $ch == KEY_RESIZE ) {
                 # Terminal resized: tear the windows down and rebuild the menu
                 # at the new $LINES/$COLS (ncurses has already updated them).
+                # Force a full physical repaint afterwards: rebuilding refreshes
+                # only the new window, so without this the area the old (perhaps
+                # larger) window occupied keeps stale content until the next key
+                # -- the "last resize doesn't refresh" glitch.
                 unpost_menu($cmenu);
                 del_panel($pan);
                 delwin($msub);
                 delwin($win);
                 $draw_menu->();
+                clearok( curscr, 1 );
+                refresh(curscr);
             }
             elsif ( $ch == $keys{redraw}{code} ) {
+                clearok( curscr, 1 );
                 refresh(curscr);
             }
             elsif ( $ch == $keys{back}{code} or ord($ch) == 27 ) {
@@ -2841,6 +2848,7 @@ sub do_list {
             refresh(curscr);
         }
         elsif ( $ch == $keys{redraw}{code} ) {
+            clearok( curscr, 1 );
             refresh(curscr);
         }
         elsif ( ( $ch == $keys{back}{code} or ord($ch) == 27 )
@@ -3389,6 +3397,8 @@ sub do_form {
                 set_field_buffer( $field, 0,
                     sprintf( "%s ", $form{fields}[$i]{required} ? '*' : ' ' ) );
                 field_opts_off( $field, O_ACTIVE );
+                set_field_fore( $field, $labelFg );    # blend with the panel
+                set_field_back( $field, $labelBg );
                 if ( !$SHOW_FIELD_FLAGS ) {
                     field_opts_off( $field, O_VISIBLE );
                 }
@@ -3407,6 +3417,8 @@ sub do_form {
                         ( $form{fields}[$i]{type} == $NUMERIC ) ? '#' : ' ' )
                 );
                 field_opts_off( $field, O_ACTIVE );
+                set_field_fore( $field, $labelFg );    # blend with the panel
+                set_field_back( $field, $labelBg );
                 if ( !$SHOW_FIELD_FLAGS ) {
                     field_opts_off( $field, O_VISIBLE );
                 }
@@ -3426,8 +3438,8 @@ sub do_form {
                 }
                 field_opts_off( $field, O_ACTIVE );
                 field_opts_off( $field, O_EDIT );
-                set_field_fore( $field, A_STDOUT );
-                set_field_back( $field, A_NORMAL );
+                set_field_fore( $field, $labelFg );
+                set_field_back( $field, $labelBg );
                 field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
                 push @fp,   $field;
                 push @fset, ${$field};
@@ -3449,8 +3461,8 @@ sub do_form {
                 }
                 field_opts_off( $field, O_ACTIVE );
                 field_opts_off( $field, O_EDIT );
-                set_field_fore( $field, A_STDOUT );
-                set_field_back( $field, A_NORMAL );
+                set_field_fore( $field, $labelFg );
+                set_field_back( $field, $labelBg );
                 field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
                 push @fp,   $field;
                 push @fset, ${$field};
@@ -3470,6 +3482,8 @@ sub do_form {
                 set_field_buffer( $field, 0, $dots );
                 field_opts_off( $field, O_ACTIVE );
                 field_opts_off( $field, O_EDIT );
+                set_field_fore( $field, $labelFg );    # dots adopt the panel/label colour
+                set_field_back( $field, $labelBg );
                 field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
                 push @fp,   $field;
                 push @fset, ${$field};
@@ -3681,6 +3695,8 @@ sub do_form {
                     set_field_buffer( $dot, 0, $dots );
                     field_opts_off( $dot, O_ACTIVE );
                     field_opts_off( $dot, O_EDIT );
+                    set_field_fore( $dot, $labelFg );    # dots adopt the panel
+                    set_field_back( $dot, $labelBg );
                     $fp[ $li * 7 + 5 ] = $dot;
 
                     # Move the markers and the value field to the new columns.
@@ -4240,6 +4256,7 @@ sub do_form {
                 $resize_form->();
             }
             elsif ( $ch == $keys{redraw}{code} ) {
+                clearok( curscr, 1 );
                 refresh(curscr);
             }
             elsif ( $ch == $keys{exit}{code} ) {
@@ -4680,6 +4697,7 @@ sub run_browse {
             refresh($win);
         }
         elsif ( $ch == $keys{redraw}{code} ) {
+            clearok( curscr, 1 );
             refresh(curscr);
         }
         elsif ( $ch == $keys{save}{code} ) {
