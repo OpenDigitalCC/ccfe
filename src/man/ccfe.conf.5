@@ -238,6 +238,53 @@ Values:
 .br
 Required: No
 
+.SS mouse
+.PP
+Enable mouse support. When \fBYES\fR, in menu screens a single click selects an
+item and a double click activates it. Requires a terminal and \fBncurses\fR
+build with mouse reporting.
+.PP
+Values:
+.BR NO | YES
+.br
+Required: No
+
+.SS restricted
+.PP
+Enable restricted (kiosk) mode. When \fBYES\fR, \fBccfe\fR is hardened into a
+boundary rather than a convenience: configuration files that are writable by the
+invoking user are ignored, the temporary shell escape is disabled (and removed
+from the key bar), and the \fBsystem\fR and \fBexec\fR action verbs are refused
+unless the command is allowlisted with \fBrestricted_allow\fR (see below). The
+\fBrun\fR verb remains an explicit, unconstrained shell command and is \fInot\fR
+constrained by the allowlist. To make this a real boundary the system
+configuration must own the object and configuration directories; please see the
+.B SECURITY
+section of the
+.BR ccfe (1)
+manpage.
+.PP
+Values:
+.BR NO | YES
+.br
+Required: No
+
+.SS restricted_allow
+.PP
+Comma-separated allowlist of program names permitted as \fBsystem\fR and
+\fBexec\fR action targets when \fBrestricted\fR is enabled. Matching is on the
+command's first token, by basename (so \fIls\fR matches \fC/bin/ls\fR). Has no
+effect unless \fBrestricted = YES\fR. May be given more than once; the entries
+accumulate.
+.PP
+Example:
+.PP
+.nf
+\fC  restricted_allow = df, uptime, /usr/bin/who\fP
+.fi
+.PP
+Required: No
+
 .SS key_f1
 .SS key_f2
 .SS key_f3
@@ -529,6 +576,51 @@ in the \fIccfe message file definition\fR. Warning: no check is made on this val
 Values: \fIinteger value\fR
 .br
 Default: 1
+.br
+Required: No
+
+.SS screen_attr
+Video attribute for the menu screen background.
+.PP
+Values: a standard
+.BR ncurses (3X)
+video attribute (as defined in \fB<ncurses.h>\fR, see
+.BR curs_attr (3X)),
+a \fBCOLOR_PAIR(\fIn\fB)\fR, a \fBcolor_pair('\fIfg\fB','\fIbg\fB')\fR, an
+integer, or a \fB|\fR-combination of these (the same value grammar as the
+\fBfield_attr {}\fR keys).
+.br
+Default: \fBA_NORMAL\fR
+.br
+Required: No
+
+.SS item_attr
+Video attribute for menu items that are not selected. Value grammar as for
+\fBscreen_attr\fR.
+.br
+Default: \fBA_NORMAL\fR
+.br
+Required: No
+
+.SS selected_attr
+Video attribute for the currently selected menu item. Value grammar as for
+\fBscreen_attr\fR.
+.br
+Default: \fBA_REVERSE\fR
+.br
+Required: No
+
+.SS title_attr
+Video attribute for the screen title (applied only in the \fBnormal\fR screen
+layout). Value grammar as for \fBscreen_attr\fR.
+.br
+Default: \fBA_BOLD\fR
+.br
+Required: No
+
+.SS key_attr
+Video attribute for the function-key labels in the footer. Value grammar as for
+\fBscreen_attr\fR. If unset, the original background-relative highlight is used.
 .br
 Required: No
 
