@@ -2098,6 +2098,32 @@ sub load_config {
     return $res;
 }
 
+# Apply an action's options (confirm / log / wait_key), shared by do_menu and
+# do_form (TD-3 de-dup).  Sets the global $LOG_REQUESTED; `confirm` pops a
+# Yes/No list titled $title.  Returns ($wait_key, $aborted, $es): $aborted is
+# true when the user declined the confirmation, and $es is the confirmation
+# list's status (undef when there was no `confirm` option) so the caller can
+# honour an exit from that dialog.
+sub apply_action_opts {
+    my ( $opts, $win, $title ) = @_;
+    my $wait_key = $NO;
+    my $aborted  = $NO;
+    my $es;
+    $LOG_REQUESTED = $NO;
+    for my $opt ( @{$opts} ) {
+        if ( $opt eq 'confirm' ) {
+            my $val;
+            ( $es, $val ) =
+              do_list( $win, $title, 'single-val', \@CONFIRM_ITEMS, undef );
+            $aborted = $YES if $val ne $BFIELD_YES;
+        }
+        elsif ( $opt eq 'log' )      { $LOG_REQUESTED = $YES }
+        elsif ( $opt eq 'wait_key' ) { $wait_key      = $YES }
+        else                         { trace("unknown action option \"$opt\"") }
+    }
+    return ( $wait_key, $aborted, $es );
+}
+
 sub do_menu {
     my ( $menuname, $title ) = @_;
 
@@ -2293,35 +2319,12 @@ sub do_menu {
                     $args    = $act->{args};
                     @actopts = @{ $act->{opts} };
 
-                    $wait_key      = $NO;
-                    $LOG_REQUESTED = $NO;
-                    foreach $opt (@actopts) {
-                      SWITCH: {
-                            $_ = $opt;
-                            if (/^confirm$/) {
-                                my $title = $menu{items}[$ci]{descr};
-                                my $val;
-                                ( $es, $val ) =
-                                  do_list( $win, $title, 'single-val',
-                                    \@CONFIRM_ITEMS, undef );
-                                if ( $val ne $BFIELD_YES ) {
-                                    $action = 'ABORTED';
-                                }
-                                last SWITCH;
-                            }
-                            elsif (/^log$/) {
-                                $LOG_REQUESTED = $YES;
-                                last SWITCH;
-                            }
-                            elsif (/^wait_key$/) {
-                                $wait_key = $YES;
-                                last SWITCH;
-                            }
-                            else {
-                                trace("unknown action option \"$_\"");
-                            }
-                        }
-                    }
+                    my ( $aborted, $opt_es );
+                    ( $wait_key, $aborted, $opt_es ) =
+                      apply_action_opts( \@actopts, $win,
+                        $menu{items}[$ci]{descr} );
+                    $es = $opt_es if defined $opt_es;
+                    $action = 'ABORTED' if $aborted;
 
                     if ( $action eq 'menu' ) {
                         ( $es, undef, undef ) =
@@ -3871,34 +3874,11 @@ sub do_form {
                     $args    = $act->{args};
                     @actopts = @{ $act->{opts} };
 
-                    $wait_key      = $NO;
-                    $LOG_REQUESTED = $NO;
-                    foreach $opt (@actopts) {
-                      SWITCH: {
-                            $_ = $opt;
-                            if (/^confirm$/) {
-                                my $val;
-                                ( $es, $val ) =
-                                  do_list( $win, $CONFIRM_TITLE, 'single-val',
-                                    \@CONFIRM_ITEMS, undef );
-                                if ( $val ne $BFIELD_YES ) {
-                                    $action = 'ABORTED';
-                                }
-                                last SWITCH;
-                            }
-                            elsif (/^log$/) {
-                                $LOG_REQUESTED = $YES;
-                                last SWITCH;
-                            }
-                            elsif (/^wait_key$/) {
-                                $wait_key = $YES;
-                                last SWITCH;
-                            }
-                            else {
-                                trace("unknown action option \"$_\"");
-                            }
-                        }
-                    }
+                    my ( $aborted, $opt_es );
+                    ( $wait_key, $aborted, $opt_es ) =
+                      apply_action_opts( \@actopts, $win, $CONFIRM_TITLE );
+                    $es = $opt_es if defined $opt_es;
+                    $action = 'ABORTED' if $aborted;
                     $save_persistent->();
                     if ( $action eq 'run' ) {
                         $prepare_action->( \$args );
