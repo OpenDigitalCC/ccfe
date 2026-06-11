@@ -33,6 +33,7 @@ use File::Basename;
 use POSIX qw(:sys_wait_h);
 use Getopt::Std;
 use IPC::Open3;
+use Text::ParseWords qw(shellwords);    # shell-free argv split under RESTRICTED
 use Symbol qw(gensym);
 use IO::File;
 use Term::ANSIColor;
@@ -919,8 +920,18 @@ sub call_system {
     $ENV{PATH} = sprintf "%s%s", $MAIN_PATH, $MAIN_PATH ? ":$ctx->{cfg}{PATH}" : '';
     system("clear");
     trace("run \"$cmd\"");
-    $res = system($cmd);
-    $res = ( $res >> 8 );
+    if ( $ctx->{cfg}{RESTRICTED} ) {
+        # Shell-free under RESTRICTED (TD-1c): parse to argv and exec directly,
+        # so the allowlisted program name is what actually runs -- no `;`/`&&`/
+        # `$()`/backtick chaining and no %{field} metacharacter injection slip
+        # through /bin/sh.  run: stays the explicit shell verb.
+        my @argv = shellwords($cmd);
+        $res = @argv ? ( system { $argv[0] } @argv ) : -1;
+    }
+    else {
+        $res = system($cmd);
+    }
+    $res = $res == -1 ? 127 : ( $res >> 8 );
     trace("command exited with status $res");
 
     if ( $wait_key or $res != 0 ) {
@@ -5361,7 +5372,11 @@ if ( $shcut_type = get_shortcut($shcut) ) {
         chdir "$ctx->{state}{SCREEN_DIR}";
         trace( "Changed CWD from $prev_wdir to " . getcwd() );
         trace("exec \"$ctx->{state}{exec_args}\"");
-        exec($ctx->{state}{exec_args});
+        if ( $ctx->{cfg}{RESTRICTED} ) {
+            my @argv = shellwords( $ctx->{state}{exec_args} );    # TD-1c
+            exec { $argv[0] } @argv if @argv;
+        }
+        exec( $ctx->{state}{exec_args} );
     }
 }
 else {
