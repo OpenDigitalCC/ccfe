@@ -3354,6 +3354,109 @@ sub resize_form {
 # a nested do_form / a confirm-abort can change it); exec selection is recorded
 # on the shared $ctx as before.  The three per-form closures are passed in
 # because they capture this call's %form/$cform/@fp.
+# do_form's value-list (F2) handler, extracted from the event loop (TD-3).
+# Resolves the current field's list_cmd (a `command:` run with %{ID} field
+# substitution, or a `const:` literal list), pops the chooser, and writes the
+# selection back into the field.  Returns ($es, $break): $break is true when
+# the chooser asked to quit the whole UI (ES_EXIT), so the caller exits the
+# event loop exactly as the inline `last` did.  $check_val_changes is passed in
+# (it captures this call's %form/$cform/@fp).
+sub form_value_list {
+    my ( $form, $cform, $win, $es, $check_val_changes ) = @_;
+
+    curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
+    my $ci = int( field_index( current_field($cform) ) / 7 );
+    if ( $form->{fields}[$ci]{list_cmd} ) {
+        my $val;
+        my @list          = ();
+        my @err           = ();
+        my $multi_val_sep = $form->{fields}[$ci]{list_sep};
+        my ( $action, $type, $args ) = split /:/,
+          $form->{fields}[$ci]{list_cmd}, 3;
+        if ( lc($action) eq 'command' ) {
+            my ( $wpan, $wwin ) = open_wait_msg;
+            trace( "raw list_cmd: \"$args\"", $LOG_LIST_CMD );
+
+            foreach my $i ( 0 .. $#{ $form->{fields} } ) {
+                my $id  = $form->{fields}[$i]{id};
+                my $val = '';
+                unless ( $form->{fields}[$i]{type} & $BOOLEAN ) {
+                    $val =
+                      field_buffer( $form->{fields}[$i]{ptr}, 0 );
+                    $val =~ s/^\s+//;
+                    $val =~ s/\s+$//;
+                }
+                $args =~ s/%\{$id\}/$val/g;
+            }
+            trace(
+"list_cmd after field(s) value substitution: \"$args\"",
+                $LOG_LIST_CMD
+            );
+
+            unless (
+                exec_command( $args, $form->{path}, \@list, \@err ) )
+            {
+                trace( "error generating list:", $LOG_LIST_CMD );
+                trace( "\"" . join( "\"\n\"", @err ) . "\"",
+                    $LOG_LIST_CMD );
+                if (@err) {
+                    ($es) = do_list( $win, 'Error', 'display',
+                        \@err, undef );
+                }
+                else {
+                    # issue #1: a failed list_cmd that wrote
+                    # nothing to stderr must not be handed to
+                    # do_list as an empty list.
+                    disp_msg( $win, $LIST_CMD_ERR_MSG,
+                        $LIST_CMD_ERR_TITLE );
+                }
+                @list = ();
+            }
+            close_wait_msg( $wpan, $wwin, $win );
+        }
+        elsif ( lc($action) eq 'const' ) {
+            $args =~ s/^ *"//;
+            $args =~ s/" *$//;
+            @list = split /" *, *"/, $args;
+        }
+        else {
+            trace("unknown list_cmd action type \"$action\"");
+        }
+        if (@list) {
+            my @selected = ();
+            if ( $type eq 'multi-val' ) {
+                $_ = field_buffer( current_field($cform), 0 );
+                s/\s+$//;
+                @selected = split /$multi_val_sep/;
+            }
+            ( $es, @selected ) =
+              do_list( $win, $form->{fields}[$ci]{label},
+                $type, \@list, \@selected );
+            $val = join( $multi_val_sep, @selected );
+            if ( ( $es // 0 ) == $ES_EXIT ) {
+                return ( $es, $TRUE );
+            }
+        }
+        else {
+            trace( "empty list by list_cmd", $LOG_LIST_CMD );
+            disp_msg( $win, $EMPTY_LIST_MSG, $EMPTY_LIST_TITLE );
+        }
+        if ( $form->{fields}[$ci]{type} & $BOOLEAN ) {
+            $val = ralign( $val, $BOOLEAN_FIELD_SIZE );
+        }
+        if ( $es != $ES_CANCEL and $es != $ES_EXIT ) {
+            set_field_buffer( current_field($cform), 0, $val );
+            $check_val_changes->();
+            form_driver( $cform, REQ_END_FIELD );
+        }
+    }
+    else {
+        disp_msg( $win, $NULL_LIST_MSG, $NULL_LIST_TITLE );
+    }
+    curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
+    return ( $es, $FALSE );
+}
+
 sub run_form_submit {
     my (
         $form,            $cform,          $win,
@@ -4011,97 +4114,14 @@ sub do_form {
                 last;
             }
             elsif ( $ch == $ctx->{cfg}{keys}{list}{code} ) {
-                curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
-                my $ci = int( field_index( current_field($cform) ) / 7 );
-                if ( $form{fields}[$ci]{list_cmd} ) {
-                    my $val;
-                    my @list          = ();
-                    my @err           = ();
-                    my $multi_val_sep = $form{fields}[$ci]{list_sep};
-                    my ( $action, $type, $args ) = split /:/,
-                      $form{fields}[$ci]{list_cmd}, 3;
-                    if ( lc($action) eq 'command' ) {
-                        my ( $wpan, $wwin ) = open_wait_msg;
-                        trace( "raw list_cmd: \"$args\"", $LOG_LIST_CMD );
-
-                        foreach $i ( 0 .. $#{ $form{fields} } ) {
-                            my $id  = $form{fields}[$i]{id};
-                            my $val = '';
-                            unless ( $form{fields}[$i]{type} & $BOOLEAN ) {
-                                $val =
-                                  field_buffer( $form{fields}[$i]{ptr}, 0 );
-                                $val =~ s/^\s+//;
-                                $val =~ s/\s+$//;
-                            }
-                            $args =~ s/%\{$id\}/$val/g;
-                        }
-                        trace(
-"list_cmd after field(s) value substitution: \"$args\"",
-                            $LOG_LIST_CMD
-                        );
-
-                        unless (
-                            exec_command( $args, $form{path}, \@list, \@err ) )
-                        {
-                            trace( "error generating list:", $LOG_LIST_CMD );
-                            trace( "\"" . join( "\"\n\"", @err ) . "\"",
-                                $LOG_LIST_CMD );
-                            if (@err) {
-                                ($es) = do_list( $win, 'Error', 'display',
-                                    \@err, undef );
-                            }
-                            else {
-                                # issue #1: a failed list_cmd that wrote
-                                # nothing to stderr must not be handed to
-                                # do_list as an empty list.
-                                disp_msg( $win, $LIST_CMD_ERR_MSG,
-                                    $LIST_CMD_ERR_TITLE );
-                            }
-                            @list = ();
-                        }
-                        close_wait_msg( $wpan, $wwin, $win );
-                    }
-                    elsif ( lc($action) eq 'const' ) {
-                        $args =~ s/^ *"//;
-                        $args =~ s/" *$//;
-                        @list = split /" *, *"/, $args;
-                    }
-                    else {
-                        trace("unknown list_cmd action type \"$action\"");
-                    }
-                    if (@list) {
-                        my @selected = ();
-                        if ( $type eq 'multi-val' ) {
-                            $_ = field_buffer( current_field($cform), 0 );
-                            s/\s+$//;
-                            @selected = split /$multi_val_sep/;
-                        }
-                        ( $es, @selected ) =
-                          do_list( $win, $form{fields}[$ci]{label},
-                            $type, \@list, \@selected );
-                        $val = join( $multi_val_sep, @selected );
-                        if ( ( $es // 0 ) == $ES_EXIT ) {
-                            $ch = $ctx->{cfg}{keys}{exit}{code};
-                            last;
-                        }
-                    }
-                    else {
-                        trace( "empty list by list_cmd", $LOG_LIST_CMD );
-                        disp_msg( $win, $EMPTY_LIST_MSG, $EMPTY_LIST_TITLE );
-                    }
-                    if ( $form{fields}[$ci]{type} & $BOOLEAN ) {
-                        $val = ralign( $val, $BOOLEAN_FIELD_SIZE );
-                    }
-                    if ( $es != $ES_CANCEL and $es != $ES_EXIT ) {
-                        set_field_buffer( current_field($cform), 0, $val );
-                        $check_val_changes->();
-                        form_driver( $cform, REQ_END_FIELD );
-                    }
+                my $brk;
+                ( $es, $brk ) =
+                  form_value_list( \%form, $cform, $win, $es,
+                    $check_val_changes );
+                if ($brk) {
+                    $ch = $ctx->{cfg}{keys}{exit}{code};
+                    last;
                 }
-                else {
-                    disp_msg( $win, $NULL_LIST_MSG, $NULL_LIST_TITLE );
-                }
-                curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
             }
             elsif ( $ch == $ctx->{cfg}{keys}{show_action}{code} ) {
                 $sync_fields_val->();
