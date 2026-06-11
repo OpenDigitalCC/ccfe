@@ -4272,6 +4272,108 @@ sub round {
     return sprintf( "%.0f", $num );
 }
 
+# Output-browser helpers (TD-3): hoisted out of run_browse, where they were
+# nested *named* subs.  They operate only on the package-global pad state that
+# run_browse `local`-ises -- $p (the pad), $search_string, $mwinr, $tmpfh -- so
+# moving them to file scope is behaviour-identical (a named sub already compiles
+# at package scope regardless of where its text sits); it just de-nests them.
+
+# Read the on-screen text of pad row $row (and the wrapped continuation row) so
+# a search can match across the wrap.
+sub get_search_buff {
+    my ($row) = @_;
+    my ( $buff, $chbuff, $row1, $c, $ln );
+
+    $buff = '';
+    $row1 = $row + ( $row < $ctx->{state}{pad_lines} ? 1 : 0 );
+    for $ln ( $row .. $row1 ) {
+        for $c ( 0 .. $COLS - 1 ) {
+            inchnstr( $p, $ln, $c, $chbuff, 1 );
+            $buff .= $chbuff;
+        }
+    }
+    return $buff;
+}
+
+# Advance $$row_ptr to the next pad row matching $search_string, or restore it
+# and report "not found".
+sub search_next {
+    my ($row_ptr) = @_;
+    my ( $buff, $pos0, $prev_row );
+
+    $prev_row = $$row_ptr;
+    $pos0     = -1;
+    while ( $$row_ptr <= $ctx->{state}{pad_lines} and $pos0 <= 0 ) {
+        $$row_ptr++;
+        $buff = get_search_buff($$row_ptr);
+        $buff =~ m/$search_string/g;
+        $pos0 = pos($buff) - length($search_string);
+        $pos0 = -1 if ( $pos0 > $COLS );
+    }
+    if ( $$row_ptr > $ctx->{state}{pad_lines} ) {
+        $$row_ptr = $prev_row;
+        disp_msg( $p, $FOUND_NONE_MSG, $FOUND_NONE_TITLE );
+    }
+}
+
+# Highlight every occurrence of $search_string across the whole pad.
+sub search_all {
+    my ( $buff, $pos0, $row, $nfound );
+
+    $nfound = 0;
+    for $row ( 0 .. $ctx->{state}{pad_lines} ) {
+        $pos0 = -1;
+        $buff = get_search_buff($row);
+        do {
+            $buff =~ m/$search_string/g;
+            $pos0 = pos($buff) - length($search_string);
+            $pos0 = -1 if ( $pos0 > $COLS );
+            if ( $pos0 >= 0 ) {
+                $nfound++;
+                chgat( $p, $row, $pos0, length($search_string), A_REVERSE,
+                    0, 0 );
+                if ( $pos0 + length($search_string) >= $COLS ) {
+                    chgat( $p, $row + 1, 0,
+                        $pos0 + length($search_string) - $COLS,
+                        A_REVERSE, 0, 0 );
+                }
+            }
+        } while ( $pos0 >= 0 );
+    }
+    if ( !$nfound and ( $ctx->{state}{pad_lines} <= $mwinr ) ) {
+        disp_msg( $p, $FOUND_NONE_MSG, $FOUND_NONE_TITLE );
+    }
+}
+
+# (Re)paint the pad from the captured-output temp file, applying the per-source
+# (stdout/stderr/info) colour attribute to each line.
+sub load_pad {
+    my ( $src, $buff );
+    my $c = 0;
+
+    move( $p, 0, 0 );
+    seek( $tmpfh, 0, 0 );
+    while ( defined( $buff = <$tmpfh> ) and $c <= $ctx->{state}{pad_lines} )
+    {
+        $c++;
+        ( $src, $buff ) = split /:/, $buff, 2;
+        if ( length($buff) == $COLS + 1 ) {
+            chop($buff);
+            $ctx->{state}{pad_lines}--;
+        }
+        if ( $src eq $RS_STDOUT_ID ) {
+            attrset( $p, $ctx->{cfg}{RS_STDOUT_ATTR} );
+        }
+        elsif ( $src eq $RS_STDERR_ID ) {
+            attrset( $p, $ctx->{cfg}{RS_STDERR_ATTR} );
+        }
+        elsif ( $src eq $RS_INFO_ID ) {
+            attrset( $p, $ctx->{cfg}{RS_INFO_ATTR} );
+        }
+        addstr( $p, $buff );
+    }
+}
+
 sub run_browse {
     my ( $title, $cmd, $save_fname, $extra_path ) = @_;
 
@@ -4291,95 +4393,6 @@ sub run_browse {
     local ( $exec_ss, $exec_mm, $exec_hh );
     local ( $p, $mwin, $twin, $mwinr );
     my $cmd_descr = $title;
-
-    sub get_search_buff {
-        my ($row) = @_;
-        my ( $buff, $chbuff, $row1, $c, $ln );
-
-        $buff = '';
-        $row1 = $row + ( $row < $ctx->{state}{pad_lines} ? 1 : 0 );
-        for $ln ( $row .. $row1 ) {
-            for $c ( 0 .. $COLS - 1 ) {
-                inchnstr( $p, $ln, $c, $chbuff, 1 );
-                $buff .= $chbuff;
-            }
-        }
-        return $buff;
-    }
-
-    sub search_next {
-        my ($row_ptr) = @_;
-        my ( $buff, $pos0, $prev_row );
-
-        $prev_row = $$row_ptr;
-        $pos0     = -1;
-        while ( $$row_ptr <= $ctx->{state}{pad_lines} and $pos0 <= 0 ) {
-            $$row_ptr++;
-            $buff = get_search_buff($$row_ptr);
-            $buff =~ m/$search_string/g;
-            $pos0 = pos($buff) - length($search_string);
-            $pos0 = -1 if ( $pos0 > $COLS );
-        }
-        if ( $$row_ptr > $ctx->{state}{pad_lines} ) {
-            $$row_ptr = $prev_row;
-            disp_msg( $p, $FOUND_NONE_MSG, $FOUND_NONE_TITLE );
-        }
-    }
-
-    sub search_all {
-        my ( $buff, $pos0, $row, $nfound );
-
-        $nfound = 0;
-        for $row ( 0 .. $ctx->{state}{pad_lines} ) {
-            $pos0 = -1;
-            $buff = get_search_buff($row);
-            do {
-                $buff =~ m/$search_string/g;
-                $pos0 = pos($buff) - length($search_string);
-                $pos0 = -1 if ( $pos0 > $COLS );
-                if ( $pos0 >= 0 ) {
-                    $nfound++;
-                    chgat( $p, $row, $pos0, length($search_string), A_REVERSE,
-                        0, 0 );
-                    if ( $pos0 + length($search_string) >= $COLS ) {
-                        chgat( $p, $row + 1, 0,
-                            $pos0 + length($search_string) - $COLS,
-                            A_REVERSE, 0, 0 );
-                    }
-                }
-            } while ( $pos0 >= 0 );
-        }
-        if ( !$nfound and ( $ctx->{state}{pad_lines} <= $mwinr ) ) {
-            disp_msg( $p, $FOUND_NONE_MSG, $FOUND_NONE_TITLE );
-        }
-    }
-
-    sub load_pad {
-        my ( $src, $buff );
-        my $c = 0;
-
-        move( $p, 0, 0 );
-        seek( $tmpfh, 0, 0 );
-        while ( defined( $buff = <$tmpfh> ) and $c <= $ctx->{state}{pad_lines} )
-        {
-            $c++;
-            ( $src, $buff ) = split /:/, $buff, 2;
-            if ( length($buff) == $COLS + 1 ) {
-                chop($buff);
-                $ctx->{state}{pad_lines}--;
-            }
-            if ( $src eq $RS_STDOUT_ID ) {
-                attrset( $p, $ctx->{cfg}{RS_STDOUT_ATTR} );
-            }
-            elsif ( $src eq $RS_STDERR_ID ) {
-                attrset( $p, $ctx->{cfg}{RS_STDERR_ATTR} );
-            }
-            elsif ( $src eq $RS_INFO_ID ) {
-                attrset( $p, $ctx->{cfg}{RS_INFO_ATTR} );
-            }
-            addstr( $p, $buff );
-        }
-    }
 
     $ctx->{state}{child_es} = 0;
 
