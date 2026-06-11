@@ -2798,6 +2798,70 @@ sub redraw_form_page {
     return;
 }
 
+# Run a form's `init { command:... }` before it is drawn (TD-3: lifted out of
+# do_form).  The command's `id=value` stdout pre-fills the field-value map; the
+# special CCFE_{REMOVE,ENABLE,DISABLE}_FIELDS ids accumulate into the caller's
+# lists; stderr is shown in a pop-up.  Returns true when the command failed
+# (non-zero exit) so do_form should abort; the caller owns the window teardown.
+sub run_form_init {
+    my ( $form, $formname, $win, $field_vals, $remove, $enable, $disable ) = @_;
+    return 0 unless $form->{init};
+
+    my ( $action, $args ) = split /:/, $form->{init}, 2;
+    unless ( $action eq 'command' ) {
+        trace("unknown form init type \"$action\"");
+        return 0;
+    }
+
+    curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
+    my ( $wpan, $wwin ) = open_wait_msg;
+    %{$field_vals} = ();
+
+    my @res = ();
+    my @err = ();
+    trace( "init form: executing \"$args\"", $LOG_INITFORM_OUT );
+    exec_command( $args, $form->{path}, \@res, \@err );
+    trace( "init form exit status: $ctx->{state}{child_es}", $LOG_INITFORM_OUT );
+    trace( "init form stdout:", $LOG_INITFORM_OUT );
+    trace( "  \"$_\"",          $LOG_INITFORM_OUT ) for @res;
+    if (@err) {
+        do_list( $win, $INIT_FORM_ERR_MSG, 'display', \@err, undef );
+        trace( "init form stderr:", $LOG_INITFORM_OUT );
+        trace( "  $_",              $LOG_INITFORM_OUT ) for @err;
+    }
+
+    trace( "init field value(s) \"$formname\":", $LOG_FIELDS_VAL );
+    foreach my $s (@res) {
+        my ( $id, $val ) = split /\s*=\s*/, $s, 2;
+        if (
+            in( $id,
+                ( $INIT_REMOVE_FIELDS, $INIT_ENABLE_FIELDS, $INIT_DISABLE_FIELDS )
+            )
+          )
+        {
+            my @fl = split /\s*,\s*/, $val;
+            if ( $id =~ /^$INIT_REMOVE_FIELDS$/ ) {
+                push( @{$remove}, @fl );
+            }
+            elsif ( $id =~ /^$INIT_ENABLE_FIELDS$/ ) {
+                push( @{$enable}, @fl );
+            }
+            elsif ( $id =~ /^$INIT_DISABLE_FIELDS$/ ) {
+                push( @{$disable}, @fl );
+            }
+            trace( "$id is \"" . join( ',', @fl ) . "\"" );
+        }
+        else {
+            $field_vals->{$id} = $val;
+            trace( "  $s=\"$val\"", $LOG_FIELDS_VAL );
+        }
+    }
+
+    close_wait_msg( $wpan, $wwin, $win );
+    curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
+    return $ctx->{state}{child_es} ? 1 : 0;
+}
+
 sub do_form {
     my ( $formname, $title, @argv ) = @_;
 
@@ -3092,73 +3156,16 @@ sub do_form {
         $form{init}   =~ s/%\{$FORM_ARGV_ID[1-9][0-9]*\}//g;
         $form{action} =~ s/%\{$FORM_ARGV_ID[1-9][0-9]*\}//g;
 
-        if ( $form{init} ) {
-            my ( $action, $args ) = split /:/, $form{init}, 2;
-            if ( $action eq 'command' ) {
-                curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
-                my ( $wpan, $wwin ) = open_wait_msg;
-                %{$field_vals} = ();
-                my $prev_path = $ENV{PATH};
-
-                my @res = ();
-                my @err = ();
-                trace( "init form: executing \"$args\"", $LOG_INITFORM_OUT );
-                my $cmd_ok = exec_command( $args, $form{path}, \@res, \@err );
-                trace( "init form exit status: $ctx->{state}{child_es}", $LOG_INITFORM_OUT );
-                trace( "init form stdout:",                $LOG_INITFORM_OUT );
-                foreach $s (@res) {
-                    trace( "  \"$s\"", $LOG_INITFORM_OUT );
-                }
-                if (@err) {
-                    ($es) = do_list( $win, $INIT_FORM_ERR_MSG, 'display', \@err,
-                        undef );
-                    trace( "init form stderr:", $LOG_INITFORM_OUT );
-                    foreach $s (@err) {
-                        trace( "  $s", $LOG_INITFORM_OUT );
-                    }
-                }
-                trace( "init field value(s) \"$formname\":", $LOG_FIELDS_VAL );
-                foreach $s (@res) {
-                    my ( $id, $val ) = split /\s*=\s*/, $s, 2;
-                    if (
-                        in(
-                            $id,
-                            (
-                                $INIT_REMOVE_FIELDS, $INIT_ENABLE_FIELDS,
-                                $INIT_DISABLE_FIELDS
-                            )
-                        )
-                      )
-                    {
-                        my @fl = split /\s*,\s*/, $val;
-                        if ( $id =~ /^$INIT_REMOVE_FIELDS$/ ) {
-                            push( @fields_to_remove, @fl );
-                        }
-                        elsif ( $id =~ /^$INIT_ENABLE_FIELDS$/ ) {
-                            push( @fields_to_enable, @fl );
-                        }
-                        elsif ( $id =~ /^$INIT_DISABLE_FIELDS$/ ) {
-                            push( @fields_to_disable, @fl );
-                        }
-                        trace( "$id is \"" . join( ',', @fl ) . "\"" )
-                          ;    #$LOG_FIELDS_VAL
-                    }
-                    else {
-                        $field_vals->{$id} = $val;
-                        trace( "  $s=\"$val\"", $LOG_FIELDS_VAL );
-                    }
-                }
-                close_wait_msg( $wpan, $wwin, $win );
-                curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
-                if ($ctx->{state}{child_es}) {
-                    del_panel($pan);
-                    delwin($win);
-                    return;
-                }
-            }
-            else {
-                trace("unknown form init type \"$action\"");
-            }
+        if (
+            run_form_init(
+                \%form, $formname, $win, $field_vals,
+                \@fields_to_remove, \@fields_to_enable, \@fields_to_disable
+            )
+          )
+        {
+            del_panel($pan);
+            delwin($win);
+            return;
         }
         $load_persistent->($field_vals);
 
