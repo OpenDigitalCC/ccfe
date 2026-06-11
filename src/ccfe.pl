@@ -3361,6 +3361,68 @@ sub resize_form {
 # the chooser asked to quit the whole UI (ES_EXIT), so the caller exits the
 # event loop exactly as the inline `last` did.  $check_val_changes is passed in
 # (it captures this call's %form/$cform/@fp).
+# do_form's TAB / Shift-TAB handler, extracted from the event loop (TD-3).  For
+# a field with a `const:single-val` list_cmd it cycles the field through the
+# list's values in place (forward on TAB, backward on Shift-TAB), wrapping
+# round; any other list_cmd kind beeps.  Mutates the field buffer directly;
+# $check_val_changes (which captures this call's %form/$cform/@fp) is passed in.
+sub form_tab_cycle {
+    my ( $form, $cform, $ch, $check_val_changes ) = @_;
+
+    my ( $name, $newidx );
+    my $fi     = int( field_index( current_field($cform) ) / 7 );
+    my @vals   = ();
+    my @list   = ();
+    my $actval = field_buffer( current_field($cform), 0 );
+    $actval =~ s/\s+$//;
+    $actval =~ s/^\s+//;
+    my ( $action, $type, $args ) = split /:/,
+      $form->{fields}[$fi]{list_cmd}, 3;
+
+    if ( lc($action) eq 'const' and lc($type) eq 'single-val' ) {
+        $args =~ s/^ *"//;
+        $args =~ s/" *$//;
+        @list = split /" *, *"/, $args;
+        foreach my $s (@list) {
+            ( $name, undef ) = split /(?<!\\) /, $s, 2;
+            $name =~ s/\\ / /g;
+            $name = ' ' if $name eq '';
+            push @vals, $name;
+        }
+        if ( $ch eq "\t" ) {
+            $newidx = 0;
+            for my $i ( 0 .. $#vals ) {
+                $newidx++;
+                last if $vals[ $newidx - 1 ] eq $actval;
+            }
+            $newidx = 0 if ( $newidx > $#vals );
+        }
+        elsif ( $ch == KEY_BTAB ) {
+            $newidx = $#vals;
+            for my $i ( 0 .. $#vals ) {
+                $newidx--;
+                last if $vals[ $newidx + 1 ] eq $actval;
+            }
+            $newidx = $#vals if ( $newidx < 0 );
+        }
+        if ( $form->{fields}[$fi]{type} & $BOOLEAN ) {
+            set_field_buffer( current_field($cform), 0,
+                ralign( $vals[$newidx], $BOOLEAN_FIELD_SIZE ) );
+        }
+        else {
+            set_field_buffer( current_field($cform), 0,
+                $vals[$newidx] );
+        }
+        form_driver( $cform, REQ_END_FIELD );
+        $check_val_changes->();
+    }
+    else {
+        trace("unknown list_cmd action/type \"$action\"/\"$type\"");
+        beep();
+    }
+    return;
+}
+
 sub form_value_list {
     my ( $form, $cform, $win, $es, $check_val_changes ) = @_;
 
@@ -4052,57 +4114,7 @@ sub do_form {
                     $npages, 'form', $formname );
             }
             elsif ( $ch eq "\t" or $ch == KEY_BTAB ) {
-                my ( $name, $newidx );
-                my $fi     = int( field_index( current_field($cform) ) / 7 );
-                my @vals   = ();
-                my @list   = ();
-                my $actval = field_buffer( current_field($cform), 0 );
-                $actval =~ s/\s+$//;
-                $actval =~ s/^\s+//;
-                my ( $action, $type, $args ) = split /:/,
-                  $form{fields}[$fi]{list_cmd}, 3;
-
-                if ( lc($action) eq 'const' and lc($type) eq 'single-val' ) {
-                    $args =~ s/^ *"//;
-                    $args =~ s/" *$//;
-                    @list = split /" *, *"/, $args;
-                    foreach my $s (@list) {
-                        ( $name, undef ) = split /(?<!\\) /, $s, 2;
-                        $name =~ s/\\ / /g;
-                        $name = ' ' if $name eq '';
-                        push @vals, $name;
-                    }
-                    if ( $ch eq "\t" ) {
-                        $newidx = 0;
-                        for $i ( 0 .. $#vals ) {
-                            $newidx++;
-                            last if $vals[ $newidx - 1 ] eq $actval;
-                        }
-                        $newidx = 0 if ( $newidx > $#vals );
-                    }
-                    elsif ( $ch == KEY_BTAB ) {
-                        $newidx = $#vals;
-                        for $i ( 0 .. $#vals ) {
-                            $newidx--;
-                            last if $vals[ $newidx + 1 ] eq $actval;
-                        }
-                        $newidx = $#vals if ( $newidx < 0 );
-                    }
-                    if ( $form{fields}[$fi]{type} & $BOOLEAN ) {
-                        set_field_buffer( current_field($cform), 0,
-                            ralign( $vals[$newidx], $BOOLEAN_FIELD_SIZE ) );
-                    }
-                    else {
-                        set_field_buffer( current_field($cform), 0,
-                            $vals[$newidx] );
-                    }
-                    form_driver( $cform, REQ_END_FIELD );
-                    $check_val_changes->();
-                }
-                else {
-                    trace("unknown list_cmd action/type \"$action\"/\"$type\"");
-                    beep();
-                }
+                form_tab_cycle( \%form, $cform, $ch, $check_val_changes );
             }
             elsif ( $ch eq "\r" or $ch eq "\n" ) {
                 $es =
