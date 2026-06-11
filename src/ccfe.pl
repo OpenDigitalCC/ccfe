@@ -2113,13 +2113,93 @@ sub apply_action_opts {
     return ( $wait_key, $aborted, $es );
 }
 
+# do_menu's action dispatch (TD-3), extracted from the event loop -- the menu
+# analogue of run_form_submit.  Parses the selected item's action string,
+# applies its confirm/log/wait_key options, then dispatches menu/form/system/
+# exec/run.  $es is threaded in and returned (a nested do_menu/do_form,
+# run_browse or a confirm-abort can change it); exec selection is recorded on
+# $ctx.  $descr is the item description (the child screen title and the confirm
+# prompt).  The caller keeps the ES_EXIT break, as the inline arm did.
+sub run_menu_action ( $action_str, $descr, $menuname, $menu_path, $win, $es ) {
+    my ( $action, $args, @actopts, $wait_key, $called_form );
+
+    my $act = CCFE::Action::parse($action_str);
+    $action  = $act->{verb};
+    $args    = $act->{args};
+    @actopts = @{ $act->{opts} };
+
+    my ( $aborted, $opt_es );
+    ( $wait_key, $aborted, $opt_es ) =
+      apply_action_opts( \@actopts, $win, $descr );
+    $es = $opt_es if defined $opt_es;
+    $action = 'ABORTED' if $aborted;
+
+    if ( $action eq 'menu' ) {
+        ( $es, undef, undef ) = do_menu( $args, $descr );
+        if ( $es and $es < $ES_USER_REQ ) {
+            trace("WARNING: $es_str[$es] while reading menu \"$args\"");
+            disp_msg( $win, "$es_str[$es] $LOAD_MENU_ERR_MSG \"$args\"",
+                $MENU_ERR_TITLE );
+        }
+        else {
+            refresh($win);
+        }
+    }
+    elsif ( $action eq 'form' ) {
+        curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
+        ( $called_form, $args ) = split /\s+/, $args, 2;
+        $args =~ s/^\s+//;
+        $args =~ s/\s+$//;
+        trace( "call form \"$called_form\", args \"$args\"",
+            $LOG_ACTION_CMD );
+        $es = do_form( $called_form, $descr, split /\s+/, $args );
+        curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
+        if ( $es and $es < $ES_USER_REQ ) {
+            trace("WARNING: $es_str[$es] while reading form \"$args\"");
+            disp_msg( $win, "$es_str[$es] $LOAD_FORM_ERR_MSG \"$args\"",
+                $FORM_ERR_TITLE );
+        }
+        else {
+            refresh($win);
+        }
+    }
+    elsif ( $action eq 'system' ) {
+        if ( restricted_denies_verb( 'system', $args ) ) {
+            disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
+        }
+        else {
+            curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
+            call_system( $wait_key, $args );
+            curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
+        }
+        refresh($win);
+    }
+    elsif ( $action eq 'exec' ) {
+        if ( restricted_denies_verb( 'exec', $args ) ) {
+            disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
+        }
+        else {
+            $ctx->{state}{exec_args} = $args;
+        }
+    }
+    elsif ( $action eq 'run' ) {
+        $es = run_browse( $descr, $args, $menuname, $menu_path );
+        refresh($win);
+    }
+    elsif ( $action eq 'ABORTED' ) {
+        trace("user not confirmed action!");
+    }
+    else {
+        trace("unknown action \"$action\"");
+    }
+    return $es;
+}
+
 sub do_menu {
     my ( $menuname, $title ) = @_;
 
     my @fset;
     my ( $cmenu, $es, $rows, $cols, $i, $ci, $item, $ch, $mlmargin, $msub );
-    my ( $action, $args, $wait_key );
-    my @actopts;
     my ($pan);
     my ( $win,     $mwinr );
     my ( $exit_id, $exit_descr );
@@ -2303,86 +2383,11 @@ sub do_menu {
                 $ci           = item_index( current_item($cmenu) );
                 $ctx->{state}{last_item_id} = $menu{items}[$ci]{id};
                 if ( $menu{items}[$ci]{action} ) {
-                    my $act = CCFE::Action::parse( $menu{items}[$ci]{action} );
-                    $action  = $act->{verb};
-                    $args    = $act->{args};
-                    @actopts = @{ $act->{opts} };
-
-                    my ( $aborted, $opt_es );
-                    ( $wait_key, $aborted, $opt_es ) =
-                      apply_action_opts( \@actopts, $win,
-                        $menu{items}[$ci]{descr} );
-                    $es = $opt_es if defined $opt_es;
-                    $action = 'ABORTED' if $aborted;
-
-                    if ( $action eq 'menu' ) {
-                        ( $es, undef, undef ) =
-                          do_menu( $args, $menu{items}[$ci]{descr} );
-                        if ( $es and $es < $ES_USER_REQ ) {
-                            trace(
-"WARNING: $es_str[$es] while reading menu \"$args\""
-                            );
-                            disp_msg( $win,
-                                "$es_str[$es] $LOAD_MENU_ERR_MSG \"$args\"",
-                                $MENU_ERR_TITLE );
-                        }
-                        else {
-                            refresh($win);
-                        }
-                    }
-                    elsif ( $action eq 'form' ) {
-                        curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
-                        ( $called_form, $args ) = split /\s+/, $args, 2;
-                        $args =~ s/^\s+//;
-                        $args =~ s/\s+$//;
-                        trace( "call form \"$called_form\", args \"$args\"",
-                            $LOG_ACTION_CMD );
-                        $es = do_form( $called_form, $menu{items}[$ci]{descr},
-                            split /\s+/, $args );
-                        curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
-                        if ( $es and $es < $ES_USER_REQ ) {
-                            trace(
-"WARNING: $es_str[$es] while reading form \"$args\""
-                            );
-                            disp_msg( $win,
-                                "$es_str[$es] $LOAD_FORM_ERR_MSG \"$args\"",
-                                $FORM_ERR_TITLE );
-                        }
-                        else {
-                            refresh($win);
-                        }
-                    }
-                    elsif ( $action eq 'system' ) {
-                        if ( restricted_denies_verb( 'system', $args ) ) {
-                            disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
-                        }
-                        else {
-                            curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
-                            call_system( $wait_key, $args );
-                            curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
-                        }
-                        refresh($win);
-                    }
-                    elsif ( $action eq 'exec' ) {
-                        if ( restricted_denies_verb( 'exec', $args ) ) {
-                            disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
-                        }
-                        else {
-                            $ctx->{state}{exec_args} = $args;
-                        }
-                    }
-                    elsif ( $action eq 'run' ) {
-                        $es = run_browse( $menu{items}[$ci]{descr},
-                            $args, $menuname, $menu{path} );
-                        refresh($win);
-                    }
-                    elsif ( $action eq 'ABORTED' ) {
-                        trace("user not confirmed action!");
-                    }
-                    else {
-                        trace("unknown action \"$action\"");
-                    }
+                    $es = run_menu_action( $menu{items}[$ci]{action},
+                        $menu{items}[$ci]{descr},
+                        $menuname, $menu{path}, $win, $es );
                     last if ( $es // 0 ) == $ES_EXIT;
+                    $LOG_REQUESTED = $NO;
                 }
                 else {
                     $exit_id    = $menu{items}[$ci]{id};
@@ -2396,7 +2401,6 @@ sub do_menu {
                     }
                     last;
                 }
-                $LOG_REQUESTED = $NO;
             }
             elsif ( $ch =~ /^\S$/ ) {
                 menu_driver( $cmenu, $ch );
