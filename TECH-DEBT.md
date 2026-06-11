@@ -13,7 +13,7 @@ All work must keep the suite green and the four CI checks passing
 | TD-1 | RESTRICTED-mode hardening | security | **high** | L (4 sub-tasks) | — | ✅ done |
 | TD-2 | Close the pty test-coverage gaps | coverage | high | M | — | ✅ done |
 | TD-3 | Break up the oversized `ccfe.pl` subs | quality | med | L | TD-2 | 🟡 in progress |
-| TD-4 | Docs & packaging polish (man pages, POD) | docs | med | M | — | open |
+| TD-4 | Docs & packaging polish (man pages, POD) | docs | med | M | — | ✅ done |
 | TD-5 | Logging I/O polish | performance | low | S | — | ✅ done |
 
 **TD-1 done** (`restricted = yes` strengthened to a real boundary, per the
@@ -180,6 +180,22 @@ ships man pages users can't find.
 
 **Accept:** `man ccfe` works from a package install and documents current flags;
 `perldoc CCFE::X` yields content; one contributor architecture doc exists.
+
+**Done.** `.TH` version 1.58 → 2.2 on all five pages; `ccfe.1` documents the M6
+options `-D/--dump`, `-k`, `-P/--plugins`; `ccfe.conf.5` documents the
+previously-undocumented `mouse`, `restricted`, `restricted_allow` and the
+`menu_global` colour attributes (`screen_attr`/`item_attr`/`selected_attr`/
+`title_attr`/`key_attr`), each verified against `load_config`. Man pages are put
+on the MANPATH via `/usr/share/man` symlinks in `debian/ccfe.links` (the
+self-contained tree under `/usr/lib/ccfe` is otherwise off the search path). All
+eight `CCFE::*` modules gained `=head1 NAME/SYNOPSIS/DESCRIPTION/FUNCTIONS/SEE
+ALSO` POD (podchecker-clean, Pod::Text renders), plus a contributor architecture
+overview at `src/lib/CCFE/README.md`. Licence files consolidated to `LICENCE`
+(British, the original); the stale upstream `ChangeLog` is no longer shipped by
+`install.sh`. The pre-v2 `/usr/lib/ccfe` example paths in `ccfe_menu.5` were left
+as-is — they are coincidentally correct for the deb's default `LIBDIR`. Note: no
+config keyword controls resize (it is handled at runtime via `KEY_RESIZE`), so
+there was nothing to document there.
 
 ---
 
