@@ -198,7 +198,9 @@ install ()
   done
 
   echo "Copying release documentation and samples..."
-  cp README COPYING AUTHORS ChangeLog $DOCDIR/
+  # ChangeLog (upstream, frozen at v1.58) is intentionally not shipped: the
+  # current history of record is CHANGELOG.md and debian/changelog.
+  cp README COPYING AUTHORS $DOCDIR/
   cp -rp ccfe-plugin-sysmon $DOCDIR/samples
   # The .conf themes are installed under $THEMEDIR (see above).
 
