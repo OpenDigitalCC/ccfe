@@ -144,12 +144,26 @@ threading mistake shows up as a crash or a mis-drawn screen, not a silent pass.
   resize_form closure), `t/11` layout, `t/07` `--dump` form, `t/20` submit. Full
   suite 311 green.
 
-### Phase 4 — config settings → `$ctx->{cfg}`  *(~30 vars, incl. 17 colour attrs)*
-- `load_config`'s per-section dispatch writes `$ctx->{cfg}{...}`; the
-  `eval "$VAR = ..."` colour assignments become `eval "\$ctx->{cfg}{labelFg} =
-  ..."` (still evaluated in `ccfe.pl`'s package for the colour helpers).
-- Read-only after startup, so readers are a mechanical `$X` → `$ctx->{cfg}{X}`.
-- **Gate:** `t/06` colour/theme integration.
+### Phase 4 — config settings → `$ctx->{cfg}`  *(done — ~45 vars, ~290 sites)*
+- **Decision (agreed):** config is read-only-after-startup shared state, so it
+  is *consolidated* into one explicit `$ctx->{cfg}` object rather than
+  param-threaded through the ~15 reading subs. `$ctx` is promoted to a top-level
+  `our` global, built before the config defaults; `load_config`, the defaults
+  and every reader fill/read `$ctx->{cfg}{X}`. No param-threading (no benefit for
+  immutable data); the per-call MUTABLE state already got true lexical isolation
+  in Phases 1–3.
+- Done in three test-gated word-boundary-rename commits: **4a** scalar settings
+  (LAYOUT, HIDE_CURSOR, PATH, RESTRICTED, *_FOOTER_ROWS, …); **4b** colour/attr
+  vars incl. the `eval "$VAR = ..."` ones (rewritten to
+  `eval "\$ctx->{cfg}{labelFg} = ..."`, still evaluated in `ccfe.pl`'s package);
+  **4c** structures (`%keys` → `$ctx->{cfg}{keys}` hashref, `@fval_delim` and
+  `@RESTRICTED_ALLOW` → arrayrefs). Only `@mf_path`/`@cnf_path` stay global
+  (search-path infrastructure used by `t/01`).
+- **Test fallout:** `t/04-restricted.t` poked `$main::RESTRICTED` /
+  `@main::RESTRICTED_ALLOW` and grepped the source for `unless $RESTRICTED`;
+  updated to `$main::ctx->{cfg}{...}`.
+- **Gate:** `t/06` colour/theme, `t/04` restricted policy, `t/07` CLI, full
+  suite 311 green.
 
 ### Phase 5 — residual scalar runtime state
 - `$SCREEN_DIR`, `$last_item_id`, `$pad_lines`, `$exec_args`, `$child_es`.

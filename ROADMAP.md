@@ -218,8 +218,13 @@ the conformance tests.
   converted to anonymous closures (3a), then `%form`/`@fp`/`$cform` flipped from
   `local` to per-call `my` (3b); `load_form` now builds a lexical and copies it
   out to a caller ref. ~325 body sites stayed byte-identical. `t/20-form-submit.t`
-  added to fire the submit-path closures. 311 tests green. Next: Phase 4
-  (config settings → `$ctx->{cfg}`).
+  added to fire the submit-path closures. **Phase 4 done:** the ~45 read-only
+  config vars (~290 sites) consolidated into one explicit `$ctx->{cfg}` object
+  (`our $ctx` built before the config defaults) rather than param-threaded
+  through ~15 subs, since config is immutable after `load_config`; done in three
+  word-boundary-rename commits (4a settings, 4b colour attrs incl. the eval'd
+  ones, 4c `%keys`/arrays). 311 tests green. Next: Phase 5 (residual scalars),
+  then the Phase 6 `use v5.36` capstone.
 
 ## M8 — Non-functional close-out audit  _(final gate)_
 Five dimensions: **test coverage, code quality, performance, security,
