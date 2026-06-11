@@ -20,6 +20,7 @@
 #  Author: Massimo Loschi <ccfedevel@gmail.com>
 #
 
+use v5.36;    # strict + warnings + modern features (M7 Phase 6 capstone)
 use Curses;
 use Sys::Hostname;
 use File::Basename;
@@ -53,6 +54,71 @@ use CCFE::Action   ();    # pure action-string parser (see do_menu/do_form)
 use CCFE::Layout   ();    # pure form value-column/page geometry (see do_form)
 use CCFE::Context  ();    # explicit run-state container (M7 de-globalisation)
 use FindBin ();    # to locate the program at runtime (see the path block below)
+
+# M7 Phase 6 (capstone): this legacy script predates `use strict`.  Its package
+# globals -- constants, lookup tables, the search-path arrays, message strings
+# and the few intentionally-global runtime vars ($cpid/$tmpfh, owned by the
+# signal handlers) -- are declared here so the file runs under strict.  The
+# de-globalisation (Phases 1-5) moved the mutable per-screen/config/run state
+# onto lexicals and $ctx; what remains global is genuinely program-wide.
+## BEGIN-OUR (formatted; scalars, then arrays, then hashes)
+our (
+    $ALL_FIELDS_IDS_TAG, $ASKS_FIELD_PAD, $ASKS_FIELD_SIZE, $ASKS_WIN_COLS,
+    $ASKS_WIN_FTR_ROWS, $ASKS_WIN_ROWS, $BAD_SHELL_MSG, $BAD_SHELL_TITLE,
+    $BFIELD_DEFAULT, $BFIELD_NO, $BFIELD_NO_DESCR, $BFIELD_NULL,
+    $BFIELD_NULL_DESCR, $BFIELD_YES, $BFIELD_YES_DESCR, $BIG_OUTPUT_MSG,
+    $BIG_OUTPUT_TITLE, $BINDIR, $BOOLEAN, $BOOLEAN_FIELD_SIZE, $CALLNAME,
+    $CALL_SHELL_MSG, $CALL_SYS_ES_MSG, $CALL_SYS_MSG, $CONFIRM_DESCR_NO,
+    $CONFIRM_DESCR_YES, $CONFIRM_TITLE, $CURSES_ACTIVE, $DEBUG, $DESCR,
+    $DMENU_DEF_FNAME, $EMPTY_LIST_MSG, $EMPTY_LIST_TITLE,
+    $ERR_EMPTY_FIELD_MSG, $ERR_EMPTY_FIELD_TITLE, $ERR_LOAD_INITIAL_OBJ,
+    $ES_CANCEL, $ES_EXIT, $ES_FOPEN_ERR, $ES_FOPEN_ERR_MSG, $ES_NOT_FOUND,
+    $ES_NOT_FOUND_MSG, $ES_NO_ERR, $ES_NO_ERR_MSG, $ES_NO_ITEMS,
+    $ES_NO_ITEMS_MSG, $ES_SYNTAX_ERR, $ES_SYNTAX_ERR_MSG, $ES_USER_REQ,
+    $ETCDIR, $FALSE, $FIELD_LMARGIN, $FIELD_RMARGIN, $FIELD_VALUE_GAP,
+    $FORMEXT, $FORM_ARGV_ID, $FORM_ERR_TITLE, $FOUND_NONE_MSG,
+    $FOUND_NONE_TITLE, $FSEP_ID_PRFX, $FS_BOTTOM_ROWS, $FS_HEADER_ROWS,
+    $FS_TOP_ROWS, $HAS_COLOR, $HOSTNAME, $HTAB_COLS, $INIT_DISABLE_FIELDS,
+    $INIT_ENABLE_FIELDS, $INIT_FORM_ERR_MSG, $INIT_REMOVE_FIELDS,
+    $KEY_ENTER_LABEL, $KEY_F10_LABEL, $KEY_F1_LABEL, $KEY_F2_LABEL,
+    $KEY_F3_LABEL, $KEY_F4_LABEL, $KEY_F5_LABEL, $KEY_F6_LABEL, $KEY_F7_LABEL,
+    $KEY_F8_LABEL, $KEY_F9_LABEL, $KEY_FIND_LABEL, $KEY_FNEXT_LABEL,
+    $KEY_INTR_LABEL, $KEY_SELALL_LABEL, $KEY_UNSELALL_LABEL, $LANG_ID,
+    $LEGACY_DIR, $LIBDIR, $LIST_CMD_ERR_MSG, $LIST_CMD_ERR_TITLE,
+    $LOAD_FORM_ERR_MSG, $LOAD_MENU_ERR_MSG, $LOGDIR, $LOG_ACTION_CMD,
+    $LOG_ACTION_OUT, $LOG_DATE, $LOG_DEFAULT_CMD, $LOG_FIELDS_VAL,
+    $LOG_INITFORM_OUT, $LOG_LIST_CMD, $LOG_MENU_CHOICE, $LOG_NORMAL,
+    $LOG_REQUESTED, $LOG_SCAN_PATHS, $LOG_SYSCALL_ENV, $LOG_WRITE_ERROR_MSG,
+    $LOG_WRITE_ERROR_TITLE, $LW_COLS, $LW_FOOTER_ROWS, $LW_PAD_COLS, $LW_ROW0,
+    $MAIN_PATH, $MARK_PRIV_SHCUTS, $MENUEXT, $MENU_ERR_TITLE,
+    $MIN_ITEMS_FOR_FIND, $MOUSE_ON, $MSGDIR, $MSG_WIN_BMSG, $MSG_WIN_ROWS,
+    $MSG_WIN_TITLE, $MS_BOTTOM_ROWS, $MS_HEADER_ROWS, $MS_TOP_ROWS, $NO,
+    $NORMAL, $NULLBOOLEAN, $NULL_FACTION_MSG, $NULL_FACTION_TITLE,
+    $NULL_LIST_MSG, $NULL_LIST_TITLE, $NUMERIC, $OBJDIR, $OFF, $ON, $PERS_DIR,
+    $PERS_WRITE_ERROR_MSG, $PERS_WRITE_ERROR_TITLE, $PREFIX, $PRIV_DIR,
+    $RB_FAILED_MSG, $RB_LINES_MSG, $RB_OK_MSG, $RB_RUNNING_MSG, $RB_TIME_MSG,
+    $RB_TITLE, $REALNAME, $RESTRICTED_MSG, $RESTRICTED_TITLE, $RS_BOTTOM_ROWS,
+    $RS_HEADER_ROWS, $RS_INFO_ID, $RS_STDERR_ID, $RS_STDOUT_ID, $RS_TOP_ROWS,
+    $SAVE_DETAILED, $SAVE_DETAILED_DESCR, $SAVE_ERROR_MSG, $SAVE_ERROR_TITLE,
+    $SAVE_FIELDVAL_MSG, $SAVE_FIELDVAL_TITLE, $SAVE_FNAME_PROMPT,
+    $SAVE_FNAME_TITLE, $SAVE_SCRIPT, $SAVE_SCRIPT_DESCR, $SAVE_SIMPLE,
+    $SAVE_SIMPLE_DESCR, $SAVE_TYPE_TITLE, $SEARCH_PTRN_PROMPT,
+    $SEARCH_PTRN_TITLE, $SEPARATOR, $SEP_LINE, $SEP_LINE_DOUBLE, $SEP_TEXT,
+    $SEP_TEXT_CENTER, $SHOW_ACTION_TITLE, $SIMPLE, $SR_BUFF_SIZE, $STRING,
+    $THEMEDIR, $TRUE, $UCSTRING, $USERNAME, $USR_CFG, $USR_OBJ, $VERSION,
+    $VERSION_DATE, $VERSION_YEAR, $WAIT_MSG_MSG, $WRKDIR, $YES, $attrk,
+    $attrv, $called_form, $ch, $choice, $cpid, $descr, $es, $exec_hh,
+    $exec_mm, $exec_ss, $i, $id, $lflags_size, $mlmargin, $mwin, $mwinr, $opt,
+    $out, $ovl_mode, $p, $pad_lines, $path, $pid, $prev_wdir, $res,
+    $rflags_size, $s, $scan, $search_string, $shcut_type, $text, $tmpfh,
+    $twin,
+    @CONFIRM_ITEMS, @ERR_LITTLE_SCREEN, @ERR_WRONG_FPATH, @FORM_TOP_MSG,
+    @FSKeys, @LW_DISPLAY_TOP_MSG, @LW_MULTIVAL_TOP_MSG, @LW_SINGLEVAL_TOP_MSG,
+    @MENU_TOP_MSG, @MSKeys, @RSKeys, @cnf_path, @es_str, @flist,
+    @fn_key_functions, @lines, @mf_path,
+    %bool_vals, %layout_vals, %options, %sep_type_vals, %type_vals,
+);
+## END-OUR
 
 # Optional display-width support.  In a UTF-8 locale a label/title can occupy
 # fewer screen columns than it has bytes (e.g. "caf\xc3\xa9" is 5 bytes, 4
@@ -179,6 +245,11 @@ $BFIELD_YES         = 'YES';
 $BFIELD_NO          = 'NO';
 $BFIELD_NULL        = '';
 $BFIELD_DEFAULT     = $BFIELD_NO;
+# Defaults so a headless load_form (e.g. --dump/-k, before load_msgs) does not
+# read these undef; load_msgs overrides them with the localised descriptions.
+$BFIELD_YES_DESCR   = 'Yes';
+$BFIELD_NO_DESCR    = 'No';
+$BFIELD_NULL_DESCR  = 'Not set';
 $MIN_ITEMS_FOR_FIND = 5;
 
 $INIT_REMOVE_FIELDS  = 'CCFE_REMOVE_FIELDS';
@@ -422,6 +493,7 @@ sub harden_child_env {
 
 sub trace {
     my ( $msg, $log_level ) = @_;
+    $log_level //= 0;    # no level given -> 0 (logged only under DEBUG, as before)
     my @months = qw( Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec );
     my @buff   = localtime(time);
     my $now    = '';
@@ -767,7 +839,7 @@ sub init_footer {
             # chgat() takes the colour pair as a separate argument, so extract
             # it from $ka (0 = no colour, i.e. the monochrome default).
             chgat( $win, $y, $x, length( $ctx->{cfg}{keys}{ $keysList[$i] }{key} ),
-                $ka, PAIR_NUMBER($ka), NULL );
+                $ka, PAIR_NUMBER($ka), 0 );    # 0 = NULL opts pointer
         }
         $x += $labelSize;
     }
@@ -846,7 +918,7 @@ sub disp_msg {
     addstr( $win, 1, 2 + int( ( $width - disp_width($msg) ) / 2 ), $msg );
     addstr( $win, 3, 2 + int( ( $width - disp_width($MSG_WIN_BMSG) ) / 2 ),
         $MSG_WIN_BMSG );
-    chgat( $win, 3, 1, $width + 2, $bottom_attr, NULL, NULL );
+    chgat( $win, 3, 1, $width + 2, $bottom_attr, 0, 0 );
     refresh($win);
     $ch = getch($win);
     del_panel($panel);
@@ -1071,7 +1143,7 @@ sub disp_page {
         $ctx->{cfg}{SHOW_SCREEN_NAME} ? $screen_name : '',
         $ovl_flag, $pos );
     addstr( $win, 0, $COLS - length($buff), $buff );
-    chgat( $win, 0, $COLS - length($pos) - 4, 3, A_REVERSE, NULL, NULL )
+    chgat( $win, 0, $COLS - length($pos) - 4, 3, A_REVERSE, 0, 0 )
       if $ovl_flag and $ctx->{cfg}{LAYOUT} == $NORMAL;
     move( $win, $saveY, $saveX );
 }
@@ -1202,13 +1274,18 @@ sub load_form {
                     # Separator label formatting depends on $COLS, so the pure
                     # parser defers it to here: centre the text, or draw a rule
                     # line across the field area.
+                    # Clamp to >= 0: headless paths (--dump/-k) run before
+                    # initscr, so $COLS is 0 and the width goes negative; a
+                    # negative `x` repeat is an empty string either way.
                     my $line_width = $COLS - $FIELD_LMARGIN - $FIELD_RMARGIN;
+                    $line_width = 0 if $line_width < 0;
                     foreach my $f ( @{ $form{fields} } ) {
                         next unless ( $f->{type} // 0 ) == $SEPARATOR;
                         next unless defined $f->{sep_type};
                         if ( $f->{sep_type} == $SEP_TEXT_CENTER ) {
                             my $lblanks =
                               ( $line_width - length( $f->{label} ) ) / 2;
+                            $lblanks = 0 if $lblanks < 0;
                             $f->{label} =
                               sprintf( "%s%s", ' ' x ($lblanks), $f->{label} );
                         }
@@ -3920,7 +3997,7 @@ sub do_form {
             elsif ( $ch == $ctx->{cfg}{keys}{show_action}{code} ) {
                 $sync_fields_val->();
                 my $args = $form{action};
-                $args =~ s/^(\b*[a-zA-Z]+)\(?([a-zA-Z_,]*)\)?/$1/;
+                $args =~ s/^([a-zA-Z]+)\(?([a-zA-Z_,]*)\)?/$1/;
                 if ($args) {
                     $prepare_action->( \$args );
                     my @cmd = split /\n/, $args;
@@ -4117,11 +4194,11 @@ sub run_browse {
                 if ( $pos0 >= 0 ) {
                     $nfound++;
                     chgat( $p, $row, $pos0, length($search_string), A_REVERSE,
-                        NULL, NULL );
+                        0, 0 );
                     if ( $pos0 + length($search_string) >= $COLS ) {
                         chgat( $p, $row + 1, 0,
                             $pos0 + length($search_string) - $COLS,
-                            A_REVERSE, NULL, NULL );
+                            A_REVERSE, 0, 0 );
                     }
                 }
             } while ( $pos0 >= 0 );
@@ -4137,7 +4214,8 @@ sub run_browse {
 
         move( $p, 0, 0 );
         seek( $tmpfh, 0, 0 );
-        while ( $buff = <$tmpfh> and $c <= $ctx->{state}{pad_lines} ) {
+        while ( defined( $buff = <$tmpfh> ) and $c <= $ctx->{state}{pad_lines} )
+        {
             $c++;
             ( $src, $buff ) = split /:/, $buff, 2;
             if ( length($buff) == $COLS + 1 ) {
@@ -4214,7 +4292,7 @@ sub run_browse {
     eval { $cpid = open3( $infh, $outfh, $errfh, $ctx->{cfg}{OPEN3_SHELL}, '-c', $cmd ); };
     fatal($@) if $@;
     trace("successfully forked child PID $cpid");
-    $sel = new IO::Select;
+    $sel = IO::Select->new;
     $sel->add( $outfh, $errfh );
 
     $tmpfh = tempfile( 'ccfeXXXXX', DIR => '/tmp' );
