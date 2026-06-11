@@ -51,3 +51,66 @@ sub parse ($text) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+CCFE::Config - pure tokenizer for CCFE F<.conf> content
+
+=head1 SYNOPSIS
+
+    use CCFE::Config;
+    my ($sections, $status, $warnings) = CCFE::Config::parse($conf_text);
+    for my $s (@$sections) {
+        # $s->{name} e.g. 'GLOBAL', 'FIELD_ATTR.xterm'
+        # $s->{body} the "KEY = val" lines inside the braces
+    }
+
+=head1 DESCRIPTION
+
+Walks the top-level C<< SECTION { ... } >> blocks of an already
+comment-stripped config and returns them in file order, with no terminal, no
+globals and no I/O. C<load_config> in F<ccfe.pl> keeps the file
+finding/reading/comment-stripping and owns the heavily effectful, scope-bound
+dispatch (validating each section's C<key = value> lines and assigning the
+program globals, including the colour/attribute settings that must run in
+F<ccfe.pl>'s own package, and the term-specific C<FIELD_ATTR.$TERM> and
+C<$COLS>-dependent handling). This module is just the section walk - the one
+genuinely pure, formerly-duplicated piece.
+
+=head1 FUNCTIONS
+
+=head2 parse
+
+    my ($sections, $status, $warnings) = CCFE::Config::parse($text);
+
+Returns a three-element list:
+
+=over 4
+
+=item C<$sections>
+
+An arrayref of C<< { name => 'GLOBAL', body => "KEY = val\n..." } >> in file
+order. A section may legitimately repeat; the caller applies each in turn.
+C<name> keeps the file's case (e.g. C<FIELD_ATTR.xterm>); the caller
+upper-cases for matching.
+
+=item C<$status>
+
+C<'ok'> or C<'syntax_error'>. C<'syntax_error'> is reported only for an
+unterminated bracket walk; an unknown section or key is the caller's concern,
+since it owns the dispatch.
+
+=item C<$warnings>
+
+An arrayref, kept for shape-consistency with the other parsers (always empty
+here).
+
+=back
+
+=head1 SEE ALSO
+
+L<ccfe.conf(5)>, F<REFACTOR.md> section 3.
+
+=cut

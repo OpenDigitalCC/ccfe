@@ -41,3 +41,61 @@ sub parse ($str) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+CCFE::Action - pure parser for a CCFE action string
+
+=head1 SYNOPSIS
+
+    use CCFE::Action;
+    my $act = CCFE::Action::parse('system(confirm,wait_key):reboot');
+    # $act = { verb => 'system',
+    #          opts => [ 'confirm', 'wait_key' ],
+    #          args => 'reboot' }
+
+=head1 DESCRIPTION
+
+An action string is C<< VERB[(opt,opt,...)]:ARGS >> - for example C<run:ls -l>,
+C<menu:submenu>, C<system(confirm,wait_key):reboot>. This module splits one into
+its verb, option list and raw argument string, with no terminal and no globals.
+C<do_menu>/C<do_form> in F<ccfe.pl> own the dispatch - running the verb,
+prompting for C<confirm>, honouring C<log>/C<wait_key> - which is effectful and
+stays there. The parse was previously duplicated at both call sites.
+
+=head1 FUNCTIONS
+
+=head2 parse
+
+    my $act = CCFE::Action::parse($str);
+
+Returns a hashref:
+
+=over 4
+
+=item C<verb>
+
+The lower-cased verb, or C<undef> if the head is malformed.
+
+=item C<opts>
+
+An arrayref of option names, in order (possibly empty).
+
+=item C<args>
+
+Everything after the first C<:>, verbatim; C<undef> if the string carried no
+C<:>.
+
+=back
+
+The head is leading-whitespace-trimmed before matching. A head that is not
+C<word> or C<word(opts)> yields C<< verb => undef, opts => [] >>, so the caller's
+verb dispatch simply finds no match - exactly the previous behaviour.
+
+=head1 SEE ALSO
+
+L<ccfe_menu(5)>, L<ccfe_form(5)>, F<REFACTOR.md> section 3.
+
+=cut

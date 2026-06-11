@@ -134,3 +134,85 @@ sub init_dynamic_pairs () {
 sub dynamic_pairs () { return @pair_defs }
 
 1;
+
+__END__
+
+=head1 NAME
+
+CCFE::Theme - optional colour support for CCFE
+
+=head1 SYNOPSIS
+
+    use CCFE::Theme;
+    CCFE::Theme::init_standard_pairs();        # after start_color()
+    my $n   = CCFE::Theme::pair_number('red');  # COLOR_PAIR index
+    my $pid = CCFE::Theme::pair_for('red', 'blue');
+
+=head1 DESCRIPTION
+
+CCFE has always been monochrome (it draws with attribute constants only -
+C<A_NORMAL> / C<A_REVERSE> / C<A_BOLD>). This module adds optional colour
+without disturbing that: it pre-creates a conventional set of foreground colour
+pairs over the terminal's default background, which the existing C<*_attr>
+configuration can then reference as C<COLOR_PAIR(n)> (e.g.
+C<stderr_attr = COLOR_PAIR(1) | A_BOLD> for bold red). When the terminal has no
+colour, or C<NO_COLOR> is set, or the SIMPLE layout is in use, none of this runs
+and the appearance is exactly as before.
+
+The name/number maps are pure and unit-tested; the C<init_*> functions are the
+effectful ones (they call C<Curses::init_pair>) and must run after
+C<start_color()>/C<use_default_colors()>.
+
+=head1 FUNCTIONS
+
+=head2 palette
+
+    my %name_to_color = CCFE::Theme::palette();
+
+The colour-name to C<Curses::COLOR_*> constant map.
+
+=head2 color_number
+
+    my $c = CCFE::Theme::color_number($name);
+
+The C<COLOR_*> number for a colour name (undef if unknown).
+
+=head2 pair_number
+
+    my $n = CCFE::Theme::pair_number($name);
+
+The 1-based standard pair index for a foreground colour name - the C<n> to use
+in C<COLOR_PAIR(n)>. Pair 1 = red, 2 = green, ... matching the ANSI foreground
+order.
+
+=head2 pair_names
+
+    my @names = CCFE::Theme::pair_names();
+
+The standard pair colour names, in index order.
+
+=head2 init_standard_pairs
+
+    CCFE::Theme::init_standard_pairs();
+
+Allocate the conventional foreground-over-default-background pairs via
+C<Curses::init_pair>. Effectful; call once after colour start-up.
+
+=head2 pair_for
+
+    my $pair = CCFE::Theme::pair_for($fg, $bg);
+
+Resolve (allocating on demand) a colour pair for an arbitrary foreground/
+background name combination, as used by the C<color_pair('fg','bg')> config
+form. C<$bg> defaults to the terminal default.
+
+=head2 init_dynamic_pairs / dynamic_pairs
+
+Allocate, and report, the pairs created on demand by C<pair_for> beyond the
+standard set.
+
+=head1 SEE ALSO
+
+L<ccfe.conf(5)>, L<curs_color(3X)>, F<REFACTOR.md> section 5.
+
+=cut

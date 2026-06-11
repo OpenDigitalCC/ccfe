@@ -98,3 +98,64 @@ sub page_advance ($in) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+CCFE::Layout - pure form-geometry helpers
+
+=head1 SYNOPSIS
+
+    use CCFE::Layout;
+    my $g = CCFE::Layout::field_geometry(\%in);   # value/label columns
+    my $p = CCFE::Layout::page_advance(\%in);      # row + page break
+
+=head1 DESCRIPTION
+
+The value-column geometry and the page-advance arithmetic for laying out a form
+(the right-aligned "classic SMIT" value column that expands on a wide screen,
+with the label wrapping onto its own line(s) when a long label on a narrow
+terminal would otherwise collide with the value). That maths was written out
+twice - once when C<do_form> first lays the form out, and again, byte for byte,
+when C<resize_form> reflows it for a new C<$LINES>/C<$COLS>. It is pure (numbers
+in, numbers out: no curses, no globals), so it lives here and the two call sites
+share it. All inputs and outputs are in screen columns/rows.
+
+=head1 FUNCTIONS
+
+=head2 field_geometry
+
+    my $out = CCFE::Layout::field_geometry(\%in);
+
+Computes the value column, the (possibly wrapped) label box and the
+marker/delimiter columns for one logical field.
+
+Input keys: C<cols> (screen width), C<len> (value width), C<label_x>,
+C<label_w> (label's natural display width), C<rflags_size> (right flag margin),
+C<value_pos> (configured value column, or -1 for auto/right-align), C<gap> (min
+columns between label and value before wrapping) and C<auto> (true when the
+value auto-right-aligns - only then can the label wrap).
+
+Output keys: C<val_x>, C<wrap_rows> (label height minus 1; 0 = label shares the
+value's row), C<label_w> (full width when wrapped), C<dots_x> (dot-leader
+start), C<lvald_x>/C<rvald_x> (value delimiter columns) and C<rflags_x>.
+
+=head2 page_advance
+
+    my $out = CCFE::Layout::page_advance(\%in);
+
+Places one field's block on the current page, breaking to a new page when the
+whole (label + value) block will not fit.
+
+Input keys: C<y> (running top row), C<vtab> (extra leading rows), C<wrap_rows>
+(from C<field_geometry>) and C<mwinr> (the form sub-window's row count).
+
+Output keys: C<y> (this field's top row, 0 after a page break), C<vr> (the
+value/marker row) and C<page_start> (true when this field opens a new page).
+
+=head1 SEE ALSO
+
+L<ccfe_form(5)>, F<REFACTOR.md> section 3.
+
+=cut

@@ -33,3 +33,61 @@ sub new {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+CCFE::Context - the CCFE run-state container
+
+=head1 SYNOPSIS
+
+    use CCFE::Context;
+    my $ctx = CCFE::Context::new();
+    $ctx->{cfg}{RESTRICTED}   = 1;
+    $ctx->{state}{SCREEN_DIR} = $dir;
+
+=head1 DESCRIPTION
+
+De-globalisation (ROADMAP M7) replaces F<ccfe.pl>'s package globals and C<local>
+dynamic scope with one explicit state object, threaded through the screen subs
+instead of being read and written at a distance. This module is that object's
+single home: a plain, deliberately unblessed hashref (callers use
+C<< $ctx->{...} >> directly) built once at startup and passed down the call
+chain.
+
+The object has two top-level keys:
+
+=over 4
+
+=item C<cfg>
+
+Configuration settings, filled by C<load_config>.
+
+=item C<state>
+
+Mutable shared run-state (the current screen directory, the last selected item,
+output-pad line counts, pending exec arguments, the child exit status, and so
+on).
+
+=back
+
+Per-screen run state (field values, the menu/form structures, field pointers)
+is deliberately B<not> kept on the context: it stays in per-call lexicals so
+nested-screen recursion keeps the old C<local> semantics.
+
+=head1 FUNCTIONS
+
+=head2 new
+
+    my $ctx = CCFE::Context::new();
+
+Returns a fresh container, C<< { cfg => {}, state => {} } >>. Takes no
+arguments. The two sub-hashes are seeded so C<load_config> and the run-state
+readers can assume they exist.
+
+=head1 SEE ALSO
+
+L<ccfe(1)>, F<REFACTOR.md> section 3.2.
+
+=cut

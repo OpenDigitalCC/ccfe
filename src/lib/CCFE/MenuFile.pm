@@ -93,3 +93,62 @@ sub _parse_item ( $menu, $ic, $val, $warn, $status ) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+CCFE::MenuFile - pure parser for CCFE F<.menu> / F<.item> content
+
+=head1 SYNOPSIS
+
+    use CCFE::MenuFile;
+    my ($menu, $status, $warnings, $item_count) =
+        CCFE::MenuFile::parse($menu_text);
+
+=head1 DESCRIPTION
+
+Turns the (comment-stripped, concatenated) text of a menu - title/top/bottom/
+path blocks and any number of item blocks - into a plain data structure the
+caller owns, with no terminal, no globals and no I/O. C<load_menu> in
+F<ccfe.pl> keeps the file-finding/reading and copies the result into its
+C<%menu>, so behaviour is unchanged; this module is what the parser tests drive
+directly.
+
+=head1 FUNCTIONS
+
+=head2 parse
+
+    my ($menu, $status, $warnings, $item_count) = CCFE::MenuFile::parse($text);
+
+Returns a four-element list:
+
+=over 4
+
+=item C<$menu>
+
+C<< { title => str, top => [..], bottom => [..], path => str,
+items => [ { id => .., descr => .., action => .. }, .. ] } >>.
+
+=item C<$status>
+
+C<'ok'> or C<'syntax_error'>. An empty item list is the caller's concern - it
+owns the "no items" status code.
+
+=item C<$warnings>
+
+An arrayref of human-readable notes (duplicate id, unknown attribute, ...) the
+caller may C<trace()>.
+
+=item C<$item_count>
+
+The number of C<< item {} >> blocks seen (a block with no recognised attribute
+still counts, matching the original parser).
+
+=back
+
+=head1 SEE ALSO
+
+L<ccfe_menu(5)>, L<CCFE::Action>, F<REFACTOR.md> section 3.
+
+=cut

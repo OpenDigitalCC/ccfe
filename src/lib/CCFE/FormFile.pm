@@ -196,3 +196,72 @@ sub parse ( $text, $opt ) {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+CCFE::FormFile - pure parser for CCFE F<.form> content
+
+=head1 SYNOPSIS
+
+    use CCFE::FormFile;
+    my ($form, $status, $warnings, $field_count) =
+        CCFE::FormFile::parse($form_text, \%opt);
+
+=head1 DESCRIPTION
+
+Turns the (comment-stripped, concatenated) text of a form - title/top/bottom/
+path/init/action blocks plus any number of field and separator blocks - into a
+plain data structure, with no terminal, no globals and no I/O. C<load_form> in
+F<ccfe.pl> keeps the file finding/reading and owns the rest: the (effectful)
+command/boolean default processing, the C<$COLS>-dependent separator label
+formatting, select-item resolution and the side effects on C<%form>. This
+module is just the parse, and the parser tests drive it directly.
+
+=head1 FUNCTIONS
+
+=head2 parse
+
+    my ($form, $status, $warnings, $field_count) =
+        CCFE::FormFile::parse($text, \%opt);
+
+C<\%opt> supplies the lookup maps and constants the parser must not own:
+
+    { bool      => \%bool_vals,       # "yes"/"no"/... -> 1/0
+      type      => \%type_vals,       # "string"/...   -> field type constant
+      sep_type  => \%sep_type_vals,   # "line"/...     -> separator subtype
+      separator => $SEPARATOR,        # the field type constant for separators
+      no        => $NO }              # the boolean-false constant
+
+Returns a four-element list:
+
+=over 4
+
+=item C<$form>
+
+C<< { title, top => [..], bottom => [..], path, init, action,
+fields => [ { id, label, len, type, ... } ] } >>. Each separator field carries
+C<sep_type> and the raw C<label>; the caller applies the C<$COLS>-dependent
+centring / rule-line formatting.
+
+=item C<$status>
+
+C<'ok'> or C<'syntax_error'>.
+
+=item C<$warnings>
+
+An arrayref of human-readable notes (duplicate id, unknown attribute, bad
+value, ...).
+
+=item C<$field_count>
+
+The number of field and separator blocks seen.
+
+=back
+
+=head1 SEE ALSO
+
+L<ccfe_form(5)>, L<CCFE::Layout>, L<CCFE::Action>, F<REFACTOR.md> section 3.
+
+=cut
