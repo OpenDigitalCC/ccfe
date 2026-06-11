@@ -3140,6 +3140,213 @@ sub build_form_fields {
     return ( $npages, $all_ids );
 }
 
+# Reflow and rebuild a form for a new terminal size (TD-3: lifted out of
+# do_form).  Re-lays-out every field for the current $LINES/$COLS (re-right-
+# aligning and re-wrapping values, recreating the width-dependent label/dot
+# fields and moving the fixed ones), rebuilds the window/sub-window/panel and
+# the form around the preserved field set, and re-posts it.  @{$fp} is mutated
+# in place (recreated fields); the rebuilt handles are returned.
+sub resize_form {
+    my ( $form, $fp, $win, $fsub, $pan, $cform, $fields_buf,
+        $rflags_size, $title, $formname, $ovl_mode ) = @_;
+    my ( $npages, $mwinr );
+    my @fset;
+    my $eff_lines = $LINES < 24 ? 24 : $LINES;
+    my $eff_cols  = $COLS < 80  ? 80 : $COLS;
+    $mwinr =
+      $eff_lines -
+      ( $FS_HEADER_ROWS + $FS_TOP_ROWS + $FS_BOTTOM_ROWS
+          + $ctx->{cfg}{FS_FOOTER_ROWS} );
+
+    # Commit the field currently being edited to its buffer so the
+    # value survives the free_form/new_form cycle below.
+    form_driver( $cform, REQ_VALIDATION );
+    unpost_form($cform);
+    free_form($cform);
+
+    # Re-lay-out every field for the new width and height.  Value fields
+    # re-right-align to the current $COLS and re-wrap (the value column
+    # and the wrap both depend on the width, so this is a horizontal
+    # *and* vertical reflow, not just a move): the value's column and the
+    # dot run change, and the label's height/width change when it wraps,
+    # so the two width-dependent fields (label, dots) are recreated and
+    # the five fixed-content fields (the flag/delimiter markers and the
+    # value -- whose buffer holds the user's input) are moved, preserving
+    # their contents.  Separators and explicitly-placed fields keep their
+    # columns.  Each logical field's block (wrap_rows label lines + the
+    # value row) is kept whole on one page.  While here, measure the
+    # widest field so the rebuilt window holds them all (ncurses allows
+    # an over-sized window on a smaller screen, so post_form() never
+    # fails with E_NO_ROOM and crashes the loop).
+    my $yy        = 0;
+    my $max_right = 0;
+    $npages = 0;
+    foreach my $li ( 0 .. $#{ $form->{fields} } ) {
+        my $f      = $form->{fields}[$li];
+        my $is_sep = ( $f->{type} == $SEPARATOR );
+        my $reflow =
+          ( $ctx->{cfg}{LAYOUT} == $NORMAL and $ctx->{cfg}{FIELD_VALUE_POS} == -1 and !$is_sep );
+        my $label   = $f->{label};
+        my $len     = $f->{len};
+        my $label_x = $FIELD_LMARGIN + ( $f->{htab} || 0 ) * $HTAB_COLS;
+        my $wr      = $f->{wrap_rows} || 0;
+
+        my $lw = disp_width($label);    # label width in columns
+        my ( $val_x, $dots_x, $lvald_x, $rvald_x, $rflags_x, $label_w );
+        if ($reflow) {
+            # Same pure geometry do_form first laid the field out with.
+            my $geom = CCFE::Layout::field_geometry(
+                {
+                    cols        => $COLS,
+                    len         => $len,
+                    label_x     => $label_x,
+                    label_w     => $lw,
+                    rflags_size => $rflags_size,
+                    value_pos   => $ctx->{cfg}{FIELD_VALUE_POS},
+                    gap         => $FIELD_VALUE_GAP,
+                    auto        => 1,
+                }
+            );
+            $val_x          = $geom->{val_x};
+            $label_w        = $geom->{label_w};
+            $wr             = $geom->{wrap_rows};
+            $dots_x         = $geom->{dots_x};
+            $lvald_x        = $geom->{lvald_x};
+            $rvald_x        = $geom->{rvald_x};
+            $rflags_x       = $geom->{rflags_x};
+            $f->{wrap_rows} = $wr;
+        }
+
+        my $pg = CCFE::Layout::page_advance(
+            {
+                y         => $yy,
+                vtab      => $f->{vtab} || 0,
+                wrap_rows => $wr,
+                mwinr     => $mwinr,
+            }
+        );
+        $yy = $pg->{y};
+        my $page_start = $pg->{page_start} ? 1 : 0;
+        $npages++ if $page_start;
+        my $vr = $pg->{vr};
+
+        if ($reflow) {
+            # Recreate the label (its height/width follow the wrap) ...
+            free_field( $fp->[ $li * 7 ] );
+            my $lab =
+                $wr
+              ? new_field( $wr, $label_w, $yy, $label_x, 0, 0 )
+              : new_field( 1, $lw, $yy, $label_x, 0, 0 );
+            set_field_buffer( $lab, 0, $label );
+            field_opts_off( $lab, O_ACTIVE );
+            field_opts_off( $lab, O_EDIT );
+            set_field_fore( $lab, $ctx->{cfg}{labelFg} );
+            set_field_back( $lab, $ctx->{cfg}{labelBg} );
+            $fp->[ $li * 7 ] = $lab;
+
+            # ... and the dot run (its width follows the value column).
+            my $dots;
+            if ($ctx->{cfg}{SHOW_DOTS}) {
+                $dots = '';
+                for ( my $c = $dots_x - 1 ; $c < $lvald_x - 2 ; $c++ ) {
+                    $dots .= ( $c % 2 ) ? '.' : ' ';
+                }
+                $dots .= ': ';
+            }
+            else { $dots = ' ' }
+            free_field( $fp->[ $li * 7 + 5 ] );
+            my $dot = new_field( 1, length($dots), $vr, $dots_x, 0, 0 );
+            set_field_buffer( $dot, 0, $dots );
+            field_opts_off( $dot, O_ACTIVE );
+            field_opts_off( $dot, O_EDIT );
+            set_field_fore( $dot, $ctx->{cfg}{labelFg} );    # dots adopt the panel
+            set_field_back( $dot, $ctx->{cfg}{labelBg} );
+            $fp->[ $li * 7 + 5 ] = $dot;
+
+            # Move the markers and the value field to the new columns.
+            move_field( $fp->[ $li * 7 + 1 ], $vr, 0 );
+            move_field( $fp->[ $li * 7 + 2 ], $vr, $rflags_x );
+            move_field( $fp->[ $li * 7 + 3 ], $vr, $lvald_x );
+            move_field( $fp->[ $li * 7 + 4 ], $vr, $rvald_x );
+            move_field( $fp->[ $li * 7 + 6 ], $vr, $val_x );
+        }
+        else {
+            # Separator / explicit placement: keep columns, move rows.
+            foreach my $k ( 0 .. 6 ) {
+                my ( $fr, $fc, $frw, $fcl, $fnr, $fnb );
+                field_info( $fp->[ $li * 7 + $k ], $fr, $fc, $frw, $fcl,
+                    $fnr, $fnb );
+                move_field( $fp->[ $li * 7 + $k ],
+                    ( $k == 0 ? $yy : $vr ), $fcl );
+            }
+        }
+
+        foreach my $k ( 0 .. 6 ) {
+            my ( $fr, $fc, $frw, $fcl, $fnr, $fnb );
+            field_info( $fp->[ $li * 7 + $k ], $fr, $fc, $frw, $fcl, $fnr,
+                $fnb );
+            $max_right = $fcl + $fc if $fcl + $fc > $max_right;
+        }
+        set_new_page( $fp->[ $li * 7 ], $page_start );
+        $yy = $vr + 1;
+    }
+
+    # The label and dot fields were recreated, so rebuild the packed
+    # field set the new form is constructed from.
+    @fset = map { ${$_} } @{$fp};
+    push @fset, 0;
+    $fields_buf = pack 'L!*', @fset;
+    $eff_cols = $max_right if $eff_cols < $max_right;
+    trace(
+"resize_form: LINES=$LINES COLS=$COLS eff=${eff_lines}x${eff_cols} mwinr=$mwinr max_right=$max_right",
+        $LOG_NORMAL
+    );
+
+    del_panel($pan) if $pan;
+    delwin($fsub)   if $fsub;
+    delwin($win)    if $win;
+    $win = newwin( $eff_lines, $eff_cols, 0, 0 );
+
+    # Guard the rebuilt curses objects: if any comes back NULL (an
+    # empty string from the XS binding) continuing would call form
+    # routines on an invalid handle and crash -- or, worse, leak a
+    # libform error code out as the process exit status.  Restore the
+    # terminal and abort cleanly with a diagnostic instead.
+    if ( !$win ) {
+        fatal("resize_form: newwin(${eff_lines}x${eff_cols}) failed");
+    }
+    $pan  = new_panel($win);
+    $fsub = derwin( $win, $mwinr, $eff_cols,
+        $FS_HEADER_ROWS + $FS_TOP_ROWS, 0 );
+    if ( !$fsub ) {
+        fatal("resize_form: derwin(${mwinr}x${eff_cols}) failed");
+    }
+    bkgd( $win,  $ctx->{cfg}{MENU_SCREEN_ATTR} );
+    bkgd( $fsub, $ctx->{cfg}{MENU_SCREEN_ATTR} );
+    $cform = new_form($fields_buf);
+    if ( !$cform ) {
+        fatal('resize_form: new_form() failed');
+    }
+    set_form_win( $cform, $win );
+    set_form_sub( $cform, $fsub );
+    form_opts_off( $cform, O_BS_OVERLOAD );
+    keypad( $win, $ON );
+    init_title( $win, $FS_HEADER_ROWS, $title );
+    disp_page( $win, form_page($cform) + 1, $npages, 'form',
+        $formname );
+    init_top( $win, $NO, $FS_HEADER_ROWS, $FS_TOP_ROWS,
+        @{ $form->{top} } );
+    init_footer( $win, $NO, $ctx->{cfg}{FS_FOOTER_ROWS}, @FSKeys );
+    my $pr = post_form($cform);
+    trace( "resize_form: post_form => $pr ($npages page(s))",
+        $LOG_NORMAL );
+    form_driver( $cform, $ovl_mode ? REQ_OVL_MODE : REQ_INS_MODE );
+    form_driver( $cform, REQ_END_LINE );
+    clearok( $win, 1 );
+    refresh($win);
+    return ( $win, $fsub, $pan, $cform, $fields_buf, $npages, $mwinr );
+}
+
 sub do_form {
     my ( $formname, $title, @argv ) = @_;
 
@@ -3512,201 +3719,6 @@ sub do_form {
         # set_new_page need the fields disconnected, so the form is freed and
         # re-created around them.  Columns are kept (a horizontal re-layout of
         # right-aligned values is left to a future change).
-        my $resize_form = sub {
-            my $eff_lines = $LINES < 24 ? 24 : $LINES;
-            my $eff_cols  = $COLS < 80  ? 80 : $COLS;
-            $mwinr =
-              $eff_lines -
-              ( $FS_HEADER_ROWS + $FS_TOP_ROWS + $FS_BOTTOM_ROWS
-                  + $ctx->{cfg}{FS_FOOTER_ROWS} );
-
-            # Commit the field currently being edited to its buffer so the
-            # value survives the free_form/new_form cycle below.
-            form_driver( $cform, REQ_VALIDATION );
-            unpost_form($cform);
-            free_form($cform);
-
-            # Re-lay-out every field for the new width and height.  Value fields
-            # re-right-align to the current $COLS and re-wrap (the value column
-            # and the wrap both depend on the width, so this is a horizontal
-            # *and* vertical reflow, not just a move): the value's column and the
-            # dot run change, and the label's height/width change when it wraps,
-            # so the two width-dependent fields (label, dots) are recreated and
-            # the five fixed-content fields (the flag/delimiter markers and the
-            # value -- whose buffer holds the user's input) are moved, preserving
-            # their contents.  Separators and explicitly-placed fields keep their
-            # columns.  Each logical field's block (wrap_rows label lines + the
-            # value row) is kept whole on one page.  While here, measure the
-            # widest field so the rebuilt window holds them all (ncurses allows
-            # an over-sized window on a smaller screen, so post_form() never
-            # fails with E_NO_ROOM and crashes the loop).
-            my $yy        = 0;
-            my $max_right = 0;
-            $npages = 0;
-            foreach my $li ( 0 .. $#{ $form{fields} } ) {
-                my $f      = $form{fields}[$li];
-                my $is_sep = ( $f->{type} == $SEPARATOR );
-                my $reflow =
-                  ( $ctx->{cfg}{LAYOUT} == $NORMAL and $ctx->{cfg}{FIELD_VALUE_POS} == -1 and !$is_sep );
-                my $label   = $f->{label};
-                my $len     = $f->{len};
-                my $label_x = $FIELD_LMARGIN + ( $f->{htab} || 0 ) * $HTAB_COLS;
-                my $wr      = $f->{wrap_rows} || 0;
-
-                my $lw = disp_width($label);    # label width in columns
-                my ( $val_x, $dots_x, $lvald_x, $rvald_x, $rflags_x, $label_w );
-                if ($reflow) {
-                    # Same pure geometry do_form first laid the field out with.
-                    my $geom = CCFE::Layout::field_geometry(
-                        {
-                            cols        => $COLS,
-                            len         => $len,
-                            label_x     => $label_x,
-                            label_w     => $lw,
-                            rflags_size => $rflags_size,
-                            value_pos   => $ctx->{cfg}{FIELD_VALUE_POS},
-                            gap         => $FIELD_VALUE_GAP,
-                            auto        => 1,
-                        }
-                    );
-                    $val_x          = $geom->{val_x};
-                    $label_w        = $geom->{label_w};
-                    $wr             = $geom->{wrap_rows};
-                    $dots_x         = $geom->{dots_x};
-                    $lvald_x        = $geom->{lvald_x};
-                    $rvald_x        = $geom->{rvald_x};
-                    $rflags_x       = $geom->{rflags_x};
-                    $f->{wrap_rows} = $wr;
-                }
-
-                my $pg = CCFE::Layout::page_advance(
-                    {
-                        y         => $yy,
-                        vtab      => $f->{vtab} || 0,
-                        wrap_rows => $wr,
-                        mwinr     => $mwinr,
-                    }
-                );
-                $yy = $pg->{y};
-                my $page_start = $pg->{page_start} ? 1 : 0;
-                $npages++ if $page_start;
-                my $vr = $pg->{vr};
-
-                if ($reflow) {
-                    # Recreate the label (its height/width follow the wrap) ...
-                    free_field( $fp[ $li * 7 ] );
-                    my $lab =
-                        $wr
-                      ? new_field( $wr, $label_w, $yy, $label_x, 0, 0 )
-                      : new_field( 1, $lw, $yy, $label_x, 0, 0 );
-                    set_field_buffer( $lab, 0, $label );
-                    field_opts_off( $lab, O_ACTIVE );
-                    field_opts_off( $lab, O_EDIT );
-                    set_field_fore( $lab, $ctx->{cfg}{labelFg} );
-                    set_field_back( $lab, $ctx->{cfg}{labelBg} );
-                    $fp[ $li * 7 ] = $lab;
-
-                    # ... and the dot run (its width follows the value column).
-                    my $dots;
-                    if ($ctx->{cfg}{SHOW_DOTS}) {
-                        $dots = '';
-                        for ( my $c = $dots_x - 1 ; $c < $lvald_x - 2 ; $c++ ) {
-                            $dots .= ( $c % 2 ) ? '.' : ' ';
-                        }
-                        $dots .= ': ';
-                    }
-                    else { $dots = ' ' }
-                    free_field( $fp[ $li * 7 + 5 ] );
-                    my $dot = new_field( 1, length($dots), $vr, $dots_x, 0, 0 );
-                    set_field_buffer( $dot, 0, $dots );
-                    field_opts_off( $dot, O_ACTIVE );
-                    field_opts_off( $dot, O_EDIT );
-                    set_field_fore( $dot, $ctx->{cfg}{labelFg} );    # dots adopt the panel
-                    set_field_back( $dot, $ctx->{cfg}{labelBg} );
-                    $fp[ $li * 7 + 5 ] = $dot;
-
-                    # Move the markers and the value field to the new columns.
-                    move_field( $fp[ $li * 7 + 1 ], $vr, 0 );
-                    move_field( $fp[ $li * 7 + 2 ], $vr, $rflags_x );
-                    move_field( $fp[ $li * 7 + 3 ], $vr, $lvald_x );
-                    move_field( $fp[ $li * 7 + 4 ], $vr, $rvald_x );
-                    move_field( $fp[ $li * 7 + 6 ], $vr, $val_x );
-                }
-                else {
-                    # Separator / explicit placement: keep columns, move rows.
-                    foreach my $k ( 0 .. 6 ) {
-                        my ( $fr, $fc, $frw, $fcl, $fnr, $fnb );
-                        field_info( $fp[ $li * 7 + $k ], $fr, $fc, $frw, $fcl,
-                            $fnr, $fnb );
-                        move_field( $fp[ $li * 7 + $k ],
-                            ( $k == 0 ? $yy : $vr ), $fcl );
-                    }
-                }
-
-                foreach my $k ( 0 .. 6 ) {
-                    my ( $fr, $fc, $frw, $fcl, $fnr, $fnb );
-                    field_info( $fp[ $li * 7 + $k ], $fr, $fc, $frw, $fcl, $fnr,
-                        $fnb );
-                    $max_right = $fcl + $fc if $fcl + $fc > $max_right;
-                }
-                set_new_page( $fp[ $li * 7 ], $page_start );
-                $yy = $vr + 1;
-            }
-
-            # The label and dot fields were recreated, so rebuild the packed
-            # field set the new form is constructed from.
-            @fset = map { ${$_} } @fp;
-            push @fset, 0;
-            $fields_buf = pack 'L!*', @fset;
-            $eff_cols = $max_right if $eff_cols < $max_right;
-            trace(
-"resize_form: LINES=$LINES COLS=$COLS eff=${eff_lines}x${eff_cols} mwinr=$mwinr max_right=$max_right",
-                $LOG_NORMAL
-            );
-
-            del_panel($pan) if $pan;
-            delwin($fsub)   if $fsub;
-            delwin($win)    if $win;
-            $win = newwin( $eff_lines, $eff_cols, 0, 0 );
-
-            # Guard the rebuilt curses objects: if any comes back NULL (an
-            # empty string from the XS binding) continuing would call form
-            # routines on an invalid handle and crash -- or, worse, leak a
-            # libform error code out as the process exit status.  Restore the
-            # terminal and abort cleanly with a diagnostic instead.
-            if ( !$win ) {
-                fatal("resize_form: newwin(${eff_lines}x${eff_cols}) failed");
-            }
-            $pan  = new_panel($win);
-            $fsub = derwin( $win, $mwinr, $eff_cols,
-                $FS_HEADER_ROWS + $FS_TOP_ROWS, 0 );
-            if ( !$fsub ) {
-                fatal("resize_form: derwin(${mwinr}x${eff_cols}) failed");
-            }
-            bkgd( $win,  $ctx->{cfg}{MENU_SCREEN_ATTR} );
-            bkgd( $fsub, $ctx->{cfg}{MENU_SCREEN_ATTR} );
-            $cform = new_form($fields_buf);
-            if ( !$cform ) {
-                fatal('resize_form: new_form() failed');
-            }
-            set_form_win( $cform, $win );
-            set_form_sub( $cform, $fsub );
-            form_opts_off( $cform, O_BS_OVERLOAD );
-            keypad( $win, $ON );
-            init_title( $win, $FS_HEADER_ROWS, $title );
-            disp_page( $win, form_page($cform) + 1, $npages, 'form',
-                $formname );
-            init_top( $win, $NO, $FS_HEADER_ROWS, $FS_TOP_ROWS,
-                @{ $form{top} } );
-            init_footer( $win, $NO, $ctx->{cfg}{FS_FOOTER_ROWS}, @FSKeys );
-            my $pr = post_form($cform);
-            trace( "resize_form: post_form => $pr ($npages page(s))",
-                $LOG_NORMAL );
-            form_driver( $cform, $ovl_mode ? REQ_OVL_MODE : REQ_INS_MODE );
-            form_driver( $cform, REQ_END_LINE );
-            clearok( $win, 1 );
-            refresh($win);
-        };
 
         $es = $ES_NO_ERR;
         while ( $es != $ES_EXIT and !defined($ctx->{state}{exec_args}) ) {
@@ -4153,7 +4165,10 @@ sub do_form {
                 }
             }
             elsif ( $ch == KEY_RESIZE ) {
-                $resize_form->();
+                ( $win, $fsub, $pan, $cform, $fields_buf, $npages, $mwinr )
+                  = resize_form( \%form, \@fp, $win, $fsub, $pan, $cform,
+                    $fields_buf, $rflags_size, $title, $formname,
+                    $ovl_mode );
             }
             elsif ( $ch == $ctx->{cfg}{keys}{redraw}{code} ) {
                 clearok( curscr, 1 );
