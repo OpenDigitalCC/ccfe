@@ -111,18 +111,25 @@ environment variables, so menus can consume input safely (e.g.
 `run:grep -- "$CCFE_FIELD_PATTERN" /var/log/syslog`) instead of interpolating
 `%{PATTERN}` into a shell string.
 
-**Scope of the guarantee.** Restricted mode is a *guardrail against wandering
-off the menu*, not a hardened security boundary against a determined local
-user. Be aware that: the allowlist matches the command's program name, but
-actions run through a shell, so `system: df; sh` (chaining) or a `%{FIELD}`
-value containing shell metacharacters can reach a shell — prefer `run:` with
-`"$CCFE_FIELD_*"` and avoid `%{...}` interpolation; `run:` itself is never
-allowlisted; and CCFE reads config and menu/form files from the user's own
-`~/.config/ccfe` and `~/.local/share/ccfe` (and honours `CCFE_*_DIR`/`-l`), so
-a user who can write those can change what runs. For a genuine kiosk boundary,
-deploy CCFE with system-owned, user-unwritable config and object directories
-(and consider the OS-level confinement you'd use for any restricted login). See
-`M8-AUDIT.md` for the full analysis.
+**Deploying it as a boundary.** With `restricted = yes`, CCFE enforces the
+policy so a logged-in user cannot step around it:
+
+- `system:` / `exec:` are run **shell-free** (by argv), so the allowlist's
+  program-name match actually holds — `system: df; sh` chaining and `%{FIELD}`
+  metacharacters cannot reach a shell. `run:` stays the explicit "run a shell
+  command" verb and is **not** allowlist-constrained, so don't expose `run:`
+  actions in a restricted deployment you don't fully control.
+- A config file the invoking user can **write** is ignored once restricted is
+  on, so a system `/etc/ccfe.conf` that sets `restricted = yes` cannot be undone
+  by `~/.config/ccfe`.
+- Menu/form object directories the user can **write** are dropped from the
+  search path, so a user cannot add their own menus.
+
+For this to hold, deploy CCFE with **system-owned, user-unwritable** config and
+object directories and run it as a **non-root** user (the usual restricted-login
+setup). Defence in depth — OS-level confinement (a restricted shell, a
+container, seccomp/AppArmor) — is still worthwhile for a true kiosk. See
+`M8-AUDIT.md` and `TECH-DEBT.md` for the analysis and history.
 
 ## Colour and styles
 

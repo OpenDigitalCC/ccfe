@@ -8,13 +8,21 @@ Effort key: **S** ≈ <½ day, **M** ≈ 1–2 days, **L** ≈ several days.
 All work must keep the suite green and the four CI checks passing
 (`perl -c`, `prove -lr t/`, `perlcritic src/lib`, perltidy on `src/lib`).
 
-| ID | Title | Dimension | Priority | Effort | Depends on |
-|----|-------|-----------|----------|--------|-----------|
-| TD-1 | RESTRICTED-mode hardening | security | **high** | L (4 sub-tasks) | — |
-| TD-2 | Close the pty test-coverage gaps | coverage | high | M | — |
-| TD-3 | Break up the oversized `ccfe.pl` subs | quality | med | L | TD-2 |
-| TD-4 | Docs & packaging polish (man pages, POD) | docs | med | M | — |
-| TD-5 | Logging I/O polish | performance | low | S | — |
+| ID | Title | Dimension | Priority | Effort | Depends on | Status |
+|----|-------|-----------|----------|--------|-----------|--------|
+| TD-1 | RESTRICTED-mode hardening | security | **high** | L (4 sub-tasks) | — | ✅ done |
+| TD-2 | Close the pty test-coverage gaps | coverage | high | M | — | ✅ done |
+| TD-3 | Break up the oversized `ccfe.pl` subs | quality | med | L | TD-2 | open |
+| TD-4 | Docs & packaging polish (man pages, POD) | docs | med | M | — | open |
+| TD-5 | Logging I/O polish | performance | low | S | — | open |
+
+**TD-1 done** (`restricted = yes` strengthened to a real boundary, per the
+agreed approach): TD-1d eval-free colour parsing (`attr_value`), TD-1c shell-free
+argv exec for system:/exec:, TD-1a config-lock against user-writable files,
+TD-1b user-writable object-dir refusal. Proven by t/25–t/27; README "Restricted
+mode" updated. **TD-2 done**: pty coverage for the browser (search/save), the
+issue-#1 empty-list repro, F7 shell-escape, the `-s`/`-v`/`-h` CLI; fixed three
+latent warnings (two in `list_shortcuts`) along the way. Test count 313 → 351.
 
 ---
 
