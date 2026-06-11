@@ -223,8 +223,11 @@ the conformance tests.
   (`our $ctx` built before the config defaults) rather than param-threaded
   through ~15 subs, since config is immutable after `load_config`; done in three
   word-boundary-rename commits (4a settings, 4b colour attrs incl. the eval'd
-  ones, 4c `%keys`/arrays). 311 tests green. Next: Phase 5 (residual scalars),
-  then the Phase 6 `use v5.36` capstone.
+  ones, 4c `%keys`/arrays). **Phase 5 done:** the residual mutable shared
+  scalars (`SCREEN_DIR`, `last_item_id`, `pad_lines`, `exec_args`, `child_es`)
+  moved to a `$ctx->{state}` namespace; `$cpid`/`$tmpfh` stay global (SIGINT
+  handler owns them). 313 tests green. Next: the Phase 6 `use v5.36` capstone
+  (turn on strict/warnings on `ccfe.pl`, fix fallout, lint it too).
 
 ## M8 — Non-functional close-out audit  _(final gate)_
 Five dimensions: **test coverage, code quality, performance, security,

@@ -165,10 +165,14 @@ threading mistake shows up as a crash or a mis-drawn screen, not a silent pass.
 - **Gate:** `t/06` colour/theme, `t/04` restricted policy, `t/07` CLI, full
   suite 311 green.
 
-### Phase 5 — residual scalar runtime state
-- `$SCREEN_DIR`, `$last_item_id`, `$pad_lines`, `$exec_args`, `$child_es`.
-- `$cpid`/`$tmpfh` stay global (the SIGINT handler closure owns them) — document
-  why rather than forcing them in.
+### Phase 5 — residual scalar runtime state  *(done)*
+- `$SCREEN_DIR`, `$last_item_id`, `$pad_lines`, `$exec_args`, `$child_es` moved
+  to a `$ctx->{state}` sub-namespace (seeded by `CCFE::Context::new`); word-
+  boundary renames, string-interpolation sites unaffected.
+- `$cpid`/`$tmpfh` stay package globals: the SIGINT handler/REAPER own them and
+  clear them asynchronously, so threading buys nothing and risks signal-safety
+  surprises. They get `our`-declared at the capstone instead.
+- **Gate:** full suite 313 green (+2 for the new `state` sub-hash in `t/18`).
 
 ### Phase 6 — capstone: modern pragma on `ccfe.pl`  *(the correctness payoff)*
 - Only reachable once barewords are gone (group A imported, B/C on `$ctx`,
