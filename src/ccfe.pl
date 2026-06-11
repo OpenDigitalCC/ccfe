@@ -1533,6 +1533,63 @@ sub load_form {
     return $res;
 }
 
+# TD-3: the colour/attribute settings in the field_attr{} / active_field_attr{}
+# / menu_global{} / browser_global{} config sections were ~20 copies of the same
+# one-line idiom -- look up a config key, parse its value with attr_value(),
+# keep the previous value when the parse fails.  These maps drive that
+# uniformly: the (upper-cased) config attribute name -> the $ctx->{cfg} key it
+# sets.  field_attr and active_field_attr share the same attribute names but
+# target different cfg keys, hence the two separate maps.
+my %FIELD_ATTR_MAP = (
+    LABEL_FG         => 'labelFg',
+    LABEL_BG         => 'labelBg',
+    VALUE_FG         => 'valueFg',
+    VALUE_BG         => 'valueBg',
+    CHANGED_VALUE_FG => 'cf_valueFg',
+    CHANGED_VALUE_BG => 'cf_valueBg',
+);
+my %ACTIVE_FIELD_ATTR_MAP = (
+    LABEL_FG         => 'af_labelFg',
+    LABEL_BG         => 'af_labelBg',
+    VALUE_FG         => 'af_valueFg',
+    VALUE_BG         => 'af_valueBg',
+    CHANGED_VALUE_FG => 'acf_valueFg',
+    CHANGED_VALUE_BG => 'acf_valueBg',
+);
+my %MENU_ATTR_MAP = (
+    SCREEN_ATTR   => 'MENU_SCREEN_ATTR',
+    ITEM_ATTR     => 'MENU_ITEM_ATTR',
+    SELECTED_ATTR => 'MENU_SEL_ATTR',
+    TITLE_ATTR    => 'TITLE_ATTR',
+    KEY_ATTR      => 'KEY_ATTR',
+);
+my %BROWSER_ATTR_MAP = (
+    INFO_ATTR   => 'RS_INFO_ATTR',
+    STDERR_ATTR => 'RS_STDERR_ATTR',
+    STDOUT_ATTR => 'RS_STDOUT_ATTR',
+);
+
+# Apply a whole field_attr{} / active_field_attr{} section: every line is a
+# colour key from $map, parsed by attr_value() (a bad value keeps the previous
+# setting).  An unrecognised key is a syntax error, mirroring the old
+# per-section else-arm.  $key is the section name (for the message); $res_ref
+# receives $ES_SYNTAX_ERR on a bad key.
+sub apply_attr_section ( $val, $map, $key, $res_ref ) {
+    for my $line ( split /\s*\n\s*/, $val ) {
+        my ( $attrk, $attrv ) = split /\s*=\s*/, $line;
+        if ( my $cfgkey = $map->{ uc( $attrk // '' ) } ) {
+            $ctx->{cfg}{$cfgkey} = attr_value($attrv) // $ctx->{cfg}{$cfgkey};
+        }
+        else {
+            trace(
+                "unknown parameter \"$attrk\" in configuration section ${key}\{\}"
+            );
+            ${$res_ref} = $ES_SYNTAX_ERR;
+        }
+    }
+    return;
+}
+
 sub load_config {
     my ( $key, $val, $text, $found, $res, $fname );
     my @lines;
@@ -1781,16 +1838,8 @@ sub load_config {
                                         $ctx->{cfg}{MAX_PAD_LINES} = $attrv;
                                         last ASWITCH;
                                     }
-                                    if (/^INFO_ATTR$/) {
-                                        $ctx->{cfg}{RS_INFO_ATTR} = attr_value($attrv) // $ctx->{cfg}{RS_INFO_ATTR};
-                                        last ASWITCH;
-                                    }
-                                    if (/^STDERR_ATTR$/) {
-                                        $ctx->{cfg}{RS_STDERR_ATTR} = attr_value($attrv) // $ctx->{cfg}{RS_STDERR_ATTR};
-                                        last ASWITCH;
-                                    }
-                                    if (/^STDOUT_ATTR$/) {
-                                        $ctx->{cfg}{RS_STDOUT_ATTR} = attr_value($attrv) // $ctx->{cfg}{RS_STDOUT_ATTR};
+                                    if ( my $cfgkey = $BROWSER_ATTR_MAP{$_} ) {
+                                        $ctx->{cfg}{$cfgkey} = attr_value($attrv) // $ctx->{cfg}{$cfgkey};
                                         last ASWITCH;
                                     }
                                     if (/^FNKEYS_ROWS$/) {
@@ -1964,87 +2013,15 @@ sub load_config {
                             last SWITCH;
                         }
                         elsif ( /^FIELD_ATTR$/ or /^FIELD_ATTR.\Q$term\E$/ ) {
-                            my $s;
-                            my @finfo = split /\s*\n\s*/, $val;
-                            foreach $s (@finfo) {
-                                ( $attrk, $attrv ) = split /\s*=\s*/, $s;
-                              ASWITCH: {
-                                    $_ = uc $attrk;
-                                    if (/^LABEL_FG$/) {
-                                        $ctx->{cfg}{labelFg} = attr_value($attrv) // $ctx->{cfg}{labelFg};
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^LABEL_BG$/) {
-                                        $ctx->{cfg}{labelBg} = attr_value($attrv) // $ctx->{cfg}{labelBg};
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^VALUE_FG$/) {
-                                        $ctx->{cfg}{valueFg} = attr_value($attrv) // $ctx->{cfg}{valueFg};
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^VALUE_BG$/) {
-                                        $ctx->{cfg}{valueBg} = attr_value($attrv) // $ctx->{cfg}{valueBg};
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^CHANGED_VALUE_FG$/) {
-                                        $ctx->{cfg}{cf_valueFg} = attr_value($attrv) // $ctx->{cfg}{cf_valueFg};
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^CHANGED_VALUE_BG$/) {
-                                        $ctx->{cfg}{cf_valueBg} = attr_value($attrv) // $ctx->{cfg}{cf_valueBg};
-                                        last ASWITCH;
-                                    }
-                                    else {
-                                        trace(
-"unknown parameter \"$attrk\" in configuration section $key\{\}"
-                                        );
-                                        $res = $ES_SYNTAX_ERR;
-                                    }
-                                }
-                            }
+                            apply_attr_section( $val, \%FIELD_ATTR_MAP, $key,
+                                \$res );
                             last SWITCH;
                         }
                         elsif (/^ACTIVE_FIELD_ATTR$/
                             or /^ACTIVE_FIELD_ATTR.\Q$term\E$/ )
                         {
-                            my $s;
-                            my @finfo = split /\s*\n\s*/, $val;
-                            foreach $s (@finfo) {
-                                ( $attrk, $attrv ) = split /\s*=\s*/, $s;
-                              ASWITCH: {
-                                    $_ = uc $attrk;
-                                    if (/^LABEL_FG$/) {
-                                        $ctx->{cfg}{af_labelFg} = attr_value($attrv) // $ctx->{cfg}{af_labelFg};
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^LABEL_BG$/) {
-                                        $ctx->{cfg}{af_labelBg} = attr_value($attrv) // $ctx->{cfg}{af_labelBg};
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^VALUE_FG$/) {
-                                        $ctx->{cfg}{af_valueFg} = attr_value($attrv) // $ctx->{cfg}{af_valueFg};
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^VALUE_BG$/) {
-                                        $ctx->{cfg}{af_valueBg} = attr_value($attrv) // $ctx->{cfg}{af_valueBg};
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^CHANGED_VALUE_FG$/) {
-                                        $ctx->{cfg}{acf_valueFg} = attr_value($attrv) // $ctx->{cfg}{acf_valueFg};
-                                        last ASWITCH;
-                                    }
-                                    elsif (/^CHANGED_VALUE_BG$/) {
-                                        $ctx->{cfg}{acf_valueBg} = attr_value($attrv) // $ctx->{cfg}{acf_valueBg};
-                                        last ASWITCH;
-                                    }
-                                    else {
-                                        trace(
-"unknown parameter \"$attrk\" in configuration section $key\{\}"
-                                        );
-                                        $res = $ES_SYNTAX_ERR;
-                                    }
-                                }
-                            }
+                            apply_attr_section( $val, \%ACTIVE_FIELD_ATTR_MAP,
+                                $key, \$res );
                             last SWITCH;
                         }
                         elsif (/^MENU_GLOBAL$/) {
@@ -2075,24 +2052,8 @@ sub load_config {
                                         $ctx->{cfg}{MS_FOOTER_ROWS} = 1 + $attrv;
                                         last ASWITCH;
                                     }
-                                    if (/^SCREEN_ATTR$/) {
-                                        $ctx->{cfg}{MENU_SCREEN_ATTR} = attr_value($attrv) // $ctx->{cfg}{MENU_SCREEN_ATTR};
-                                        last ASWITCH;
-                                    }
-                                    if (/^ITEM_ATTR$/) {
-                                        $ctx->{cfg}{MENU_ITEM_ATTR} = attr_value($attrv) // $ctx->{cfg}{MENU_ITEM_ATTR};
-                                        last ASWITCH;
-                                    }
-                                    if (/^SELECTED_ATTR$/) {
-                                        $ctx->{cfg}{MENU_SEL_ATTR} = attr_value($attrv) // $ctx->{cfg}{MENU_SEL_ATTR};
-                                        last ASWITCH;
-                                    }
-                                    if (/^TITLE_ATTR$/) {
-                                        $ctx->{cfg}{TITLE_ATTR} = attr_value($attrv) // $ctx->{cfg}{TITLE_ATTR};
-                                        last ASWITCH;
-                                    }
-                                    if (/^KEY_ATTR$/) {
-                                        $ctx->{cfg}{KEY_ATTR} = attr_value($attrv) // $ctx->{cfg}{KEY_ATTR};
+                                    if ( my $cfgkey = $MENU_ATTR_MAP{$_} ) {
+                                        $ctx->{cfg}{$cfgkey} = attr_value($attrv) // $ctx->{cfg}{$cfgkey};
                                         last ASWITCH;
                                     }
                                     else {
