@@ -46,10 +46,21 @@ helper (overlaps the done TD-1d `attr_value`). Verified semantically verbatim
 (t/06, t/15, plus a direct cfg-value check that each section applies its
 configured `COLOR_PAIR` to the right key while a bogus key still errors).
 
-Still open under TD-3: the other big subs (`run_browse` 543 — the tangled one,
-with nested *named* subs and a select-based I/O loop; `do_list`, `do_menu`,
-`load_form`) and the `ccfe.pl` perltidy pass + CI-gate decision (a policy call
-on perltidy/perlcritic severity for the legacy file).
+`run_browse` broken up **543 → 363 lines**: its four nested *named* subs
+(`get_search_buff`/`search_next`/`search_all`/`load_pad`) were hoisted to file
+scope — they only ever touched the package-global pad state run_browse
+`local`-ises, so the move is behaviour-identical (a named sub already compiles
+at package scope) and de-nests the misleading "sub inside sub" shape. Then the
+Save arm became `browser_save()` (returns a break flag for the two ES_EXIT
+cases). Verified by t/21 (search drives all three search helpers) and t/22
+(save: picker/script/file write).
+
+Still open under TD-3: `run_browse`'s open3 + `IO::Select` capture phase (~135
+lines — the most I/O-sensitive part: child spawn, stdout/stderr multiplexing,
+partial-line handling — left for now as higher-risk with less certain edge-case
+coverage); the other big subs (`do_list`, `do_menu`, `load_form`); and the
+`ccfe.pl` perltidy pass + CI-gate decision (a policy call on perltidy/perlcritic
+severity for the legacy file).
 
 ---
 
