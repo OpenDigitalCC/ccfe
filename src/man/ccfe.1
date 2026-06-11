@@ -19,7 +19,7 @@
 .\" along with this manual; if not, write to the Free Software
 .\" Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 .\"
-.TH CCFE 1 "September,  4 2016" "ccfe 1.58" "User Commands"
+.TH CCFE 1 "June 2026" "ccfe 2.2" "User Commands"
 .SH NAME
 ccfe - the Curses Command Front-end.
 .SH SYNOPSIS
@@ -43,8 +43,18 @@ Enable verbose logging for debugging. It depends from the value of the
 .BR ccfe.conf (5)
 configuration file.
 .TP
+\fB-D \fINAME\fR\fR, \fB--dump \fINAME\fR\fR
+Parse the menu or form \fINAME\fR and dump its internal representation as JSON
+to standard output, then exit. No terminal is required, so this is useful for
+scripting, inspection and continuous-integration checks of object files.
+.TP
 \fB-h\fP
 Display help message and exit.
+.TP
+\fB-k \fINAME\fR\fR
+Check that the menu or form \fINAME\fR parses correctly, then exit with a status
+reflecting the result. No terminal is required; intended for validating object
+files in build pipelines.
 .TP
 \fB-l \fIPATH\fR\fR
 Override the configured library directories (global and user) to search for menus and forms to load:
@@ -63,6 +73,10 @@ to default.
 Note that \fIPATH\fR is absolute for every \fBccfe\fP instance.
 .br
 Please see also the explanation of the \fBCCFE_LIB_DIR\fP environment variable.
+.TP
+\fB-P\fP, \fB--plugins\fP
+List the installed \fBccfe\fP plugins found on the object search path, with their
+name and version, then exit.
 .TP
 \fB-s\fP
 Print ordered list of available shortcuts to forms or menus and exit.

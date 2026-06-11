@@ -1,1 +1,11 @@
+# The package stages a self-contained tree under /usr/lib/ccfe (see
+# debian/rules).  Expose the binary on PATH and the man pages on the MANPATH
+# via symlinks, so `ccfe` and `man ccfe` work without that tree being on the
+# default search paths.  The staged pages already have their path placeholders
+# substituted by the upstream installer.
 usr/lib/ccfe/bin/ccfe usr/bin/ccfe
+usr/lib/ccfe/man/man1/ccfe.1 usr/share/man/man1/ccfe.1
+usr/lib/ccfe/man/man5/ccfe.conf.5 usr/share/man/man5/ccfe.conf.5
+usr/lib/ccfe/man/man5/ccfe_form.5 usr/share/man/man5/ccfe_form.5
+usr/lib/ccfe/man/man5/ccfe_menu.5 usr/share/man/man5/ccfe_menu.5
+usr/lib/ccfe/man/man5/ccfe_help.5 usr/share/man/man5/ccfe_help.5
