@@ -2435,6 +2435,60 @@ sub in {
     return $NO;
 }
 
+# do_list's per-type setup (TD-3): choose the footer keys and the top message
+# for the list type, and -- for a 'display' list -- wrap long lines in place to
+# the pop-up width.  Returns (\@top_msg, \@lw_keys, $mark); an empty list for an
+# unknown type (the caller then bails exactly as the inline SWITCH did).
+# Mutates @$ilist_ref for 'display'.
+sub list_setup ( $type, $ilist_ref ) {
+    my ( @top_msg, @lw_keys, $mark );
+
+    if ( $type eq 'single-val' ) {
+        @top_msg = @LW_SINGLEVAL_TOP_MSG;
+        @lw_keys =
+          scalar @$ilist_ref < $MIN_ITEMS_FOR_FIND
+          ? qw( help redraw back exit )
+          : qw( help redraw back exit find find_next );
+        $mark = ' ';
+    }
+    elsif ( $type eq 'multi-val' ) {
+        @top_msg = @LW_MULTIVAL_TOP_MSG;
+        @lw_keys =
+          scalar @$ilist_ref < $MIN_ITEMS_FOR_FIND
+          ? qw( help redraw back sel_items exit sel_all unsel_all )
+          : qw( help redraw back sel_items exit find find_next sel_all unsel_all );
+        $mark = ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) ? '>' : ' ';
+    }
+    elsif ( $type eq 'display' ) {
+        @top_msg = @LW_DISPLAY_TOP_MSG;
+        @lw_keys = qw( help redraw back );
+        $mark    = ' ';
+        my ( $subln1, $subln2 );
+        my $i = 0;
+        while ( $i <= $#$ilist_ref ) {
+            $subln2 = $$ilist_ref[$i];
+            while ( length($subln2) > $LW_COLS - 4 ) {
+                $subln1 = substr( $subln2, 0, $LW_COLS - 4 - 1 );
+                $subln2 = substr( $subln2, $LW_COLS - 4 - 1 );
+                $$ilist_ref[$i] = $subln2;
+                splice @$ilist_ref, $i++, 0, $subln1;
+            }
+            $i++;
+        }
+        foreach my $j ( 0 .. $#$ilist_ref ) {
+            $$ilist_ref[$j] = ' ' if !$$ilist_ref[$j];
+        }
+    }
+    elsif ( $type eq 'menu' ) {
+        # no per-type setup
+    }
+    else {
+        trace("unknown list type \"$type\"");
+        return;
+    }
+    return ( \@top_msg, \@lw_keys, $mark );
+}
+
 sub do_list {
     my ( $pwin, $title, $type, $ilist_ref, $selected_ref ) = @_;
     my @il;
@@ -2454,60 +2508,11 @@ sub do_list {
     my ( $lflag, $rflag );
 
     my $es = 0;
-  SWITCH: {
-        $_ = $type;
-        if (/^single\-val$/) {
-            @top_msg = @LW_SINGLEVAL_TOP_MSG;
-            if ( scalar @$ilist_ref < $MIN_ITEMS_FOR_FIND ) {
-                @lw_keys = qw( help redraw back exit );
-            }
-            else {
-                @lw_keys = qw( help redraw back exit find find_next );
-            }
-            $mark = ' ';
-            last SWITCH;
-        }
-        if (/^multi\-val$/) {
-            @top_msg = @LW_MULTIVAL_TOP_MSG;
-            if ( scalar @$ilist_ref < $MIN_ITEMS_FOR_FIND ) {
-                @lw_keys =
-                  qw( help redraw back sel_items exit sel_all unsel_all );
-            }
-            else {
-                @lw_keys =
-                  qw( help redraw back sel_items exit find find_next sel_all unsel_all );
-            }
-            $mark = ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) ? '>' : ' ';
-            last SWITCH;
-        }
-        if (/^display$/) {
-            @top_msg = @LW_DISPLAY_TOP_MSG;
-            @lw_keys = qw( help redraw back );
-            $mark    = ' ';
-            my ( $i, $subln1, $subln2 );
-            while ( $i <= $#$ilist_ref ) {
-                $subln2 = $$ilist_ref[$i];
-                while ( length($subln2) > $LW_COLS - 4 ) {
-                    $subln1 = substr( $subln2, 0, $LW_COLS - 4 - 1 );
-                    $subln2 = substr( $subln2, $LW_COLS - 4 - 1 );
-                    $$ilist_ref[$i] = $subln2;
-                    splice @$ilist_ref, $i++, 0, $subln1;
-                }
-                $i++;
-            }
-            foreach $i ( 0 .. $#$ilist_ref ) {
-                $$ilist_ref[$i] = ' ' if !$$ilist_ref[$i];
-            }
-            last SWITCH;
-        }
-        if (/^menu$/) {
-            last SWITCH;
-        }
-        else {
-            trace("unknown list type \"$type\"");
-            return $es, undef;
-        }
-    }
+    my ( $top_ref, $keys_ref, $setup_mark ) = list_setup( $type, $ilist_ref );
+    return $es, undef unless $top_ref;
+    @top_msg = @$top_ref;
+    @lw_keys = @$keys_ref;
+    $mark    = $setup_mark;
 
     # --- issue #1 hotfix ---------------------------------------------------
     # Never build a curses menu from an empty item list.  With no items
