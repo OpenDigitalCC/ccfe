@@ -541,46 +541,74 @@ sub harden_child_env {
     return CCFE::Restrict::harden_env( \%ENV );
 }
 
+{
+    my $log_fh;         # persistent log handle, opened lazily and reused
+    my $log_fh_name;    # the LOG_FNAME it was opened for
+
+    # Append a pre-formatted string to the log, holding the handle open across
+    # calls (TD-5).  Autoflush keeps every line on disk immediately, exactly as
+    # the old open/append/close-per-line did, but without the per-line syscalls
+    # in a streaming command's output capture.  3-arg open with an explicit
+    # append mode so a crafted LOG_FNAME cannot smuggle a pipe or redirect.
+    # Shared by trace() and the $SIG{__WARN__} handler.
+    sub _log_write {
+        my ($str) = @_;
+        my $fname = $ctx->{cfg}{LOG_FNAME};
+        return unless $fname;
+        if ( !$log_fh or ( $log_fh_name // '' ) ne $fname ) {
+            close($log_fh) if $log_fh;
+            my $prev_umask = umask 0177;
+            unless ( open( $log_fh, '>>', $fname ) ) {
+                umask $prev_umask;
+                $log_fh = undef;
+                return;
+            }
+            umask $prev_umask;
+            select( ( select($log_fh), $| = 1 )[0] );    # autoflush this handle
+            $log_fh_name = $fname;
+        }
+        print {$log_fh} $str;
+        return;
+    }
+}
+
 sub trace {
     my ( $msg, $log_level ) = @_;
     $log_level //= 0;    # no level given -> 0 (logged only under DEBUG, as before)
-    my @months = qw( Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec );
-    my @buff   = localtime(time);
-    my $now    = '';
-    my $log_it = $NO;
-    my ( $caller, $prev_umask );
 
+    # TD-5: gate on LOG_FNAME and the log level *before* doing any timestamp or
+    # caller work -- there is nothing to format if the line will not be logged.
+    return unless $ctx->{cfg}{LOG_FNAME};
+
+    my $log_it = $NO;
+    if ( $ctx->{cfg}{LOG_LEVEL} & $log_level ) {
+        $log_it = $YES;
+        if ( $LOG_NORMAL & $log_level ) {
+            $log_it = $NO if !$LOG_REQUESTED;
+        }
+    }
+    $log_it = $YES if $DEBUG;
+    return unless $log_it;
+
+    my $caller = '';
     if ($DEBUG) {
         $caller = ( caller(1) )[3];
         $caller =~ s/^.*:://;
         $caller .= "[$$]: " if $caller;
     }
 
-    if ($ctx->{cfg}{LOG_FNAME}) {
-        if ( $ctx->{cfg}{LOG_LEVEL} & $log_level ) {
-            $log_it = $YES;
-            if ( $LOG_NORMAL & $log_level ) {
-                $log_it = $NO if !$LOG_REQUESTED;
-            }
-        }
-        $log_it = $YES if $DEBUG;
-
-        if ($log_it) {
-            $prev_umask = umask 0177;
-            eval {
-                open( LOG, ">>$ctx->{cfg}{LOG_FNAME}" ) or die("$!\n");
-                if ($LOG_DATE) {
-                    $now = sprintf "%s %02d %d %02d:%02d:%02d%s",
-                      $months[ $buff[4] ],
-                      $buff[3], $buff[5] + 1900, $buff[2], $buff[1], $buff[0],
-                      $DEBUG ? ' ' : "\n";
-                }
-                printf LOG "%s%s%s\n", $now, $caller, $msg or die("$!");
-                close(LOG) or die("$!");
-            };
-            umask $prev_umask;
-        }
+    my $now = '';
+    if ($LOG_DATE) {
+        my @months = qw( Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec );
+        my @buff   = localtime(time);
+        $now = sprintf "%s %02d %d %02d:%02d:%02d%s",
+          $months[ $buff[4] ],
+          $buff[3], $buff[5] + 1900, $buff[2], $buff[1], $buff[0],
+          $DEBUG ? ' ' : "\n";
     }
+
+    _log_write( sprintf "%s%s%s\n", $now, $caller, $msg );
+    return;
 }
 
 sub get_lang_id {
@@ -5264,12 +5292,7 @@ $CURSES_ACTIVE = $YES;
 $SIG{__WARN__} = sub {
     my ($w) = @_;
     return print STDERR $w unless $CURSES_ACTIVE;
-    if ( $ctx->{cfg}{LOG_FNAME}
-        and open( my $wlog, '>>', $ctx->{cfg}{LOG_FNAME} ) )
-    {
-        print {$wlog} $w;
-        close($wlog);
-    }
+    _log_write($w);    # TD-5: shares trace()'s persistent, autoflushed handle
     return;
 };
 

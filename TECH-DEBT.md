@@ -14,7 +14,7 @@ All work must keep the suite green and the four CI checks passing
 | TD-2 | Close the pty test-coverage gaps | coverage | high | M | — | ✅ done |
 | TD-3 | Break up the oversized `ccfe.pl` subs | quality | med | L | TD-2 | 🟡 in progress |
 | TD-4 | Docs & packaging polish (man pages, POD) | docs | med | M | — | open |
-| TD-5 | Logging I/O polish | performance | low | S | — | open |
+| TD-5 | Logging I/O polish | performance | low | S | — | ✅ done |
 
 **TD-1 done** (`restricted = yes` strengthened to a real boundary, per the
 agreed approach): TD-1d eval-free colour parsing (`attr_value`), TD-1c shell-free
@@ -197,6 +197,14 @@ ships man pages users can't find.
 
 **Accept:** no behaviour change; a high-log-level streaming command no longer
 open/closes the log per line.
+
+**Done.** A shared `_log_write()` holds the log handle open and reuses it across
+calls (3-arg append open so a crafted `LOG_FNAME` cannot smuggle a pipe/redirect;
+autoflush keeps each line on disk immediately, so the old open/append/close
+per-line visibility is preserved). Both `trace()` and `$SIG{__WARN__}` write
+through it. `trace()` now returns early on `!LOG_FNAME` / level-not-set before any
+`localtime`/`@months`/`caller` work. Verified by t/10 and t/11 (which read the
+log post-exit, including raised-level `resize_form` traces); full suite green.
 
 ---
 
