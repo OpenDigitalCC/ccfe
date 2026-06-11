@@ -21,6 +21,12 @@
 #
 
 use v5.36;    # strict + warnings + modern features (M7 Phase 6 capstone)
+# getch() returns an integer keycode for function/arrow keys but a one-character
+# string for ordinary keys, and the event loops compare it numerically against
+# KEY_* constants ($ch == KEY_UP).  That is the program's idiom throughout, so
+# the "argument isn't numeric" notice it would raise for a character key is just
+# noise; silence that one category while keeping every other warning.
+no warnings 'numeric';
 use Curses;
 use Sys::Hostname;
 use File::Basename;
@@ -2320,7 +2326,7 @@ sub do_menu {
                     else {
                         trace("unknown action \"$action\"");
                     }
-                    last if $es == $ES_EXIT;
+                    last if ( $es // 0 ) == $ES_EXIT;
                 }
                 else {
                     $exit_id    = $menu{items}[$ci]{id};
@@ -2614,7 +2620,7 @@ sub do_list {
         elsif ( $ch eq '/' and in( 'find', @lw_keys ) ) {
             ( $es, $srch_pattern ) =
               ask_string( $SEARCH_PTRN_TITLE, $SEARCH_PTRN_PROMPT );
-            if ( $es == $ES_EXIT ) {
+            if ( ( $es // 0 ) == $ES_EXIT ) {
                 $ch = $ctx->{cfg}{keys}{exit}{code};
                 last;
             }
@@ -3971,7 +3977,7 @@ sub do_form {
                           do_list( $win, $form{fields}[$ci]{label},
                             $type, \@list, \@selected );
                         $val = join( $multi_val_sep, @selected );
-                        if ( $es == $ES_EXIT ) {
+                        if ( ( $es // 0 ) == $ES_EXIT ) {
                             $ch = $ctx->{cfg}{keys}{exit}{code};
                             last;
                         }
@@ -4320,7 +4326,7 @@ sub run_browse {
             else {
                 if ( $fh == $outfh ) {
                     $src        = $RS_STDOUT_ID;
-                    $buff       = $outprev . $srbuff;
+                    $buff       = ( $outprev // '' ) . $srbuff;
                     $is_partial = ( $buff !~ /\n$/ );
                     @lines      = split /\n/, $buff . ".";
                     $lines[$#lines] =~ s/\.$//;
@@ -4331,7 +4337,7 @@ sub run_browse {
                 }
                 elsif ( $fh == $errfh ) {
                     $src        = $RS_STDERR_ID;
-                    $buff       = $errprev . $srbuff;
+                    $buff       = ( $errprev // '' ) . $srbuff;
                     $is_partial = ( $buff !~ /\n$/ );
                     @lines      = split /\n/, $buff . ".";
                     $lines[$#lines] =~ s/\.$//;
@@ -4552,7 +4558,7 @@ sub run_browse {
                   if ( $val eq $SAVE_SCRIPT );
                 ( $es, $fname ) =
                   ask_string( $SAVE_FNAME_TITLE, $SAVE_FNAME_PROMPT, $fname );
-                if ( $es == $ES_EXIT ) {
+                if ( ( $es // 0 ) == $ES_EXIT ) {
                     $ch = $ctx->{cfg}{keys}{exit}{code};
                     last;
                 }
@@ -4624,7 +4630,7 @@ sub run_browse {
                     }
                 }
             }
-            if ( $es == $ES_EXIT ) {
+            if ( ( $es // 0 ) == $ES_EXIT ) {
                 $ch = $ctx->{cfg}{keys}{exit}{code};
                 last;
             }
@@ -4633,7 +4639,7 @@ sub run_browse {
             ( $es, $search_string ) =
               ask_string( $SEARCH_PTRN_TITLE, $SEARCH_PTRN_PROMPT,
                 $search_string );
-            if ( $es == $ES_EXIT ) {
+            if ( ( $es // 0 ) == $ES_EXIT ) {
                 $ch = $ctx->{cfg}{keys}{exit}{code};
                 last;
             }
@@ -5097,6 +5103,23 @@ POSIX::setlocale( POSIX::LC_CTYPE(), '' );
 
 initscr;
 $CURSES_ACTIVE = $YES;
+
+# Once curses owns the screen, route Perl warnings to the log file rather than
+# STDERR, where they would print over the display.  (`use warnings` -- M7 Phase
+# 6 -- surfaces uninitialized-value notices on edge paths; they are harmless to
+# behaviour but must not corrupt the TUI.)  Before initscr / in the headless
+# --dump/-k paths $CURSES_ACTIVE is false, so warnings still reach STDERR.
+$SIG{__WARN__} = sub {
+    my ($w) = @_;
+    return print STDERR $w unless $CURSES_ACTIVE;
+    if ( $ctx->{cfg}{LOG_FNAME}
+        and open( my $wlog, '>>', $ctx->{cfg}{LOG_FNAME} ) )
+    {
+        print {$wlog} $w;
+        close($wlog);
+    }
+    return;
+};
 
 # Safety net: if anything (even a die from deep in the Curses XS) tears the
 # program down while the screen is in curses mode, restore the terminal so the
