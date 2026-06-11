@@ -4875,7 +4875,7 @@ sub list_shortcuts {
     my %sc_priv;
 
     for $dir (@mf_path) {
-        opendir( DIR, $dir );
+        opendir( DIR, $dir ) or next;    # search dirs (XDG/legacy) may not exist
         while ( $fname = readdir(DIR) ) {
             next if $fname =~ /^\.\.?$/;
             next if $fname !~ /($MENUEXT|$FORMEXT)$/;
@@ -4919,6 +4919,7 @@ sub list_shortcuts {
 
             ( $val, undef, undef ) =
               extract_bracketed( $text, '{', '\s*title*\s*' );
+            $val = '' unless defined $val;    # no/!malformed title block
             $val =~ s/^\{\s*//;
             $val =~ s/\s*\n?\s*\}$//;
             $val = 'N/A' if !$val;

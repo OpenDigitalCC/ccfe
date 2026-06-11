@@ -92,4 +92,25 @@ like( $plug, qr/^sysmon\s+1\.0\b/m,
 like( $plug, qr/provides:.*\bsysmon\b/,
     '  shows what the plugin provides' );
 
+# ---- -v / --version -----------------------------------------------------
+my $ver = `"$bin" -v 2>&1`;
+is( $? >> 8, 0, '-v: exit 0' );
+like( $ver, qr/version \d+\.\d/, '  prints the version' );
+like( $ver, qr/WARRANTY/,        '  prints the licence notice' );
+
+# ---- -s (the shortcut lister) -------------------------------------------
+# Regression: list_shortcuts() opendir'd every search path without checking
+# the result, so the (normally absent) XDG/legacy dirs warned
+# "readdir() on invalid dirhandle". -s runs headless, so that warning hit
+# STDERR. Assert it lists the demo objects AND emits no Perl warnings.
+my $sc = `"$bin" -s 2>&1`;
+is( $? >> 8, 0, '-s: exit 0' );
+like( $sc, qr/\bsysmon\b/, '  lists an installed shortcut' );
+unlike( $sc, qr/readdir|invalid dirhandle|uninitialized/,
+    '  no Perl warnings leak to stdout/stderr' );
+
+# ---- -h (usage) ---------------------------------------------------------
+`"$bin" -h >/dev/null 2>&1`;
+is( $? >> 8, 0, '-h: exit 0' );
+
 done_testing();
