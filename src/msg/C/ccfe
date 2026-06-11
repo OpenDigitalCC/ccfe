@@ -34,6 +34,11 @@ RESTRICTED_MSG   = "Sorry, that action is not permitted here."
 NULL_FACTION_TITLE = "ERROR"
 NULL_FACTION_MSG   = "Undefined form action!"
 
+# Title and message for the pop-up shown when an exec: action's command
+# cannot be found / is not executable (the program name is appended):
+EXEC_NOTFOUND_TITLE = "COMMAND NOT FOUND"
+EXEC_NOTFOUND_MSG   = "Command not found or not executable:"
+
 # Title and messages string for pop-up window displayed when
 # an error occurs during form loading or executing the init{} block:
 FORM_ERR_TITLE    = "ERROR"

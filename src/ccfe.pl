@@ -72,89 +72,90 @@ use FindBin ();    # to locate the program at runtime (see the path block below)
 # onto lexicals and $ctx; what remains global is genuinely program-wide.
 ## BEGIN-OUR (formatted; scalars, then arrays, then hashes)
 our (
-    $ALL_FIELDS_IDS_TAG,     $ASKS_FIELD_PAD,        $ASKS_FIELD_SIZE,
-    $ASKS_WIN_COLS,          $ASKS_WIN_FTR_ROWS,     $ASKS_WIN_ROWS,
-    $BAD_SHELL_MSG,          $BAD_SHELL_TITLE,       $BFIELD_DEFAULT,
-    $BFIELD_NO,              $BFIELD_NO_DESCR,       $BFIELD_NULL,
-    $BFIELD_NULL_DESCR,      $BFIELD_YES,            $BFIELD_YES_DESCR,
-    $BIG_OUTPUT_MSG,         $BIG_OUTPUT_TITLE,      $BINDIR,
-    $BOOLEAN,                $BOOLEAN_FIELD_SIZE,    $CALLNAME,
-    $CALL_SHELL_MSG,         $CALL_SYS_ES_MSG,       $CALL_SYS_MSG,
-    $CONFIRM_DESCR_NO,       $CONFIRM_DESCR_YES,     $CONFIRM_TITLE,
-    $CURSES_ACTIVE,          $DEBUG,                 $DESCR,
-    $DMENU_DEF_FNAME,        $EMPTY_LIST_MSG,        $EMPTY_LIST_TITLE,
-    $ERR_EMPTY_FIELD_MSG,    $ERR_EMPTY_FIELD_TITLE, $ERR_LOAD_INITIAL_OBJ,
-    $ES_CANCEL,              $ES_EXIT,               $ES_FOPEN_ERR,
-    $ES_FOPEN_ERR_MSG,       $ES_NOT_FOUND,          $ES_NOT_FOUND_MSG,
-    $ES_NO_ERR,              $ES_NO_ERR_MSG,         $ES_NO_ITEMS,
-    $ES_NO_ITEMS_MSG,        $ES_SYNTAX_ERR,         $ES_SYNTAX_ERR_MSG,
-    $ES_USER_REQ,            $ETCDIR,                $FALSE,
-    $FIELD_LMARGIN,          $FIELD_RMARGIN,         $FIELD_VALUE_GAP,
-    $FORMEXT,                $FORM_ARGV_ID,          $FORM_ERR_TITLE,
-    $FOUND_NONE_MSG,         $FOUND_NONE_TITLE,      $FSEP_ID_PRFX,
-    $FS_BOTTOM_ROWS,         $FS_HEADER_ROWS,        $FS_TOP_ROWS,
-    $HAS_COLOR,              $HOSTNAME,              $HTAB_COLS,
-    $INIT_DISABLE_FIELDS,    $INIT_ENABLE_FIELDS,    $INIT_FORM_ERR_MSG,
-    $INIT_REMOVE_FIELDS,     $KEY_ENTER_LABEL,       $KEY_F10_LABEL,
-    $KEY_F1_LABEL,           $KEY_F2_LABEL,          $KEY_F3_LABEL,
-    $KEY_F4_LABEL,           $KEY_F5_LABEL,          $KEY_F6_LABEL,
-    $KEY_F7_LABEL,           $KEY_F8_LABEL,          $KEY_F9_LABEL,
-    $KEY_FIND_LABEL,         $KEY_FNEXT_LABEL,       $KEY_INTR_LABEL,
-    $KEY_SELALL_LABEL,       $KEY_UNSELALL_LABEL,    $LANG_ID,
-    $LEGACY_DIR,             $LIBDIR,                $LIST_CMD_ERR_MSG,
-    $LIST_CMD_ERR_TITLE,     $LOAD_FORM_ERR_MSG,     $LOAD_MENU_ERR_MSG,
-    $LOGDIR,                 $LOG_ACTION_CMD,        $LOG_ACTION_OUT,
-    $LOG_DATE,               $LOG_DEFAULT_CMD,       $LOG_FIELDS_VAL,
-    $LOG_INITFORM_OUT,       $LOG_LIST_CMD,          $LOG_MENU_CHOICE,
-    $LOG_NORMAL,             $LOG_REQUESTED,         $LOG_SCAN_PATHS,
-    $LOG_SYSCALL_ENV,        $LOG_WRITE_ERROR_MSG,   $LOG_WRITE_ERROR_TITLE,
-    $LW_COLS,                $LW_FOOTER_ROWS,        $LW_PAD_COLS,
-    $LW_ROW0,                $MAIN_PATH,             $MARK_PRIV_SHCUTS,
-    $MENUEXT,                $MENU_ERR_TITLE,        $MIN_ITEMS_FOR_FIND,
-    $MOUSE_ON,               $MSGDIR,                $MSG_WIN_BMSG,
-    $MSG_WIN_ROWS,           $MSG_WIN_TITLE,         $MS_BOTTOM_ROWS,
-    $MS_HEADER_ROWS,         $MS_TOP_ROWS,           $NO,
-    $NORMAL,                 $NULLBOOLEAN,           $NULL_FACTION_MSG,
-    $NULL_FACTION_TITLE,     $NULL_LIST_MSG,         $NULL_LIST_TITLE,
-    $NUMERIC,                $OBJDIR,                $OFF,
-    $ON,                     $PERS_DIR,              $PERS_WRITE_ERROR_MSG,
-    $PERS_WRITE_ERROR_TITLE, $PREFIX,                $PRIV_DIR,
-    $RB_FAILED_MSG,          $RB_LINES_MSG,          $RB_OK_MSG,
-    $RB_RUNNING_MSG,         $RB_TIME_MSG,           $RB_TITLE,
-    $REALNAME,               $RESTRICTED_MSG,        $RESTRICTED_TITLE,
-    $RS_BOTTOM_ROWS,         $RS_HEADER_ROWS,        $RS_INFO_ID,
-    $RS_STDERR_ID,           $RS_STDOUT_ID,          $RS_TOP_ROWS,
-    $SAVE_DETAILED,          $SAVE_DETAILED_DESCR,   $SAVE_ERROR_MSG,
-    $SAVE_ERROR_TITLE,       $SAVE_FIELDVAL_MSG,     $SAVE_FIELDVAL_TITLE,
-    $SAVE_FNAME_PROMPT,      $SAVE_FNAME_TITLE,      $SAVE_SCRIPT,
-    $SAVE_SCRIPT_DESCR,      $SAVE_SIMPLE,           $SAVE_SIMPLE_DESCR,
-    $SAVE_TYPE_TITLE,        $SEARCH_PTRN_PROMPT,    $SEARCH_PTRN_TITLE,
-    $SEPARATOR,              $SEP_LINE,              $SEP_LINE_DOUBLE,
-    $SEP_TEXT,               $SEP_TEXT_CENTER,       $SHOW_ACTION_TITLE,
-    $SIMPLE,                 $SR_BUFF_SIZE,          $STRING,
-    $THEMEDIR,               $TRUE,                  $UCSTRING,
-    $USERNAME,               $USR_CFG,               $USR_OBJ,
-    $VERSION,                $VERSION_DATE,          $VERSION_YEAR,
-    $WAIT_MSG_MSG,           $WRKDIR,                $YES,
-    $attrk,                  $attrv,                 $called_form,
-    $ch,                     $choice,                $cpid,
-    $descr,                  $es,                    $exec_hh,
-    $exec_mm,                $exec_ss,               $i,
-    $id,                     $lflags_size,           $mlmargin,
-    $mwin,                   $mwinr,                 $opt,
-    $out,                    $ovl_mode,              $p,
-    $pad_lines,              $path,                  $pid,
-    $prev_wdir,              $res,                   $rflags_size,
-    $s,                      $scan,                  $search_string,
-    $shcut_type,             $text,                  $tmpfh,
-    $twin,                   @CONFIRM_ITEMS,         @ERR_LITTLE_SCREEN,
-    @ERR_WRONG_FPATH,        @FORM_TOP_MSG,          @FSKeys,
-    @LW_DISPLAY_TOP_MSG,     @LW_MULTIVAL_TOP_MSG,   @LW_SINGLEVAL_TOP_MSG,
-    @MENU_TOP_MSG,           @MSKeys,                @RSKeys,
-    @cnf_path,               @es_str,                @flist,
-    @fn_key_functions,       @lines,                 @mf_path,
-    %bool_vals,              %layout_vals,           %options,
-    %sep_type_vals,          %type_vals,
+    $ALL_FIELDS_IDS_TAG,    $ASKS_FIELD_PAD,        $ASKS_FIELD_SIZE,
+    $ASKS_WIN_COLS,         $ASKS_WIN_FTR_ROWS,     $ASKS_WIN_ROWS,
+    $BAD_SHELL_MSG,         $BAD_SHELL_TITLE,       $BFIELD_DEFAULT,
+    $BFIELD_NO,             $BFIELD_NO_DESCR,       $BFIELD_NULL,
+    $BFIELD_NULL_DESCR,     $BFIELD_YES,            $BFIELD_YES_DESCR,
+    $BIG_OUTPUT_MSG,        $BIG_OUTPUT_TITLE,      $BINDIR,
+    $BOOLEAN,               $BOOLEAN_FIELD_SIZE,    $CALLNAME,
+    $CALL_SHELL_MSG,        $CALL_SYS_ES_MSG,       $CALL_SYS_MSG,
+    $CONFIRM_DESCR_NO,      $CONFIRM_DESCR_YES,     $CONFIRM_TITLE,
+    $CURSES_ACTIVE,         $DEBUG,                 $DESCR,
+    $DMENU_DEF_FNAME,       $EMPTY_LIST_MSG,        $EMPTY_LIST_TITLE,
+    $EXEC_NOTFOUND_MSG,     $EXEC_NOTFOUND_TITLE,   $ERR_EMPTY_FIELD_MSG,
+    $ERR_EMPTY_FIELD_TITLE, $ERR_LOAD_INITIAL_OBJ,  $ES_CANCEL,
+    $ES_EXIT,               $ES_FOPEN_ERR,          $ES_FOPEN_ERR_MSG,
+    $ES_NOT_FOUND,          $ES_NOT_FOUND_MSG,      $ES_NO_ERR,
+    $ES_NO_ERR_MSG,         $ES_NO_ITEMS,           $ES_NO_ITEMS_MSG,
+    $ES_SYNTAX_ERR,         $ES_SYNTAX_ERR_MSG,     $ES_USER_REQ,
+    $ETCDIR,                $FALSE,                 $FIELD_LMARGIN,
+    $FIELD_RMARGIN,         $FIELD_VALUE_GAP,       $FORMEXT,
+    $FORM_ARGV_ID,          $FORM_ERR_TITLE,        $FOUND_NONE_MSG,
+    $FOUND_NONE_TITLE,      $FSEP_ID_PRFX,          $FS_BOTTOM_ROWS,
+    $FS_HEADER_ROWS,        $FS_TOP_ROWS,           $HAS_COLOR,
+    $HOSTNAME,              $HTAB_COLS,             $INIT_DISABLE_FIELDS,
+    $INIT_ENABLE_FIELDS,    $INIT_FORM_ERR_MSG,     $INIT_REMOVE_FIELDS,
+    $KEY_ENTER_LABEL,       $KEY_F10_LABEL,         $KEY_F1_LABEL,
+    $KEY_F2_LABEL,          $KEY_F3_LABEL,          $KEY_F4_LABEL,
+    $KEY_F5_LABEL,          $KEY_F6_LABEL,          $KEY_F7_LABEL,
+    $KEY_F8_LABEL,          $KEY_F9_LABEL,          $KEY_FIND_LABEL,
+    $KEY_FNEXT_LABEL,       $KEY_INTR_LABEL,        $KEY_SELALL_LABEL,
+    $KEY_UNSELALL_LABEL,    $LANG_ID,               $LEGACY_DIR,
+    $LIBDIR,                $LIST_CMD_ERR_MSG,      $LIST_CMD_ERR_TITLE,
+    $LOAD_FORM_ERR_MSG,     $LOAD_MENU_ERR_MSG,     $LOGDIR,
+    $LOG_ACTION_CMD,        $LOG_ACTION_OUT,        $LOG_DATE,
+    $LOG_DEFAULT_CMD,       $LOG_FIELDS_VAL,        $LOG_INITFORM_OUT,
+    $LOG_LIST_CMD,          $LOG_MENU_CHOICE,       $LOG_NORMAL,
+    $LOG_REQUESTED,         $LOG_SCAN_PATHS,        $LOG_SYSCALL_ENV,
+    $LOG_WRITE_ERROR_MSG,   $LOG_WRITE_ERROR_TITLE, $LW_COLS,
+    $LW_FOOTER_ROWS,        $LW_PAD_COLS,           $LW_ROW0,
+    $MAIN_PATH,             $MARK_PRIV_SHCUTS,      $MENUEXT,
+    $MENU_ERR_TITLE,        $MIN_ITEMS_FOR_FIND,    $MOUSE_ON,
+    $MSGDIR,                $MSG_WIN_BMSG,          $MSG_WIN_ROWS,
+    $MSG_WIN_TITLE,         $MS_BOTTOM_ROWS,        $MS_HEADER_ROWS,
+    $MS_TOP_ROWS,           $NO,                    $NORMAL,
+    $NULLBOOLEAN,           $NULL_FACTION_MSG,      $NULL_FACTION_TITLE,
+    $NULL_LIST_MSG,         $NULL_LIST_TITLE,       $NUMERIC,
+    $OBJDIR,                $OFF,                   $ON,
+    $PERS_DIR,              $PERS_WRITE_ERROR_MSG,  $PERS_WRITE_ERROR_TITLE,
+    $PREFIX,                $PRIV_DIR,              $RB_FAILED_MSG,
+    $RB_LINES_MSG,          $RB_OK_MSG,             $RB_RUNNING_MSG,
+    $RB_TIME_MSG,           $RB_TITLE,              $REALNAME,
+    $RESTRICTED_MSG,        $RESTRICTED_TITLE,      $RS_BOTTOM_ROWS,
+    $RS_HEADER_ROWS,        $RS_INFO_ID,            $RS_STDERR_ID,
+    $RS_STDOUT_ID,          $RS_TOP_ROWS,           $SAVE_DETAILED,
+    $SAVE_DETAILED_DESCR,   $SAVE_ERROR_MSG,        $SAVE_ERROR_TITLE,
+    $SAVE_FIELDVAL_MSG,     $SAVE_FIELDVAL_TITLE,   $SAVE_FNAME_PROMPT,
+    $SAVE_FNAME_TITLE,      $SAVE_SCRIPT,           $SAVE_SCRIPT_DESCR,
+    $SAVE_SIMPLE,           $SAVE_SIMPLE_DESCR,     $SAVE_TYPE_TITLE,
+    $SEARCH_PTRN_PROMPT,    $SEARCH_PTRN_TITLE,     $SEPARATOR,
+    $SEP_LINE,              $SEP_LINE_DOUBLE,       $SEP_TEXT,
+    $SEP_TEXT_CENTER,       $SHOW_ACTION_TITLE,     $SIMPLE,
+    $SR_BUFF_SIZE,          $STRING,                $THEMEDIR,
+    $TRUE,                  $UCSTRING,              $USERNAME,
+    $USR_CFG,               $USR_OBJ,               $VERSION,
+    $VERSION_DATE,          $VERSION_YEAR,          $WAIT_MSG_MSG,
+    $WRKDIR,                $YES,                   $attrk,
+    $attrv,                 $called_form,           $ch,
+    $choice,                $cpid,                  $descr,
+    $es,                    $exec_hh,               $exec_mm,
+    $exec_ss,               $i,                     $id,
+    $lflags_size,           $mlmargin,              $mwin,
+    $mwinr,                 $opt,                   $out,
+    $ovl_mode,              $p,                     $pad_lines,
+    $path,                  $pid,                   $prev_wdir,
+    $res,                   $rflags_size,           $s,
+    $scan,                  $search_string,         $shcut_type,
+    $text,                  $tmpfh,                 $twin,
+    @CONFIRM_ITEMS,         @ERR_LITTLE_SCREEN,     @ERR_WRONG_FPATH,
+    @FORM_TOP_MSG,          @FSKeys,                @LW_DISPLAY_TOP_MSG,
+    @LW_MULTIVAL_TOP_MSG,   @LW_SINGLEVAL_TOP_MSG,  @MENU_TOP_MSG,
+    @MSKeys,                @RSKeys,                @cnf_path,
+    @es_str,                @flist,                 @fn_key_functions,
+    @lines,                 @mf_path,               %bool_vals,
+    %layout_vals,           %options,               %sep_type_vals,
+    %type_vals,
 );
 ## END-OUR
 
@@ -528,6 +529,33 @@ sub ralign {
     return sprintf "% ${size}s", $str;
 }
 
+# True only when we are *confident* an exec: action's command cannot be run:
+# its first word is a bare name found nowhere on PATH, or an explicit path that
+# is not an executable file.  Returns false (let it proceed) for anything we
+# cannot judge cleanly -- an env-assignment prefix (VAR=x cmd), a shell
+# metacharacter, or an empty command -- so the check never blocks a valid
+# action; a genuine failure of those is still caught by the exec() fallback.
+# Used to show a clear "command not found" pop-up while the TUI is still up,
+# before exec: tears curses down (FEATURE-REQUESTS item 6).
+sub exec_prog_missing {
+    my ($cmd) = @_;
+    my @words = shellwords( $cmd // '' );
+    return $NO unless @words;
+    my $prog = $words[0];
+    return $NO if $prog =~ /=/;    # env-assignment prefix -> via shell
+    return $NO
+      if $cmd =~ m{[|&;<>(){}\$`*?\[\]~]};    # shell metachars -> via shell
+
+    if ( $prog =~ m{/} ) {                    # explicit path: check it directly
+        return ( -x $prog and !-d _ ) ? $NO : $YES;
+    }
+    for my $dir ( split /:/, ( $ENV{PATH} // '' ), -1 ) {
+        $dir = '.' if $dir eq '';
+        return $NO if -x "$dir/$prog" and !-d _;
+    }
+    return $YES;                              # bare name, found nowhere
+}
+
 sub valid_shell {
     my ($shell) = @_;
 
@@ -666,6 +694,8 @@ sub load_msgs {
       RESTRICTED_TITLE
       NULL_FACTION_MSG
       NULL_FACTION_TITLE
+      EXEC_NOTFOUND_MSG
+      EXEC_NOTFOUND_TITLE
       SAVE_FIELDVAL_MSG
       SAVE_FIELDVAL_TITLE
       BIG_OUTPUT_MSG
@@ -2248,6 +2278,11 @@ sub run_menu_action ( $action_str, $descr, $menuname, $menu_path, $win, $es ) {
         if ( restricted_denies_verb( 'exec', $args ) ) {
             disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
         }
+        elsif ( exec_prog_missing($args) ) {
+            my ($prog) = shellwords($args);
+            disp_msg( $win, "$EXEC_NOTFOUND_MSG \"$prog\"",
+                $EXEC_NOTFOUND_TITLE );
+        }
         else {
             $ctx->{state}{exec_args} = $args;
         }
@@ -3749,6 +3784,11 @@ sub run_form_submit {
             $prepare_action->( \$args );
             if ( restricted_denies_verb( 'exec', $args ) ) {
                 disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
+            }
+            elsif ( exec_prog_missing($args) ) {
+                my ($prog) = shellwords($args);
+                disp_msg( $win, "$EXEC_NOTFOUND_MSG \"$prog\"",
+                    $EXEC_NOTFOUND_TITLE );
             }
             else {
                 $ctx->{state}{exec_args} = $args;
@@ -5644,7 +5684,18 @@ if ( $shcut_type = get_shortcut($shcut) ) {
             my @argv = shellwords( $ctx->{state}{exec_args} );    # TD-1c
             exec { $argv[0] } @argv if @argv;
         }
-        exec( $ctx->{state}{exec_args} );
+
+        # exec() only returns on failure, and curses is already torn down here,
+        # so report on STDERR rather than leaving the terminal cleared with no
+        # explanation (FEATURE-REQUESTS item 6; the pre-flight modal catches the
+        # common case while the TUI is still up).  The `or do` keeps the failure
+        # path in the same statement (no "unreachable code after exec" warning).
+        exec( $ctx->{state}{exec_args} ) or do {
+            my $err = $!;
+            my ($prog) = shellwords( $ctx->{state}{exec_args} );
+            print STDERR "$CALLNAME: cannot execute \"$prog\": $err\n";
+            exit 127;
+        };
     }
 }
 else {
