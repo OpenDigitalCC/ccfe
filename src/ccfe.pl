@@ -391,6 +391,47 @@ sub color_pair {
     return COLOR_PAIR( CCFE::Theme::pair_for( $fg, $bg ) );
 }
 
+# Resolve a config attribute expression to its numeric value WITHOUT eval
+# (M8/TD-1d: a config *_attr value is data, never code).  Accepts the documented
+# grammar -- the A_* video attributes, COLOR_PAIR(n), color_pair('fg','bg'), a
+# bare integer, and `|`-combinations of those -- and returns undef on anything
+# else, so a malformed config value is ignored (the caller keeps the default)
+# instead of being able to inject Perl.
+my %ATTR_CONST;
+sub attr_value {
+    my ($str) = @_;
+    return undef unless defined $str;
+    $str =~ s/^\s+//;
+    $str =~ s/\s+$//;
+    return undef if $str eq '';
+    %ATTR_CONST = (
+        A_NORMAL  => A_NORMAL,  A_BOLD      => A_BOLD,
+        A_REVERSE => A_REVERSE, A_UNDERLINE => A_UNDERLINE,
+        A_BLINK   => A_BLINK,   A_DIM       => A_DIM,
+        A_STANDOUT => A_STANDOUT,
+    ) unless %ATTR_CONST;
+
+    my $val = 0;
+    for my $tok ( split /\s*\|\s*/, $str ) {
+        if ( exists $ATTR_CONST{$tok} ) {
+            $val |= $ATTR_CONST{$tok};
+        }
+        elsif ( $tok =~ /^COLOR_PAIR\(\s*(\d+)\s*\)$/ ) {
+            $val |= COLOR_PAIR($1);
+        }
+        elsif ( $tok =~ /^color_pair\(\s*'([a-z]+)'\s*,\s*'([a-z]+)'\s*\)$/ ) {
+            $val |= color_pair( $1, $2 );
+        }
+        elsif ( $tok =~ /^-?\d+$/ ) {
+            $val |= $tok;
+        }
+        else {
+            return undef;    # outside the grammar -> ignore (no eval, no inject)
+        }
+    }
+    return $val;
+}
+
 sub fatal {
     trace("FATAL: @_");
     clrtobot( 0, 0 );
@@ -1692,15 +1733,15 @@ sub load_config {
                                         last ASWITCH;
                                     }
                                     if (/^INFO_ATTR$/) {
-                                        eval "\$ctx->{cfg}{RS_INFO_ATTR} = $attrv";
+                                        $ctx->{cfg}{RS_INFO_ATTR} = attr_value($attrv) // $ctx->{cfg}{RS_INFO_ATTR};
                                         last ASWITCH;
                                     }
                                     if (/^STDERR_ATTR$/) {
-                                        eval "\$ctx->{cfg}{RS_STDERR_ATTR} = $attrv";
+                                        $ctx->{cfg}{RS_STDERR_ATTR} = attr_value($attrv) // $ctx->{cfg}{RS_STDERR_ATTR};
                                         last ASWITCH;
                                     }
                                     if (/^STDOUT_ATTR$/) {
-                                        eval "\$ctx->{cfg}{RS_STDOUT_ATTR} = $attrv";
+                                        $ctx->{cfg}{RS_STDOUT_ATTR} = attr_value($attrv) // $ctx->{cfg}{RS_STDOUT_ATTR};
                                         last ASWITCH;
                                     }
                                     if (/^FNKEYS_ROWS$/) {
@@ -1881,27 +1922,27 @@ sub load_config {
                               ASWITCH: {
                                     $_ = uc $attrk;
                                     if (/^LABEL_FG$/) {
-                                        eval "\$ctx->{cfg}{labelFg} = $attrv";
+                                        $ctx->{cfg}{labelFg} = attr_value($attrv) // $ctx->{cfg}{labelFg};
                                         last ASWITCH;
                                     }
                                     elsif (/^LABEL_BG$/) {
-                                        eval "\$ctx->{cfg}{labelBg} = $attrv";
+                                        $ctx->{cfg}{labelBg} = attr_value($attrv) // $ctx->{cfg}{labelBg};
                                         last ASWITCH;
                                     }
                                     elsif (/^VALUE_FG$/) {
-                                        eval "\$ctx->{cfg}{valueFg} = $attrv";
+                                        $ctx->{cfg}{valueFg} = attr_value($attrv) // $ctx->{cfg}{valueFg};
                                         last ASWITCH;
                                     }
                                     elsif (/^VALUE_BG$/) {
-                                        eval "\$ctx->{cfg}{valueBg} = $attrv";
+                                        $ctx->{cfg}{valueBg} = attr_value($attrv) // $ctx->{cfg}{valueBg};
                                         last ASWITCH;
                                     }
                                     elsif (/^CHANGED_VALUE_FG$/) {
-                                        eval "\$ctx->{cfg}{cf_valueFg} = $attrv";
+                                        $ctx->{cfg}{cf_valueFg} = attr_value($attrv) // $ctx->{cfg}{cf_valueFg};
                                         last ASWITCH;
                                     }
                                     elsif (/^CHANGED_VALUE_BG$/) {
-                                        eval "\$ctx->{cfg}{cf_valueBg} = $attrv";
+                                        $ctx->{cfg}{cf_valueBg} = attr_value($attrv) // $ctx->{cfg}{cf_valueBg};
                                         last ASWITCH;
                                     }
                                     else {
@@ -1924,27 +1965,27 @@ sub load_config {
                               ASWITCH: {
                                     $_ = uc $attrk;
                                     if (/^LABEL_FG$/) {
-                                        eval "\$ctx->{cfg}{af_labelFg} = $attrv";
+                                        $ctx->{cfg}{af_labelFg} = attr_value($attrv) // $ctx->{cfg}{af_labelFg};
                                         last ASWITCH;
                                     }
                                     elsif (/^LABEL_BG$/) {
-                                        eval "\$ctx->{cfg}{af_labelBg} = $attrv";
+                                        $ctx->{cfg}{af_labelBg} = attr_value($attrv) // $ctx->{cfg}{af_labelBg};
                                         last ASWITCH;
                                     }
                                     elsif (/^VALUE_FG$/) {
-                                        eval "\$ctx->{cfg}{af_valueFg} = $attrv";
+                                        $ctx->{cfg}{af_valueFg} = attr_value($attrv) // $ctx->{cfg}{af_valueFg};
                                         last ASWITCH;
                                     }
                                     elsif (/^VALUE_BG$/) {
-                                        eval "\$ctx->{cfg}{af_valueBg} = $attrv";
+                                        $ctx->{cfg}{af_valueBg} = attr_value($attrv) // $ctx->{cfg}{af_valueBg};
                                         last ASWITCH;
                                     }
                                     elsif (/^CHANGED_VALUE_FG$/) {
-                                        eval "\$ctx->{cfg}{acf_valueFg} = $attrv";
+                                        $ctx->{cfg}{acf_valueFg} = attr_value($attrv) // $ctx->{cfg}{acf_valueFg};
                                         last ASWITCH;
                                     }
                                     elsif (/^CHANGED_VALUE_BG$/) {
-                                        eval "\$ctx->{cfg}{acf_valueBg} = $attrv";
+                                        $ctx->{cfg}{acf_valueBg} = attr_value($attrv) // $ctx->{cfg}{acf_valueBg};
                                         last ASWITCH;
                                     }
                                     else {
@@ -1986,23 +2027,23 @@ sub load_config {
                                         last ASWITCH;
                                     }
                                     if (/^SCREEN_ATTR$/) {
-                                        eval "\$ctx->{cfg}{MENU_SCREEN_ATTR} = $attrv";
+                                        $ctx->{cfg}{MENU_SCREEN_ATTR} = attr_value($attrv) // $ctx->{cfg}{MENU_SCREEN_ATTR};
                                         last ASWITCH;
                                     }
                                     if (/^ITEM_ATTR$/) {
-                                        eval "\$ctx->{cfg}{MENU_ITEM_ATTR} = $attrv";
+                                        $ctx->{cfg}{MENU_ITEM_ATTR} = attr_value($attrv) // $ctx->{cfg}{MENU_ITEM_ATTR};
                                         last ASWITCH;
                                     }
                                     if (/^SELECTED_ATTR$/) {
-                                        eval "\$ctx->{cfg}{MENU_SEL_ATTR} = $attrv";
+                                        $ctx->{cfg}{MENU_SEL_ATTR} = attr_value($attrv) // $ctx->{cfg}{MENU_SEL_ATTR};
                                         last ASWITCH;
                                     }
                                     if (/^TITLE_ATTR$/) {
-                                        eval "\$ctx->{cfg}{TITLE_ATTR} = $attrv";
+                                        $ctx->{cfg}{TITLE_ATTR} = attr_value($attrv) // $ctx->{cfg}{TITLE_ATTR};
                                         last ASWITCH;
                                     }
                                     if (/^KEY_ATTR$/) {
-                                        eval "\$ctx->{cfg}{KEY_ATTR} = $attrv";
+                                        $ctx->{cfg}{KEY_ATTR} = attr_value($attrv) // $ctx->{cfg}{KEY_ATTR};
                                         last ASWITCH;
                                     }
                                     else {
