@@ -37,9 +37,19 @@ guarded by the form behaviour net, which was first strengthened with three new
 pty tests (t/29 fields/nav/separator/boolean, t/30 F2-list/F5-preview,
 t/31 TAB-cycle/Save) — test count 351 → 366. The remaining `do_form` bulk is the
 per-call helper closures (kept as closures to preserve the M7 "won't stay
-shared" fix) and setup/teardown. Still open under TD-3: the other big subs
-(`run_browse` 543, `load_config` 582, `do_list`, `do_menu`, `load_form`) and the
-`ccfe.pl` perltidy pass + CI-gate decision.
+shared" fix) and setup/teardown.
+
+`load_config` broken up **592 → 496 lines**: the ~20-arm colour/attribute
+cascade across `field_attr{}`/`active_field_attr{}`/`menu_global{}`/
+`browser_global{}` is now four name→cfg-key maps + an `apply_attr_section()`
+helper (overlaps the done TD-1d `attr_value`). Verified semantically verbatim
+(t/06, t/15, plus a direct cfg-value check that each section applies its
+configured `COLOR_PAIR` to the right key while a bogus key still errors).
+
+Still open under TD-3: the other big subs (`run_browse` 543 — the tangled one,
+with nested *named* subs and a select-based I/O loop; `do_list`, `do_menu`,
+`load_form`) and the `ccfe.pl` perltidy pass + CI-gate decision (a policy call
+on perltidy/perlcritic severity for the legacy file).
 
 ---
 
