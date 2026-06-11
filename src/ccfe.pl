@@ -4507,80 +4507,22 @@ sub browser_save (
     return ( $es, ( ( $es // 0 ) == $ES_EXIT ) ? $TRUE : $FALSE );
 }
 
-sub run_browse {
-    my ( $title, $cmd, $save_fname, $extra_path ) = @_;
-
-    local ($search_string);
-    my ( $infh, $outfh, $errfh, $buff, $srbuff, $fh, $nr, $sel );
-    my $is_partial = 0;
-    my $outprev;
-    my $errprev;
+# run_browse's output capture phase (TD-3), extracted from the event loop.
+# Spawns $cmd via open3, multiplexes the child's stdout and stderr through
+# IO::Select into the output pad (live, to $mwin) and the capture temp file
+# ($tmpfh), counting lines per stream and buffering a trailing partial line
+# (no final newline) until EOF, then reaps the child.  $cpid stays the package
+# global so the SIGINT handler can kill the child mid-run; $tmpfh and the pad
+# line count ($ctx->{state}{pad_lines}) are set as before.  Returns
+# ($out_lines, $err_lines, $start_time, $end_time); the caller formats the
+# elapsed time and paints the status line.
+sub capture_output ( $cmd, $mwin ) {
+    my ( $infh, $outfh, $errfh, $buff, $srbuff, $fh, $nr, $sel, $src );
+    my ( $is_partial, $outprev, $errprev, @lines, @ready, $s );
     my ( $out_lines, $err_lines );
-    my ( $npages, $pg, $src );
-    my @lines;
-    my @ready;
-    my ( $py, $c, $pan, $ch, $win, $hwin );
-    my ( $es,         $status_fg_attr, $status_bg_attr );
-    my ( $start_time, $end_time,       $exec_time );
-    my ( $prev_path,  $prev_wdir );
-    local ( $exec_ss, $exec_mm, $exec_hh );
-    local ( $p, $mwin, $twin, $mwinr );
-    my $cmd_descr = $title;
 
-    $ctx->{state}{child_es} = 0;
-
-    if ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) {
-        $status_fg_attr = A_NORMAL;
-        $status_bg_attr = A_NORMAL;
-    }
-    else {
-        $status_fg_attr = A_REVERSE;
-        $status_bg_attr = A_REVERSE;
-    }
-
-    $prev_path = $ENV{PATH};
-    $prev_wdir = getcwd();
-    chdir "$ctx->{state}{SCREEN_DIR}";
-    trace( "Changed CWD from $prev_wdir to " . getcwd() );
-    $ENV{PATH} = sprintf "%s%s:.", $MAIN_PATH, $MAIN_PATH ? ":$ctx->{cfg}{PATH}" : '';
-    if ($extra_path) {
-        my @dirs = split /:/, $extra_path;
-        foreach $i ( 0 .. $#dirs ) {
-            $dirs[$i] = "$ctx->{state}{SCREEN_DIR}/$dirs[$i]" unless $dirs[$i] =~ /^\//;
-        }
-        $extra_path = join( ':', @dirs );
-    }
-    $ENV{PATH} .= ":$extra_path" if $extra_path;
-    $ENV{COLUMNS} = $COLS;
-    trace( "PATH=\"$ENV{PATH}\"", $LOG_SYSCALL_ENV );
-    trace("run \"$cmd\"");
-
-    $mwinr = $LINES -
-      ( $RS_HEADER_ROWS + $RS_TOP_ROWS + $RS_BOTTOM_ROWS + $ctx->{cfg}{RS_FOOTER_ROWS} );
-    $win = newwin( $LINES, $COLS, 0, 0 );
-    $mwin = subwin( $win, $mwinr, $COLS, $RS_HEADER_ROWS + $RS_TOP_ROWS, 0 );
-    $hwin = subwin( $win, $RS_HEADER_ROWS, $COLS, 0,               0 );
-    $twin = subwin( $win, $RS_TOP_ROWS,    $COLS, $RS_HEADER_ROWS, 0 );
-    $pan  = new_panel($win);
-    bkgd( $win, $ctx->{cfg}{MENU_SCREEN_ATTR} );    # themed screen background (panel look)
-
-    init_title( $hwin, $RS_HEADER_ROWS, $RB_TITLE );
-    init_footer( $win, $NO, $ctx->{cfg}{RS_FOOTER_ROWS}, qw(int) );
-
-    scrollok( $mwin, 1 );
-    keypad( $mwin, $ON );
-    nodelay( $mwin, 1 );
-
-    bkgd( $twin, $status_bg_attr );
-    addstr( $twin, 0, 0, "Status: $RB_RUNNING_MSG" );
-    refresh($win);
-    refresh($mwin);
-
-    my $save_crsr = curs_set($OFF);
-    curs_set($ON);
-
-    $start_time = time;
-    $errfh      = gensym();
+    my $start_time = time;
+    $errfh = gensym();
     eval { $cpid = open3( $infh, $outfh, $errfh, $ctx->{cfg}{OPEN3_SHELL}, '-c', $cmd ); };
     fatal($@) if $@;
     trace("successfully forked child PID $cpid");
@@ -4665,7 +4607,79 @@ sub run_browse {
 
     waitpid $cpid, 0;
     undef $cpid;
-    $end_time  = time;
+    my $end_time = time;
+
+    return ( $out_lines, $err_lines, $start_time, $end_time );
+}
+
+sub run_browse {
+    my ( $title, $cmd, $save_fname, $extra_path ) = @_;
+
+    local ($search_string);
+    my ( $out_lines, $err_lines );
+    my ( $npages,    $pg );
+    my ( $py, $c, $pan, $ch, $win, $hwin );
+    my ( $es,         $status_fg_attr, $status_bg_attr );
+    my ( $start_time, $end_time,       $exec_time );
+    my ( $prev_path,  $prev_wdir );
+    local ( $exec_ss, $exec_mm, $exec_hh );
+    local ( $p, $mwin, $twin, $mwinr );
+    my $cmd_descr = $title;
+
+    $ctx->{state}{child_es} = 0;
+
+    if ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) {
+        $status_fg_attr = A_NORMAL;
+        $status_bg_attr = A_NORMAL;
+    }
+    else {
+        $status_fg_attr = A_REVERSE;
+        $status_bg_attr = A_REVERSE;
+    }
+
+    $prev_path = $ENV{PATH};
+    $prev_wdir = getcwd();
+    chdir "$ctx->{state}{SCREEN_DIR}";
+    trace( "Changed CWD from $prev_wdir to " . getcwd() );
+    $ENV{PATH} = sprintf "%s%s:.", $MAIN_PATH, $MAIN_PATH ? ":$ctx->{cfg}{PATH}" : '';
+    if ($extra_path) {
+        my @dirs = split /:/, $extra_path;
+        foreach $i ( 0 .. $#dirs ) {
+            $dirs[$i] = "$ctx->{state}{SCREEN_DIR}/$dirs[$i]" unless $dirs[$i] =~ /^\//;
+        }
+        $extra_path = join( ':', @dirs );
+    }
+    $ENV{PATH} .= ":$extra_path" if $extra_path;
+    $ENV{COLUMNS} = $COLS;
+    trace( "PATH=\"$ENV{PATH}\"", $LOG_SYSCALL_ENV );
+    trace("run \"$cmd\"");
+
+    $mwinr = $LINES -
+      ( $RS_HEADER_ROWS + $RS_TOP_ROWS + $RS_BOTTOM_ROWS + $ctx->{cfg}{RS_FOOTER_ROWS} );
+    $win = newwin( $LINES, $COLS, 0, 0 );
+    $mwin = subwin( $win, $mwinr, $COLS, $RS_HEADER_ROWS + $RS_TOP_ROWS, 0 );
+    $hwin = subwin( $win, $RS_HEADER_ROWS, $COLS, 0,               0 );
+    $twin = subwin( $win, $RS_TOP_ROWS,    $COLS, $RS_HEADER_ROWS, 0 );
+    $pan  = new_panel($win);
+    bkgd( $win, $ctx->{cfg}{MENU_SCREEN_ATTR} );    # themed screen background (panel look)
+
+    init_title( $hwin, $RS_HEADER_ROWS, $RB_TITLE );
+    init_footer( $win, $NO, $ctx->{cfg}{RS_FOOTER_ROWS}, qw(int) );
+
+    scrollok( $mwin, 1 );
+    keypad( $mwin, $ON );
+    nodelay( $mwin, 1 );
+
+    bkgd( $twin, $status_bg_attr );
+    addstr( $twin, 0, 0, "Status: $RB_RUNNING_MSG" );
+    refresh($win);
+    refresh($mwin);
+
+    my $save_crsr = curs_set($OFF);
+    curs_set($ON);
+
+    ( $out_lines, $err_lines, $start_time, $end_time ) =
+      capture_output( $cmd, $mwin );
     $exec_time = $end_time - $start_time;
 
     $exec_ss = $exec_time % 60;
