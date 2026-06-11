@@ -4374,6 +4374,117 @@ sub load_pad {
     }
 }
 
+# run_browse's Save handler (TD-3), extracted from the output-browser event
+# loop.  Pops the save-type chooser (simple / detailed / -- unless RESTRICTED --
+# runnable script), asks for a filename and writes the captured output to it.
+# Reads the per-run state it needs by value; the pad/temp-file/exec-time package
+# globals ($p, $tmpfh, $exec_hh/mm/ss) are used directly as before.  Returns
+# ($es, $break): $break is true when the user asked to quit the UI (ES_EXIT), so
+# the caller performs the $ch/last exactly as the inline arm did.
+sub browser_save (
+    $win,        $py,       $cmd_descr,  $save_fname, $cmd,
+    $extra_path, $start_time, $end_time, $out_lines,  $err_lines, $es
+  )
+{
+    trim( \$cmd_descr );
+    $save_fname = basename($save_fname);
+    my $val;
+    my @save_types = (
+        "$SAVE_SIMPLE $SAVE_SIMPLE_DESCR",
+        "$SAVE_DETAILED $SAVE_DETAILED_DESCR",
+    );
+    # The runnable-script save is an escape vector (writes a chmod +x
+    # #!shell file): omit it in RESTRICTED mode.  Plain text saves stay.
+    push @save_types, "$SAVE_SCRIPT $SAVE_SCRIPT_DESCR"
+      unless $ctx->{cfg}{RESTRICTED};
+    ( $es, $val ) =
+      do_list( $win, $SAVE_TYPE_TITLE, 'single-val', \@save_types,
+        undef );
+    prefresh(
+        $p, $py, 0, $RS_HEADER_ROWS + $RS_TOP_ROWS,
+        0, $RS_HEADER_ROWS + $RS_TOP_ROWS + $mwinr - 1,
+        $COLS - 1
+    );
+    if ($val) {
+        my $fname = "$ENV{HOME}/$save_fname.out";
+        $fname = "$ENV{HOME}/$save_fname." . basename($ctx->{cfg}{OPEN3_SHELL})
+          if ( $val eq $SAVE_SCRIPT );
+        ( $es, $fname ) =
+          ask_string( $SAVE_FNAME_TITLE, $SAVE_FNAME_PROMPT, $fname );
+        if ( ( $es // 0 ) == $ES_EXIT ) {
+            return ( $es, $TRUE );
+        }
+        refresh($win);
+        if ( $es != $ES_CANCEL ) {
+            seek( $tmpfh, 0, 0 );
+            eval {
+                open( OUTF, ">$fname" ) or die('DIED');
+                if ( $val eq $SAVE_SIMPLE ) {
+                    while (<$tmpfh>) {
+                        print OUTF
+                          if s/(^$RS_STDOUT_ID:)|(^$RS_STDERR_ID:)//;
+                    }
+                }
+                elsif ( $val eq $SAVE_DETAILED ) {
+                    print OUTF '=' x 80 . "\n";
+                    print OUTF "DESCRIPTION: $cmd_descr\n";
+                    print OUTF "EXTRA PATH : ",
+                      $extra_path ? $extra_path : 'none', "\n";
+                    print OUTF "START TIME : ",
+                      scalar localtime($start_time), "\n";
+                    print OUTF "END TIME   : ",
+                      scalar localtime($end_time), "\n";
+                    printf OUTF "EXEC TIME  : %02dh %02dm %02ds\n",
+                      $exec_hh, $exec_mm,
+                      $exec_ss;
+                    print OUTF "EXIT STATUS: ", $ctx->{state}{child_es}, "\n";
+                    print OUTF "STDOUT     : ", $out_lines,
+                      " line(s)\n";
+                    print OUTF "STDERR     : ", $err_lines,
+                      " line(s)\n";
+                    print OUTF
+                      "LINE PREFIX: std(O)ut  std(E)rr  (C)CFE\n";
+                    print OUTF "COMMAND:\n$cmd\n";
+                    print OUTF '=' x 80 . "\n";
+
+                    while (<$tmpfh>) {
+                        print OUTF or die('DIED');
+                    }
+                }
+                elsif ( $val eq $SAVE_SCRIPT and !$ctx->{cfg}{RESTRICTED} ) {
+                    print OUTF "#!$ctx->{cfg}{OPEN3_SHELL}\n";
+                    print OUTF "# $cmd_descr\n";
+                    print OUTF "$cmd\n";
+                    chmod 0755, $fname;
+                }
+                close(OUTF) or die('DIED');
+                if ( $val eq $SAVE_SCRIPT ) {
+                    chmod 0755, $fname;
+                }
+                else {
+                    chmod 0644, $fname;
+                }
+            };
+            if ($@) {
+                prefresh(
+                    $p,
+                    $py,
+                    0,
+                    $RS_HEADER_ROWS + $RS_TOP_ROWS,
+                    0,
+                    $RS_HEADER_ROWS + $RS_TOP_ROWS + $mwinr - 1,
+                    $COLS - 1
+                );
+                my $err = $!;
+                trace("WARNING: error opening file $fname: $err");
+                disp_msg( $win, "$err $SAVE_ERROR_MSG $fname",
+                    $SAVE_ERROR_TITLE );
+            }
+        }
+    }
+    return ( $es, ( ( $es // 0 ) == $ES_EXIT ) ? $TRUE : $FALSE );
+}
+
 sub run_browse {
     my ( $title, $cmd, $save_fname, $extra_path ) = @_;
 
@@ -4686,104 +4797,13 @@ sub run_browse {
             refresh(curscr);
         }
         elsif ( $ch == $ctx->{cfg}{keys}{save}{code} ) {
-            trim( \$cmd_descr );
-            $save_fname = basename($save_fname);
-            my $val;
-            my @save_types = (
-                "$SAVE_SIMPLE $SAVE_SIMPLE_DESCR",
-                "$SAVE_DETAILED $SAVE_DETAILED_DESCR",
+            my $brk;
+            ( $es, $brk ) = browser_save(
+                $win,        $py,         $cmd_descr,  $save_fname,
+                $cmd,        $extra_path, $start_time, $end_time,
+                $out_lines,  $err_lines,  $es
             );
-            # The runnable-script save is an escape vector (writes a chmod +x
-            # #!shell file): omit it in RESTRICTED mode.  Plain text saves stay.
-            push @save_types, "$SAVE_SCRIPT $SAVE_SCRIPT_DESCR"
-              unless $ctx->{cfg}{RESTRICTED};
-            ( $es, $val ) =
-              do_list( $win, $SAVE_TYPE_TITLE, 'single-val', \@save_types,
-                undef );
-            prefresh(
-                $p, $py, 0, $RS_HEADER_ROWS + $RS_TOP_ROWS,
-                0, $RS_HEADER_ROWS + $RS_TOP_ROWS + $mwinr - 1,
-                $COLS - 1
-            );
-            if ($val) {
-                my $fname = "$ENV{HOME}/$save_fname.out";
-                $fname = "$ENV{HOME}/$save_fname." . basename($ctx->{cfg}{OPEN3_SHELL})
-                  if ( $val eq $SAVE_SCRIPT );
-                ( $es, $fname ) =
-                  ask_string( $SAVE_FNAME_TITLE, $SAVE_FNAME_PROMPT, $fname );
-                if ( ( $es // 0 ) == $ES_EXIT ) {
-                    $ch = $ctx->{cfg}{keys}{exit}{code};
-                    last;
-                }
-                refresh($win);
-                if ( $es != $ES_CANCEL ) {
-                    seek( $tmpfh, 0, 0 );
-                    eval {
-                        open( OUTF, ">$fname" ) or die('DIED');
-                        if ( $val eq $SAVE_SIMPLE ) {
-                            while (<$tmpfh>) {
-                                print OUTF
-                                  if s/(^$RS_STDOUT_ID:)|(^$RS_STDERR_ID:)//;
-                            }
-                        }
-                        elsif ( $val eq $SAVE_DETAILED ) {
-                            print OUTF '=' x 80 . "\n";
-                            print OUTF "DESCRIPTION: $cmd_descr\n";
-                            print OUTF "EXTRA PATH : ",
-                              $extra_path ? $extra_path : 'none', "\n";
-                            print OUTF "START TIME : ",
-                              scalar localtime($start_time), "\n";
-                            print OUTF "END TIME   : ",
-                              scalar localtime($end_time), "\n";
-                            printf OUTF "EXEC TIME  : %02dh %02dm %02ds\n",
-                              $exec_hh, $exec_mm,
-                              $exec_ss;
-                            print OUTF "EXIT STATUS: ", $ctx->{state}{child_es}, "\n";
-                            print OUTF "STDOUT     : ", $out_lines,
-                              " line(s)\n";
-                            print OUTF "STDERR     : ", $err_lines,
-                              " line(s)\n";
-                            print OUTF
-                              "LINE PREFIX: std(O)ut  std(E)rr  (C)CFE\n";
-                            print OUTF "COMMAND:\n$cmd\n";
-                            print OUTF '=' x 80 . "\n";
-
-                            while (<$tmpfh>) {
-                                print OUTF or die('DIED');
-                            }
-                        }
-                        elsif ( $val eq $SAVE_SCRIPT and !$ctx->{cfg}{RESTRICTED} ) {
-                            print OUTF "#!$ctx->{cfg}{OPEN3_SHELL}\n";
-                            print OUTF "# $cmd_descr\n";
-                            print OUTF "$cmd\n";
-                            chmod 0755, $fname;
-                        }
-                        close(OUTF) or die('DIED');
-                        if ( $val eq $SAVE_SCRIPT ) {
-                            chmod 0755, $fname;
-                        }
-                        else {
-                            chmod 0644, $fname;
-                        }
-                    };
-                    if ($@) {
-                        prefresh(
-                            $p,
-                            $py,
-                            0,
-                            $RS_HEADER_ROWS + $RS_TOP_ROWS,
-                            0,
-                            $RS_HEADER_ROWS + $RS_TOP_ROWS + $mwinr - 1,
-                            $COLS - 1
-                        );
-                        my $err = $!;
-                        trace("WARNING: error opening file $fname: $err");
-                        disp_msg( $win, "$err $SAVE_ERROR_MSG $fname",
-                            $SAVE_ERROR_TITLE );
-                    }
-                }
-            }
-            if ( ( $es // 0 ) == $ES_EXIT ) {
+            if ($brk) {
                 $ch = $ctx->{cfg}{keys}{exit}{code};
                 last;
             }
