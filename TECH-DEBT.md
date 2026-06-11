@@ -64,11 +64,20 @@ action, apply its opts, dispatch menu/form/system/exec/run); `do_list`
 boolean default resolution + attribute filling). Verified by t/28/t/12,
 t/23/t/30, and t/14/t/19/t/20/t/29 respectively; full suite green (366).
 
-Still open under TD-3: `run_browse`'s open3 + `IO::Select` capture phase (~135
-lines — the most I/O-sensitive part: child spawn, stdout/stderr multiplexing,
-partial-line handling — left for now as higher-risk with less certain edge-case
-coverage); and the `ccfe.pl` perltidy pass + CI-gate decision (a policy call on
-perltidy/perlcritic severity for the legacy file).
+Finally `run_browse`'s open3 + `IO::Select` capture phase became
+`capture_output()` (spawn the child, multiplex stdout/stderr into the pad and
+the temp file, count lines per stream, buffer a trailing partial line to EOF,
+reap the child; `$cpid` stays the package global so the SIGINT handler can still
+kill the child mid-run). A new pty test (t/32) was added *first* to pin its
+observable results — both streams captured, per-stream line counts, the `ES=`
+exit status, the no-final-newline flush — taking the suite 366 → 372.
+`run_browse` ends at **272 lines** (543 originally).
+
+Every sub the audit flagged is now broken up: do_form 1392→590, load_config
+592→496, run_browse 543→272, do_list 344→295, do_menu 331→230, load_form
+224→120. Still open under TD-3 (the one remaining item): the `ccfe.pl` perltidy
+pass + CI-gate decision — a policy call on perltidy/perlcritic severity and which
+legacy idioms to exempt for the (deliberately gate-exempt) main script.
 
 ---
 
