@@ -174,7 +174,23 @@ threading mistake shows up as a crash or a mis-drawn screen, not a silent pass.
   surprises. They get `our`-declared at the capstone instead.
 - **Gate:** full suite 313 green (+2 for the new `state` sub-hash in `t/18`).
 
-### Phase 6 — capstone: modern pragma on `ccfe.pl`  *(the correctness payoff)*
+### Phase 6 — capstone: `use v5.36` on `ccfe.pl`  *(done — the correctness payoff)*
+- Turned on strict + warnings + features. The 248 remaining package globals
+  (constants, lookup tables, search-path arrays, message strings, signal-owned
+  `$cpid`/`$tmpfh`) are declared in one grouped `our (...)` block. The warnings
+  pass caught **six real issues**, all fixed behaviour-preserving: indirect-
+  object `new IO::Select`, a nonsensical `\b*` regex, a `<$tmpfh>` readline
+  missing `defined()` (a literal "0" line would end the loop early), `trace`'s
+  undef `$log_level`, undef `$BFIELD_*_DESCR` on the headless path, and a
+  negative `x` repeat in separator rule-lines when `$COLS==0` headless.
+- Full suite 313 green with **zero runtime warnings**; CI's `perl -c` now
+  enforces strict/warnings on `ccfe.pl`.
+- **Scoped out:** adding `ccfe.pl` to the perlcritic gate — strict already
+  catches the important issues, and the file legitimately uses patterns the
+  policy would false-flag (eval-string config, `$$path` autoviv). The
+  `perl (>= 5.36.0)` floor (added in Phase 0) already matches `use v5.36`.
+
+#### Original notes
 - Only reachable once barewords are gone (group A imported, B/C on `$ctx`,
   remaining locals `my`-declared). Turn on strict+warnings, fix the fallout
   (undeclared vars, indirect-object calls, undef comparisons the no-strict code

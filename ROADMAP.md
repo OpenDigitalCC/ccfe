@@ -147,9 +147,11 @@ installed plugins, flagging any `requires` command missing from `$PATH`.  The
 sample sysmon plugin ships `sysmon.plugin`.  `t/07-check-cli.t`.  Open: using
 the manifest at install time (dependency checks, clean uninstall).
 
-**→ M6 is complete** (every item delivered; the "Open" notes above are optional
-future refinements, not blockers).  Next: **M7** (de-globalisation) then **M8**
-(the non-functional close-out audit).
+**→ M6 and M7 are complete.**  M7 (de-globalisation / full modularisation)
+landed in two halves: the pure parser/geometry extractions (`CCFE::MenuFile`/
+`FormFile`/`Config`/`Action`/`Layout`, released in 2.1.1) and the `$ctx`
+threading (phases 0–6, see **M7-CTX-PLAN.md**), finishing with `use v5.36` on
+`ccfe.pl`.  Next: **M8** (the non-functional close-out audit).
 
 ## M7 — De-globalisation / full modularisation  _(REFACTOR §3 — deferred to end)_
 Extract `MenuFile`/`FormFile`/`Action`/`Layout`/`Exec`/`UI::*` into
@@ -226,8 +228,12 @@ the conformance tests.
   ones, 4c `%keys`/arrays). **Phase 5 done:** the residual mutable shared
   scalars (`SCREEN_DIR`, `last_item_id`, `pad_lines`, `exec_args`, `child_es`)
   moved to a `$ctx->{state}` namespace; `$cpid`/`$tmpfh` stay global (SIGINT
-  handler owns them). 313 tests green. Next: the Phase 6 `use v5.36` capstone
-  (turn on strict/warnings on `ccfe.pl`, fix fallout, lint it too).
+  handler owns them). **Phase 6 done — M7 COMPLETE:** `use v5.36` (strict +
+  warnings) turned on for `ccfe.pl`; the 248 genuinely-global symbols declared
+  in one `our` block; the warnings pass caught and fixed six real latent issues
+  (indirect-object call, a null-matching regex, a readline missing `defined()`,
+  undef trace level, undef boolean descriptions headless, negative rule-line
+  repeat). 313 tests green, zero runtime warnings; CI's `perl -c` enforces it.
 
 ## M8 — Non-functional close-out audit  _(final gate)_
 Five dimensions: **test coverage, code quality, performance, security,
