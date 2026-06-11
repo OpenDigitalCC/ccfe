@@ -9,13 +9,13 @@
 #
 # NOTE: not built/tested in this environment (no abuild available here).
 pkgname=ccfe
-pkgver=2.0
+pkgver=2.1.1
 pkgrel=0
 pkgdesc="Curses Command Front-end"
 url="https://github.com/OpusVL/perl-ccfe"
 arch="noarch"
 license="GPL-2.0-or-later"
-depends="perl perl-curses"
+depends="perl>=5.36 perl-curses"
 makedepends="perl"
 source="$pkgname-$pkgver.tar.gz"
 builddir="$srcdir/$pkgname-$pkgver"

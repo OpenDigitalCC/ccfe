@@ -1,8 +1,12 @@
 # M7 — `$ctx` threading plan (de-globalisation finish)
 
+> **STATUS: COMPLETE.** All phases 0–6 below are done; `ccfe.pl` runs under
+> `use v5.36`. This document is kept as the record of how the de-globalisation
+> was carried out. The narrative below is written from the start of that work.
+
 The pure-parser/geometry extractions (REFACTOR.md §3.1–3.2, first half) are
 done: `CCFE::MenuFile`, `FormFile`, `Config`, `Action`, `Layout` are split out,
-unit-tested, and released in 2.1.1. What remains of M7 is the harder half:
+unit-tested, and released in 2.1.1. What remained of M7 was the harder half:
 **replace the package globals and `local` dynamic scope in `ccfe.pl` with an
 explicit `$ctx` state object** (REFACTOR.md §3.2, bullet 3 — "the spookiest
 action-at-a-distance in the code").

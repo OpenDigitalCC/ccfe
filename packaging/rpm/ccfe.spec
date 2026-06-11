@@ -10,7 +10,7 @@
 # NOTE: not built/tested in this environment (no rpmbuild available here).
 
 Name:           ccfe
-Version:        2.0
+Version:        2.1.1
 Release:        1%{?dist}
 Summary:        Curses Command Front-end
 License:        GPLv2+
@@ -18,7 +18,7 @@ URL:            https://github.com/OpusVL/perl-ccfe
 Source0:        %{name}-%{version}.tar.gz
 BuildArch:      noarch
 BuildRequires:  perl
-Requires:       perl
+Requires:       perl >= 5.36.0
 Requires:       perl-Curses
 
 %description
@@ -46,6 +46,11 @@ ln -sf ../lib/ccfe/bin/ccfe %{buildroot}%{_bindir}/ccfe
 %doc README.MD
 
 %changelog
+* Wed Jun 11 2026 CCFE maintainers <ccfedevel@gmail.com> - 2.1.1-1
+- CCFE 2.1.1: terminal-resize reflow, display-column (wide-char) layout, full
+  colour palette + panel theme, opt-in mouse, --dump/--plugins, and an internal
+  de-globalisation onto pure CCFE::* modules (requires Perl >= 5.36).
+
 * Tue Jun 10 2026 CCFE maintainers <ccfedevel@gmail.com> - 2.0-1
 - CCFE 2.0: reorganised layout, runtime path resolution, restricted mode,
   optional colour with SMIT themes, and the -k linter.

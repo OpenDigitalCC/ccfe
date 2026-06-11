@@ -151,7 +151,8 @@ the manifest at install time (dependency checks, clean uninstall).
 landed in two halves: the pure parser/geometry extractions (`CCFE::MenuFile`/
 `FormFile`/`Config`/`Action`/`Layout`, released in 2.1.1) and the `$ctx`
 threading (phases 0–6, see **M7-CTX-PLAN.md**), finishing with `use v5.36` on
-`ccfe.pl`.  Next: **M8** (the non-functional close-out audit).
+`ccfe.pl`.  **M8** (the non-functional close-out audit) is also complete — see
+`M8-AUDIT.md`. **All ROADMAP milestones M0–M8 are now delivered.**
 
 ## M7 — De-globalisation / full modularisation  _(REFACTOR §3 — deferred to end)_
 Extract `MenuFile`/`FormFile`/`Action`/`Layout`/`Exec`/`UI::*` into
@@ -204,7 +205,7 @@ the conformance tests.
   `new_field`/`move_field` calls and tracing stay in `ccfe.pl`. Unit-tested with
   hand-computed expectations in `t/17-layout.t` (27 cases); the resize/layout/
   multipage tty tests and full suite (302 tests) stay green.
-- 🔄 **`$ctx` threading** (in progress): replacing `ccfe.pl`'s package globals
+- ✅ **`$ctx` threading** (done): replacing `ccfe.pl`'s package globals
   and `local` dynamic scope with one explicit run-state object. Planned in
   **M7-CTX-PLAN.md** (phases 0–6, all in scope). **Phase 0 done:**
   `CCFE::Context::new()` container built at startup, `t/18-context.t`, and the
@@ -235,9 +236,15 @@ the conformance tests.
   undef trace level, undef boolean descriptions headless, negative rule-line
   repeat). 313 tests green, zero runtime warnings; CI's `perl -c` enforces it.
 
-## M8 — Non-functional close-out audit  _(final gate)_
+## M8 — Non-functional close-out audit  _(final gate)_  ✅ **done**
 Five dimensions: **test coverage, code quality, performance, security,
-documentation**. Produce a short report, fix what's cheap, file the rest.
+documentation**. Report in **`M8-AUDIT.md`**; cheap fixes applied (numeric
+operators, dead lexicals, `ralign` eval→sprintf, version sync, README/ROADMAP
+consistency, RESTRICTED-scope doc), the rest filed. Headline finding: the pure
+modules are excellent on every dimension; the residual debt is the oversized
+`ccfe.pl` subs and — most importantly — **RESTRICTED mode is a guardrail, not a
+security boundary** (user-writable config/objects + shell-based exec defeat it);
+hardening it is the top filed follow-up. No filed item blocks a 2.2 release.
 
 ---
 

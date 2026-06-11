@@ -448,7 +448,9 @@ sub trim {
 
 sub ralign {
     my ( $str, $size ) = @_;
-    return eval "sprintf \"% ${size}s\",\"$str\"";
+    # Plain sprintf, not an eval-string: $str is data, never interpolated into
+    # code (M8 audit -- removes a latent injection smell).
+    return sprintf "% ${size}s", $str;
 }
 
 sub valid_shell {
@@ -767,7 +769,7 @@ sub init_top {
 
 sub init_footer {
     my ( $win, $has_border, $nRows, @keysList ) = @_;
-    my ( $nOptPerRow, $labelSize, $labelLen, $y, $x, $y0, $x0, $i, $maxY,
+    my ( $nOptPerRow, $labelSize, $y, $x, $y0, $x0, $i, $maxY,
         $maxX );
 
     sub sort_fnkeys {
@@ -1233,7 +1235,7 @@ sub load_form {
     # ref at the end, so the ~30 `$form{...}` sites below stay byte-identical
     # rather than the global they used to fill.
     my %form;
-    my ( $key, $val, $found, $text, $fc, $sc, $res );
+    my ( $key, $val, $found, $text, $fc, $res );
     my @lines;
 
     $found = $NO;
@@ -2924,7 +2926,7 @@ sub do_form {
             $c++ if ( $form{fields}[$i]{persist} );
         }
         trace("Found $c persistent field(s)");
-        return 0 if $c eq 0;
+        return 0 if $c == 0;
 
         $hash  = md5_hex("$ctx->{state}{SCREEN_DIR}/$formname$FORMEXT");
         $fname = "$PERS_DIR/$hash";
@@ -4890,7 +4892,7 @@ sub list_shortcuts {
     foreach $s (@all) {
         $s =~ s/($MENUEXT|$FORMEXT)$//;
         $nfound = scalar grep /^$s$/, @all;
-        if ( $nfound eq 2 ) {
+        if ( $nfound == 2 ) {
             @unique = grep( !/^$s$FORMEXT$/, @unique );
         }
     }
@@ -4899,7 +4901,7 @@ sub list_shortcuts {
     foreach $s (@all) {
         ( $fname, undef, undef ) = fileparse( $s, ( $MENUEXT, $FORMEXT ) );
         $nfound = scalar grep /\/$fname($MENUEXT|$FORMEXT)$/, @all;
-        if ( $nfound ge 2 ) {
+        if ( $nfound >= 2 ) {
             my $rmfname = "$PRIV_DIR/$CALLNAME/$fname";
             @unique = grep( !/^$rmfname/, @unique );
         }

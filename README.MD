@@ -15,7 +15,7 @@ the manual pages are under `src/man/`.
 
 ## Status
 
-`src/ccfe.pl` is the program (currently version **2.0**). The ongoing
+`src/ccfe.pl` is the program (currently version **2.1.1**). The ongoing
 modernisation — packaging, security hardening, optional colour and a move to a
 modular, more functional structure — is described in
 [`REFACTOR.md`](REFACTOR.md) and [`ROADMAP.md`](ROADMAP.md). CCFE depends on
@@ -110,6 +110,19 @@ Field values are always exported to action commands as `CCFE_FIELD_<ID>`
 environment variables, so menus can consume input safely (e.g.
 `run:grep -- "$CCFE_FIELD_PATTERN" /var/log/syslog`) instead of interpolating
 `%{PATTERN}` into a shell string.
+
+**Scope of the guarantee.** Restricted mode is a *guardrail against wandering
+off the menu*, not a hardened security boundary against a determined local
+user. Be aware that: the allowlist matches the command's program name, but
+actions run through a shell, so `system: df; sh` (chaining) or a `%{FIELD}`
+value containing shell metacharacters can reach a shell — prefer `run:` with
+`"$CCFE_FIELD_*"` and avoid `%{...}` interpolation; `run:` itself is never
+allowlisted; and CCFE reads config and menu/form files from the user's own
+`~/.config/ccfe` and `~/.local/share/ccfe` (and honours `CCFE_*_DIR`/`-l`), so
+a user who can write those can change what runs. For a genuine kiosk boundary,
+deploy CCFE with system-owned, user-unwritable config and object directories
+(and consider the OS-level confinement you'd use for any restricted login). See
+`M8-AUDIT.md` for the full analysis.
 
 ## Colour and styles
 
@@ -212,7 +225,7 @@ item { id=NET   descr=Network connections  action=run:ss -tunap }
 ```
 
 then run `ccfe mytools`. See the manual pages under `src/man/` (or
-`man ccfe`, `man ccfe-menu`, `man ccfe-form` after install) for the full
+`man ccfe`, `man ccfe_menu`, `man ccfe_form` after install) for the full
 file-format reference, and `ccfe-plugin-sysmon` for forms and `list_cmd`
 dropdowns.
 
@@ -259,8 +272,8 @@ git add . && git commit -m "My CCFE config and menus"
 
 To restore on a new machine, install CCFE (or the package), then copy these
 files back into place. `ccfe -k <name>` parse-checks a menu/form after you
-restore or edit it. (A future release reorganises these paths and adds a
-guided config/backup workflow — see `ROADMAP.md`.)
+restore or edit it. (A guided config/backup workflow is a planned enhancement —
+see `FEATURE-REQUESTS.md`.)
 
 ## Tests
 
