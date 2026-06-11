@@ -659,9 +659,9 @@ sub init_title {
     $title =~ s/^\s+//;
     $title =~ s/\s+$//;
     addstr( $win, 0, 0, $USERNAME . '@' . $HOSTNAME ) if ( $ctx->{cfg}{LAYOUT} == $NORMAL );
-    attron( $win, $TITLE_ATTR ) if ( $ctx->{cfg}{LAYOUT} == $NORMAL );
+    attron( $win, $ctx->{cfg}{TITLE_ATTR} ) if ( $ctx->{cfg}{LAYOUT} == $NORMAL );
     addstr( $win, 0, int( ( $COLS - disp_width($title) ) / 2 ), $title );
-    attroff( $win, $TITLE_ATTR ) if ( $ctx->{cfg}{LAYOUT} == $NORMAL );
+    attroff( $win, $ctx->{cfg}{TITLE_ATTR} ) if ( $ctx->{cfg}{LAYOUT} == $NORMAL );
     hline( $win, $winRows - 1, 0, ACS_HLINE, $COLS ) if ( $ctx->{cfg}{LAYOUT} == $NORMAL );
 }
 
@@ -758,11 +758,11 @@ sub init_footer {
         addstr( $win, "$keys{$keysList[$i]}{label}" );
         if ( $ctx->{cfg}{LAYOUT} == $NORMAL ) {
             # The control-key label (e.g. "F4") is highlighted.  A configured
-            # $KEY_ATTR (e.g. a colour pair) takes over; otherwise keep the
+            # $ctx->{cfg}{KEY_ATTR} (e.g. a colour pair) takes over; otherwise keep the
             # original bkgd-relative reverse so it stands out either way.
             my $ka =
-              defined $KEY_ATTR
-              ? $KEY_ATTR
+              defined $ctx->{cfg}{KEY_ATTR}
+              ? $ctx->{cfg}{KEY_ATTR}
               : ( ( getbkgd($win) & A_REVERSE ) ? A_NORMAL : A_REVERSE );
             # chgat() takes the colour pair as a separate argument, so extract
             # it from $ka (0 = no colour, i.e. the monochrome default).
@@ -949,7 +949,7 @@ sub ask_string {
     }
     set_field_pad( $field, $ASKS_FIELD_PAD );
     set_field_buffer( $field, 0, $default ) if $default;
-    set_field_back( $field, $valueBg );
+    set_field_back( $field, $ctx->{cfg}{valueBg} );
     field_opts_on( $field, O_BLANK );
     field_opts_off( $field, O_AUTOSKIP );
     push @fp,   $field;
@@ -1313,8 +1313,8 @@ sub load_form {
                             $form{fields}[$i]{list_sep} = ' ';
                         }
                         $form{fields}[$i]{changed} = $NO;
-                        $form{fields}[$i]{valueFg} = $valueFg;
-                        $form{fields}[$i]{valueBg} = $valueBg;
+                        $form{fields}[$i]{valueFg} = $ctx->{cfg}{valueFg};
+                        $form{fields}[$i]{valueBg} = $ctx->{cfg}{valueBg};
 
                         if ( $type == $BOOLEAN ) {
                             $form{fields}[$i]{list_cmd} =
@@ -1607,15 +1607,15 @@ sub load_config {
                                         last ASWITCH;
                                     }
                                     if (/^INFO_ATTR$/) {
-                                        eval "\$RS_INFO_ATTR = $attrv";
+                                        eval "\$ctx->{cfg}{RS_INFO_ATTR} = $attrv";
                                         last ASWITCH;
                                     }
                                     if (/^STDERR_ATTR$/) {
-                                        eval "\$RS_STDERR_ATTR = $attrv";
+                                        eval "\$ctx->{cfg}{RS_STDERR_ATTR} = $attrv";
                                         last ASWITCH;
                                     }
                                     if (/^STDOUT_ATTR$/) {
-                                        eval "\$RS_STDOUT_ATTR = $attrv";
+                                        eval "\$ctx->{cfg}{RS_STDOUT_ATTR} = $attrv";
                                         last ASWITCH;
                                     }
                                     if (/^FNKEYS_ROWS$/) {
@@ -1796,27 +1796,27 @@ sub load_config {
                               ASWITCH: {
                                     $_ = uc $attrk;
                                     if (/^LABEL_FG$/) {
-                                        eval "\$labelFg = $attrv";
+                                        eval "\$ctx->{cfg}{labelFg} = $attrv";
                                         last ASWITCH;
                                     }
                                     elsif (/^LABEL_BG$/) {
-                                        eval "\$labelBg = $attrv";
+                                        eval "\$ctx->{cfg}{labelBg} = $attrv";
                                         last ASWITCH;
                                     }
                                     elsif (/^VALUE_FG$/) {
-                                        eval "\$valueFg = $attrv";
+                                        eval "\$ctx->{cfg}{valueFg} = $attrv";
                                         last ASWITCH;
                                     }
                                     elsif (/^VALUE_BG$/) {
-                                        eval "\$valueBg = $attrv";
+                                        eval "\$ctx->{cfg}{valueBg} = $attrv";
                                         last ASWITCH;
                                     }
                                     elsif (/^CHANGED_VALUE_FG$/) {
-                                        eval "\$cf_valueFg = $attrv";
+                                        eval "\$ctx->{cfg}{cf_valueFg} = $attrv";
                                         last ASWITCH;
                                     }
                                     elsif (/^CHANGED_VALUE_BG$/) {
-                                        eval "\$cf_valueBg = $attrv";
+                                        eval "\$ctx->{cfg}{cf_valueBg} = $attrv";
                                         last ASWITCH;
                                     }
                                     else {
@@ -1839,27 +1839,27 @@ sub load_config {
                               ASWITCH: {
                                     $_ = uc $attrk;
                                     if (/^LABEL_FG$/) {
-                                        eval "\$af_labelFg = $attrv";
+                                        eval "\$ctx->{cfg}{af_labelFg} = $attrv";
                                         last ASWITCH;
                                     }
                                     elsif (/^LABEL_BG$/) {
-                                        eval "\$af_labelBg = $attrv";
+                                        eval "\$ctx->{cfg}{af_labelBg} = $attrv";
                                         last ASWITCH;
                                     }
                                     elsif (/^VALUE_FG$/) {
-                                        eval "\$af_valueFg = $attrv";
+                                        eval "\$ctx->{cfg}{af_valueFg} = $attrv";
                                         last ASWITCH;
                                     }
                                     elsif (/^VALUE_BG$/) {
-                                        eval "\$af_valueBg = $attrv";
+                                        eval "\$ctx->{cfg}{af_valueBg} = $attrv";
                                         last ASWITCH;
                                     }
                                     elsif (/^CHANGED_VALUE_FG$/) {
-                                        eval "\$acf_valueFg = $attrv";
+                                        eval "\$ctx->{cfg}{acf_valueFg} = $attrv";
                                         last ASWITCH;
                                     }
                                     elsif (/^CHANGED_VALUE_BG$/) {
-                                        eval "\$acf_valueBg = $attrv";
+                                        eval "\$ctx->{cfg}{acf_valueBg} = $attrv";
                                         last ASWITCH;
                                     }
                                     else {
@@ -1901,23 +1901,23 @@ sub load_config {
                                         last ASWITCH;
                                     }
                                     if (/^SCREEN_ATTR$/) {
-                                        eval "\$MENU_SCREEN_ATTR = $attrv";
+                                        eval "\$ctx->{cfg}{MENU_SCREEN_ATTR} = $attrv";
                                         last ASWITCH;
                                     }
                                     if (/^ITEM_ATTR$/) {
-                                        eval "\$MENU_ITEM_ATTR = $attrv";
+                                        eval "\$ctx->{cfg}{MENU_ITEM_ATTR} = $attrv";
                                         last ASWITCH;
                                     }
                                     if (/^SELECTED_ATTR$/) {
-                                        eval "\$MENU_SEL_ATTR = $attrv";
+                                        eval "\$ctx->{cfg}{MENU_SEL_ATTR} = $attrv";
                                         last ASWITCH;
                                     }
                                     if (/^TITLE_ATTR$/) {
-                                        eval "\$TITLE_ATTR = $attrv";
+                                        eval "\$ctx->{cfg}{TITLE_ATTR} = $attrv";
                                         last ASWITCH;
                                     }
                                     if (/^KEY_ATTR$/) {
-                                        eval "\$KEY_ATTR = $attrv";
+                                        eval "\$ctx->{cfg}{KEY_ATTR} = $attrv";
                                         last ASWITCH;
                                     }
                                     else {
@@ -1999,8 +1999,8 @@ sub do_menu {
         if ( $cmenu eq '' ) { fatal("do_menu.new_menu() failed") }
 
         set_menu_mark( $cmenu, ' ' );
-        set_menu_fore( $cmenu, $MENU_SEL_ATTR );
-        set_menu_back( $cmenu, $MENU_ITEM_ATTR );
+        set_menu_fore( $cmenu, $ctx->{cfg}{MENU_SEL_ATTR} );
+        set_menu_back( $cmenu, $ctx->{cfg}{MENU_ITEM_ATTR} );
         $title = $menu{title} if $menu{title};
 
         # Build (and, on KEY_RESIZE, rebuild) the windows and menu geometry at
@@ -2018,7 +2018,7 @@ sub do_menu {
                   + $ctx->{cfg}{MS_FOOTER_ROWS} );
             $win = newwin( $eff_lines, $eff_cols, 0, 0 );
             $pan = new_panel($win);
-            bkgd( $win, $MENU_SCREEN_ATTR );
+            bkgd( $win, $ctx->{cfg}{MENU_SCREEN_ATTR} );
             set_menu_format( $cmenu, $mwinr, 1 );
             scale_menu( $cmenu, $rows, $cols );
             $mlmargin = int( ( $eff_cols - $cols ) / 2 );
@@ -2029,7 +2029,7 @@ sub do_menu {
                 $mlmargin );
             set_menu_win( $cmenu, $win );
             set_menu_sub( $cmenu, $msub );
-            bkgd( $msub, $MENU_SCREEN_ATTR );
+            bkgd( $msub, $ctx->{cfg}{MENU_SCREEN_ATTR} );
             keypad( $win, $ON );
             clear($win);
             init_title( $win, $MS_HEADER_ROWS, $title );
@@ -2704,8 +2704,8 @@ sub do_form {
         my $lptr = $fp[ field_index( current_field($cform) ) - 6 ];
         my $vptr = $fp[ field_index( current_field($cform) ) ];
         my $fidx = int( field_index( current_field($cform) ) / 7 );
-        set_field_fore( $lptr, $labelFg );
-        set_field_back( $lptr, $labelBg );
+        set_field_fore( $lptr, $ctx->{cfg}{labelFg} );
+        set_field_back( $lptr, $ctx->{cfg}{labelBg} );
         set_field_fore( $vptr, $form{fields}[$fidx]{valueFg} );
         set_field_back( $vptr, $form{fields}[$fidx]{valueBg} );
     };
@@ -2714,17 +2714,17 @@ sub do_form {
         my ( $bg, $fg );
         my $fidx = int( field_index( current_field($cform) ) / 7 );
         if ( $ctx->{cfg}{SHOW_CHGD_FIELDS} and $form{fields}[$fidx]{changed} ) {
-            $fg = $acf_valueFg;
-            $bg = $acf_valueBg;
+            $fg = $ctx->{cfg}{acf_valueFg};
+            $bg = $ctx->{cfg}{acf_valueBg};
         }
         else {
-            $fg = $af_valueFg;
-            $bg = $af_valueBg;
+            $fg = $ctx->{cfg}{af_valueFg};
+            $bg = $ctx->{cfg}{af_valueBg};
         }
         set_field_fore( $fp[ field_index( current_field($cform) ) - 6 ],
-            $af_labelFg );
+            $ctx->{cfg}{af_labelFg} );
         set_field_back( $fp[ field_index( current_field($cform) ) - 6 ],
-            $af_labelBg );
+            $ctx->{cfg}{af_labelBg} );
         set_field_fore( $fp[ field_index( current_field($cform) ) ], $fg );
         set_field_back( $fp[ field_index( current_field($cform) ) ], $bg );
     };
@@ -2738,19 +2738,19 @@ sub do_form {
             if ( $curr_val ne $form{fields}[$fi]{value} ) {
                 $form{fields}[$fi]{changed} = $YES;
                 set_field_fore( $fp[ field_index( current_field($cform) ) ],
-                    $acf_valueFg );
+                    $ctx->{cfg}{acf_valueFg} );
                 set_field_back( $fp[ field_index( current_field($cform) ) ],
-                    $acf_valueBg );
-                $form{fields}[$fi]{valueFg} = $cf_valueFg;
-                $form{fields}[$fi]{valueBg} = $cf_valueBg;
+                    $ctx->{cfg}{acf_valueBg} );
+                $form{fields}[$fi]{valueFg} = $ctx->{cfg}{cf_valueFg};
+                $form{fields}[$fi]{valueBg} = $ctx->{cfg}{cf_valueBg};
             }
             else {
                 set_field_fore( $fp[ field_index( current_field($cform) ) ],
-                    $af_valueFg );
+                    $ctx->{cfg}{af_valueFg} );
                 set_field_back( $fp[ field_index( current_field($cform) ) ],
-                    $af_valueBg );
-                $form{fields}[$fi]{valueFg} = $valueFg;
-                $form{fields}[$fi]{valueBg} = $valueBg;
+                    $ctx->{cfg}{af_valueBg} );
+                $form{fields}[$fi]{valueFg} = $ctx->{cfg}{valueFg};
+                $form{fields}[$fi]{valueBg} = $ctx->{cfg}{valueBg};
             }
         }
     };
@@ -3121,8 +3121,8 @@ sub do_form {
                 set_field_buffer( $field, 0, $label );
                 field_opts_off( $field, O_ACTIVE );
                 field_opts_off( $field, O_EDIT );
-                set_field_fore( $field, $labelFg );
-                set_field_back( $field, $labelBg );
+                set_field_fore( $field, $ctx->{cfg}{labelFg} );
+                set_field_back( $field, $ctx->{cfg}{labelBg} );
 
                 if ( !$y ) {
                     set_new_page( $field, 1 );
@@ -3138,8 +3138,8 @@ sub do_form {
                 set_field_buffer( $field, 0,
                     sprintf( "%s ", $form{fields}[$i]{required} ? '*' : ' ' ) );
                 field_opts_off( $field, O_ACTIVE );
-                set_field_fore( $field, $labelFg );    # blend with the panel
-                set_field_back( $field, $labelBg );
+                set_field_fore( $field, $ctx->{cfg}{labelFg} );    # blend with the panel
+                set_field_back( $field, $ctx->{cfg}{labelBg} );
                 if ( !$ctx->{cfg}{SHOW_FIELD_FLAGS} ) {
                     field_opts_off( $field, O_VISIBLE );
                 }
@@ -3158,8 +3158,8 @@ sub do_form {
                         ( $form{fields}[$i]{type} == $NUMERIC ) ? '#' : ' ' )
                 );
                 field_opts_off( $field, O_ACTIVE );
-                set_field_fore( $field, $labelFg );    # blend with the panel
-                set_field_back( $field, $labelBg );
+                set_field_fore( $field, $ctx->{cfg}{labelFg} );    # blend with the panel
+                set_field_back( $field, $ctx->{cfg}{labelBg} );
                 if ( !$ctx->{cfg}{SHOW_FIELD_FLAGS} ) {
                     field_opts_off( $field, O_VISIBLE );
                 }
@@ -3179,8 +3179,8 @@ sub do_form {
                 }
                 field_opts_off( $field, O_ACTIVE );
                 field_opts_off( $field, O_EDIT );
-                set_field_fore( $field, $labelFg );
-                set_field_back( $field, $labelBg );
+                set_field_fore( $field, $ctx->{cfg}{labelFg} );
+                set_field_back( $field, $ctx->{cfg}{labelBg} );
                 field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
                 push @fp,   $field;
                 push @fset, ${$field};
@@ -3202,8 +3202,8 @@ sub do_form {
                 }
                 field_opts_off( $field, O_ACTIVE );
                 field_opts_off( $field, O_EDIT );
-                set_field_fore( $field, $labelFg );
-                set_field_back( $field, $labelBg );
+                set_field_fore( $field, $ctx->{cfg}{labelFg} );
+                set_field_back( $field, $ctx->{cfg}{labelBg} );
                 field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
                 push @fp,   $field;
                 push @fset, ${$field};
@@ -3223,8 +3223,8 @@ sub do_form {
                 set_field_buffer( $field, 0, $dots );
                 field_opts_off( $field, O_ACTIVE );
                 field_opts_off( $field, O_EDIT );
-                set_field_fore( $field, $labelFg );    # dots adopt the panel/label colour
-                set_field_back( $field, $labelBg );
+                set_field_fore( $field, $ctx->{cfg}{labelFg} );    # dots adopt the panel/label colour
+                set_field_back( $field, $ctx->{cfg}{labelBg} );
                 field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
                 push @fp,   $field;
                 push @fset, ${$field};
@@ -3262,8 +3262,8 @@ sub do_form {
                     set_field_back( $field, $form{fields}[$i]{valueBg} );
                 }
                 else {
-                    set_field_fore( $field, $labelFg );
-                    set_field_back( $field, $labelBg );
+                    set_field_fore( $field, $ctx->{cfg}{labelFg} );
+                    set_field_back( $field, $ctx->{cfg}{labelBg} );
                 }
                 $y = $vr + 1;    # next field starts below the value row
                 field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
@@ -3294,8 +3294,8 @@ sub do_form {
         # Apply the screen background colour (a themed fg/bg pair gives the
         # panelled look) to the form window and its field area, matching what
         # do_menu does; the monochrome default (A_NORMAL) leaves it unchanged.
-        bkgd( $win,  $MENU_SCREEN_ATTR );
-        bkgd( $fsub, $MENU_SCREEN_ATTR );
+        bkgd( $win,  $ctx->{cfg}{MENU_SCREEN_ATTR} );
+        bkgd( $fsub, $ctx->{cfg}{MENU_SCREEN_ATTR} );
 
         set_form_win( $cform, $win );
         set_form_sub( $cform, $fsub );
@@ -3308,10 +3308,10 @@ sub do_form {
         while ( !$form{fields}[$i]{enabled} ) {
             $i++;
         }
-        set_field_fore( $fp[ $i * 7 ], $af_labelFg );
-        set_field_back( $fp[ $i * 7 ], $af_labelBg );
-        set_field_fore( $fp[ $i * 7 + 6 ], $af_valueFg );
-        set_field_back( $fp[ $i * 7 + 6 ], $af_valueBg );
+        set_field_fore( $fp[ $i * 7 ], $ctx->{cfg}{af_labelFg} );
+        set_field_back( $fp[ $i * 7 ], $ctx->{cfg}{af_labelBg} );
+        set_field_fore( $fp[ $i * 7 + 6 ], $ctx->{cfg}{af_valueFg} );
+        set_field_back( $fp[ $i * 7 + 6 ], $ctx->{cfg}{af_valueBg} );
 
         $title = $form{title} if $form{title};
         init_title( $win, $FS_HEADER_ROWS, $title );
@@ -3427,8 +3427,8 @@ sub do_form {
                     set_field_buffer( $lab, 0, $label );
                     field_opts_off( $lab, O_ACTIVE );
                     field_opts_off( $lab, O_EDIT );
-                    set_field_fore( $lab, $labelFg );
-                    set_field_back( $lab, $labelBg );
+                    set_field_fore( $lab, $ctx->{cfg}{labelFg} );
+                    set_field_back( $lab, $ctx->{cfg}{labelBg} );
                     $fp[ $li * 7 ] = $lab;
 
                     # ... and the dot run (its width follows the value column).
@@ -3446,8 +3446,8 @@ sub do_form {
                     set_field_buffer( $dot, 0, $dots );
                     field_opts_off( $dot, O_ACTIVE );
                     field_opts_off( $dot, O_EDIT );
-                    set_field_fore( $dot, $labelFg );    # dots adopt the panel
-                    set_field_back( $dot, $labelBg );
+                    set_field_fore( $dot, $ctx->{cfg}{labelFg} );    # dots adopt the panel
+                    set_field_back( $dot, $ctx->{cfg}{labelBg} );
                     $fp[ $li * 7 + 5 ] = $dot;
 
                     # Move the markers and the value field to the new columns.
@@ -3508,8 +3508,8 @@ sub do_form {
             if ( !$fsub ) {
                 fatal("resize_form: derwin(${mwinr}x${eff_cols}) failed");
             }
-            bkgd( $win,  $MENU_SCREEN_ATTR );
-            bkgd( $fsub, $MENU_SCREEN_ATTR );
+            bkgd( $win,  $ctx->{cfg}{MENU_SCREEN_ATTR} );
+            bkgd( $fsub, $ctx->{cfg}{MENU_SCREEN_ATTR} );
             $cform = new_form($fields_buf);
             if ( !$cform ) {
                 fatal('resize_form: new_form() failed');
@@ -3939,12 +3939,12 @@ sub do_form {
                 set_field_buffer( current_field($cform), 0,
                     field_buffer( current_field($cform), 1 ) );
                 $form{fields}[$fi]{changed} = $NO;
-                $form{fields}[$fi]{valueFg} = $valueFg;
-                $form{fields}[$fi]{valueBg} = $valueBg;
+                $form{fields}[$fi]{valueFg} = $ctx->{cfg}{valueFg};
+                $form{fields}[$fi]{valueBg} = $ctx->{cfg}{valueBg};
                 set_field_fore( $fp[ field_index( current_field($cform) ) ],
-                    $af_valueFg );
+                    $ctx->{cfg}{af_valueFg} );
                 set_field_back( $fp[ field_index( current_field($cform) ) ],
-                    $af_valueBg );
+                    $ctx->{cfg}{af_valueBg} );
                 form_driver( $cform, REQ_END_LINE );
             }
             elsif ( $ch == $keys{save}{code} ) {
@@ -4145,13 +4145,13 @@ sub run_browse {
                 $pad_lines--;
             }
             if ( $src eq $RS_STDOUT_ID ) {
-                attrset( $p, $RS_STDOUT_ATTR );
+                attrset( $p, $ctx->{cfg}{RS_STDOUT_ATTR} );
             }
             elsif ( $src eq $RS_STDERR_ID ) {
-                attrset( $p, $RS_STDERR_ATTR );
+                attrset( $p, $ctx->{cfg}{RS_STDERR_ATTR} );
             }
             elsif ( $src eq $RS_INFO_ID ) {
-                attrset( $p, $RS_INFO_ATTR );
+                attrset( $p, $ctx->{cfg}{RS_INFO_ATTR} );
             }
             addstr( $p, $buff );
         }
@@ -4192,7 +4192,7 @@ sub run_browse {
     $hwin = subwin( $win, $RS_HEADER_ROWS, $COLS, 0,               0 );
     $twin = subwin( $win, $RS_TOP_ROWS,    $COLS, $RS_HEADER_ROWS, 0 );
     $pan  = new_panel($win);
-    bkgd( $win, $MENU_SCREEN_ATTR );    # themed screen background (panel look)
+    bkgd( $win, $ctx->{cfg}{MENU_SCREEN_ATTR} );    # themed screen background (panel look)
 
     init_title( $hwin, $RS_HEADER_ROWS, $RB_TITLE );
     init_footer( $win, $NO, $ctx->{cfg}{RS_FOOTER_ROWS}, qw(int) );
@@ -4249,7 +4249,7 @@ sub run_browse {
                     pop @lines if !$lines[$#lines];
                     $outprev = $is_partial ? pop @lines : undef;
                     $out_lines += scalar @lines;
-                    attrset( $mwin, $RS_STDOUT_ATTR );
+                    attrset( $mwin, $ctx->{cfg}{RS_STDOUT_ATTR} );
                 }
                 elsif ( $fh == $errfh ) {
                     $src        = $RS_STDERR_ID;
@@ -4260,7 +4260,7 @@ sub run_browse {
                     pop @lines if !$lines[$#lines];
                     $errprev = $is_partial ? pop @lines : undef;
                     $err_lines += scalar @lines;
-                    attrset( $mwin, $RS_STDERR_ATTR );
+                    attrset( $mwin, $ctx->{cfg}{RS_STDERR_ATTR} );
                 }
                 else {
                     fatal("Unknown filehandle");
@@ -4434,7 +4434,7 @@ sub run_browse {
             $hwin = subwin( $win, $RS_HEADER_ROWS, $rc, 0, 0 );
             $twin = subwin( $win, $RS_TOP_ROWS, $rc, $RS_HEADER_ROWS, 0 );
             $pan  = new_panel($win);
-            bkgd( $win, $MENU_SCREEN_ATTR );
+            bkgd( $win, $ctx->{cfg}{MENU_SCREEN_ATTR} );
             init_title( $hwin, $RS_HEADER_ROWS, $RB_TITLE );
             init_footer( $win, $NO, $ctx->{cfg}{RS_FOOTER_ROWS}, @RSKeys );
             scrollok( $mwin, 1 );
@@ -5072,9 +5072,9 @@ $ctx->{cfg}{SHOW_FIELD_FLAGS} = $YES;
 $ctx->{cfg}{SHOW_DOTS}        = $YES;
 $ctx->{cfg}{MARK_NOACT_ITEMS} = $NO;
 $ctx->{cfg}{MAX_PAD_LINES}    = 5000;
-$RS_INFO_ATTR     = A_REVERSE;
-$RS_STDERR_ATTR   = A_BOLD;
-$RS_STDOUT_ATTR   = A_NORMAL;
+$ctx->{cfg}{RS_INFO_ATTR}     = A_REVERSE;
+$ctx->{cfg}{RS_STDERR_ATTR}   = A_BOLD;
+$ctx->{cfg}{RS_STDOUT_ATTR}   = A_NORMAL;
 $ctx->{cfg}{END_MARKER}       = '';
 $ctx->{cfg}{OPEN3_SHELL}      = '/bin/sh';
 $ctx->{cfg}{USER_SHELL}       = ( getpwuid($>) )[8];
@@ -5091,14 +5091,14 @@ $HAS_COLOR        = $NO;
 # Menu/screen theme attributes.  Defaults preserve the historical monochrome
 # look (overall screen normal, selected item reversed, bold title, reverse
 # function-key highlight); a config (e.g. a SMIT-style instance) can set these
-# to COLOR_PAIR(n) expressions for a colour UI.  $TITLE_ATTR colours the header
-# and $KEY_ATTR the control keys in the footer bar; they apply to every screen
+# to COLOR_PAIR(n) expressions for a colour UI.  $ctx->{cfg}{TITLE_ATTR} colours the header
+# and $ctx->{cfg}{KEY_ATTR} the control keys in the footer bar; they apply to every screen
 # (menus, forms, the output browser), since the title/footer are shared.
-$MENU_SCREEN_ATTR = A_NORMAL;
-$MENU_ITEM_ATTR   = A_NORMAL;
-$MENU_SEL_ATTR    = A_REVERSE;
-$TITLE_ATTR       = A_BOLD;
-$KEY_ATTR         = undef;     # undef = the original bkgd-relative highlight
+$ctx->{cfg}{MENU_SCREEN_ATTR} = A_NORMAL;
+$ctx->{cfg}{MENU_ITEM_ATTR}   = A_NORMAL;
+$ctx->{cfg}{MENU_SEL_ATTR}    = A_REVERSE;
+$ctx->{cfg}{TITLE_ATTR}       = A_BOLD;
+$ctx->{cfg}{KEY_ATTR}         = undef;     # undef = the original bkgd-relative highlight
 
 if ( $res = load_config ) {
     trace("$es_str[$res] loading configuration file");
