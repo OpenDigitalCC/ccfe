@@ -71,6 +71,11 @@ is( $rc, 0, 'set-config exits 0' );
 my $conf = do { local ( @ARGV, $/ ) = "$cfg/ccfe/ccfe.conf"; <> };
 like( $conf, qr/restricted\s*=\s*yes/, '  setting written to the user config' );
 
+# Reset it: with the strengthened `restricted` (system-owned objects only),
+# a restricted instance would ignore this test's user-dir builder objects, so
+# the later end-to-end test must run unrestricted.
+build( 'set-config', 'restricted', 'no' );
+
 # ---- backend: validation / safety --------------------------------------
 ( $o, $rc ) = build( 'new-menu', 'bad name!', 'x' );
 isnt( $rc, 0, 'an invalid object name is rejected' );

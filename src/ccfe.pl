@@ -1513,6 +1513,16 @@ sub load_config {
     for $fname (@cnf_path) {
         trace( "looking for $fname", $LOG_SCAN_PATHS );
         if ( -f $fname ) {
+            # TD-1a: once RESTRICTED is on, a user-writable config file is
+            # untrusted -- skip it, so a user cannot weaken the policy (turn
+            # restricted off, widen the allowlist, change the shell/path) from
+            # ~/.config or ~/.ccfe.  System (non-user-writable) files still
+            # apply, in the system->user->legacy order, so the system config
+            # that sets `restricted = yes` locks out the later user files.
+            if ( $ctx->{cfg}{RESTRICTED} and -w $fname ) {
+                trace("RESTRICTED: ignoring user-writable config \"$fname\"");
+                next;
+            }
             @lines = ();
             $found = $YES;
             trace("load $fname");
@@ -5266,9 +5276,24 @@ if ($ctx->{cfg}{RESTRICTED}) {
     @MSKeys = grep { $_ ne 'shell_escape' } @MSKeys;
     @FSKeys = grep { $_ ne 'shell_escape' } @FSKeys;
     @RSKeys = grep { $_ ne 'shell_escape' } @RSKeys;
+
+    # TD-1b: refuse menu/form object dirs the invoking user can write -- a
+    # restricted user must not be able to drop a `run:` (unconstrained) menu
+    # into ~/.local/share/ccfe or ~/.ccfe and have it loaded.  Only dirs the
+    # user cannot write (system, root-owned) remain searched.  This assumes a
+    # non-root user, as a kiosk/restricted login is; if it empties the path,
+    # the system object dir must be made non-user-writable.
+    my @kept = grep { !-w $_ } @mf_path;
+    if ( @kept != @mf_path ) {
+        my %keep = map { $_ => 1 } @kept;
+        trace( "RESTRICTED: ignoring user-writable object dir \"$_\"" )
+          for grep { !$keep{$_} } @mf_path;
+        @mf_path = @kept;
+    }
+
     trace(
         sprintf 'RESTRICTED mode ON: shell escape + save-to-script disabled; '
-          . 'system:/exec: limited to [%s]',
+          . 'system:/exec: run shell-free, limited to [%s]',
         join( ', ', @{ $ctx->{cfg}{RESTRICTED_ALLOW} } ) || 'nothing'
     );
 }

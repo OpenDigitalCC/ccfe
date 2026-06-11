@@ -46,6 +46,11 @@ item {
 MENU
 close($mf);
 
+# TD-1b refuses user-writable object dirs under RESTRICTED, so a real kiosk
+# keeps its objects system-owned and read-only.  Mirror that here: drop the
+# owner-write bit so the dir is not -w and stays on the search path.
+chmod 0555, $objs;
+
 plan tests => 3;
 
 my $pty = CCFE::Test::Pty->spawn( 80, 24, "$prefix/bin/ccfe", 'rtest' );
@@ -63,3 +68,5 @@ ok( !-e $marker,
 $pty->send(" ");     # dismiss the wait-for-key
 $pty->pump(0.3);
 $pty->send("\e");    # leave the menu
+
+chmod 0755, $objs;    # restore so File::Temp can clean the tempdir up
