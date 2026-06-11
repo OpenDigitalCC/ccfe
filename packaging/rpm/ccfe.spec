@@ -10,7 +10,7 @@
 # NOTE: not built/tested in this environment (no rpmbuild available here).
 
 Name:           ccfe
-Version:        2.1.1
+Version:        2.2
 Release:        1%{?dist}
 Summary:        Curses Command Front-end
 License:        GPLv2+
@@ -46,6 +46,12 @@ ln -sf ../lib/ccfe/bin/ccfe %{buildroot}%{_bindir}/ccfe
 %doc README.MD
 
 %changelog
+* Wed Jun 11 2026 CCFE maintainers <ccfedevel@gmail.com> - 2.2-1
+- CCFE 2.2: completes the de-globalisation onto pure CCFE::* modules and an
+  explicit $ctx (ccfe.pl now runs under use v5.36, requires Perl >= 5.36);
+  warnings routed to the log so they cannot corrupt the TUI; M8 close-out
+  audit fixes.
+
 * Wed Jun 11 2026 CCFE maintainers <ccfedevel@gmail.com> - 2.1.1-1
 - CCFE 2.1.1: terminal-resize reflow, display-column (wide-char) layout, full
   colour palette + panel theme, opt-in mouse, --dump/--plugins, and an internal

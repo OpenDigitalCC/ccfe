@@ -141,7 +141,7 @@ our $HAVE_CHARWIDTH = eval { require Text::CharWidth; 1 };
 # rather than scattered package globals; see M7-CTX-PLAN.md (Phase 4).
 our $ctx = CCFE::Context::new();
 
-$VERSION      = '2.1.1';
+$VERSION      = '2.2';
 $VERSION_DATE = '11/06/2026';
 $VERSION_YEAR = '2009, 2026';
 

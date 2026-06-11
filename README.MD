@@ -15,7 +15,7 @@ the manual pages are under `src/man/`.
 
 ## Status
 
-`src/ccfe.pl` is the program (currently version **2.1.1**). The ongoing
+`src/ccfe.pl` is the program (currently version **2.2**). The ongoing
 modernisation — packaging, security hardening, optional colour and a move to a
 modular, more functional structure — is described in
 [`REFACTOR.md`](REFACTOR.md) and [`ROADMAP.md`](ROADMAP.md). CCFE depends on

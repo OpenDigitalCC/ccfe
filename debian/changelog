@@ -1,3 +1,24 @@
+ccfe (2.2) unstable; urgency=medium
+
+  * Completes the M7 de-globalisation: the .menu/.form/.conf parsers, the
+    action-string parser and the form value-column/page geometry are now pure,
+    unit-tested CCFE::* modules, and ccfe.pl's package globals and `local`
+    dynamic scope are replaced by lexicals and an explicit $ctx run-state
+    object. ccfe.pl now runs under `use v5.36` (strict + warnings); this raises
+    the requirement to Perl >= 5.36 (already declared).
+  * While the screen is in curses mode, Perl warnings are routed to the log
+    instead of being printed over the display, so a stray warning on an edge
+    path can no longer corrupt the TUI.
+  * Non-functional close-out audit (ROADMAP M8, see M8-AUDIT.md): assorted
+    small correctness fixes (numeric comparisons, dead code, an eval-string
+    replaced by sprintf) and documentation/version-consistency fixes. Restricted
+    mode's true scope is now documented honestly in the README (it is a
+    guardrail, not a hardened security boundary).
+  * No change to the menu/form/config file formats or to normal interactive
+    behaviour.
+
+ -- CCFE maintainers <ccfedevel@gmail.com>  Wed, 11 Jun 2026 12:00:00 +0000
+
 ccfe (2.1.1) unstable; urgency=medium
 
   * Internal modularisation (ROADMAP M7); no functional change. The menu, form

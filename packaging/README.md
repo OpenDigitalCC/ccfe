@@ -14,8 +14,8 @@ Runtime dependencies are only **perl** and the **Curses** module
 Built and tested in this repo:
 
 ```sh
-dpkg-buildpackage -b -us -uc      # produces ../ccfe_2.1.1_all.deb
-sudo apt install ../ccfe_2.1.1_all.deb
+dpkg-buildpackage -b -us -uc      # produces ../ccfe_2.2_all.deb
+sudo apt install ../ccfe_2.2_all.deb
 ```
 
 (`build-essential` is not actually needed — CCFE compiles nothing — so add
