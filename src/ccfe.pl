@@ -3347,6 +3347,131 @@ sub resize_form {
     return ( $win, $fsub, $pan, $cform, $fields_buf, $npages, $mwinr );
 }
 
+# do_form's Enter/submit handler, extracted from the event loop (TD-3).  Syncs
+# the visible field buffers into the field values, refuses an empty required
+# field, then parses and dispatches the form's action (run/form/system/exec)
+# exactly as the inline arm did.  $es is threaded in and returned (run_browse /
+# a nested do_form / a confirm-abort can change it); exec selection is recorded
+# on the shared $ctx as before.  The three per-form closures are passed in
+# because they capture this call's %form/$cform/@fp.
+sub run_form_submit {
+    my (
+        $form,            $cform,          $win,
+        $title,           $formname,       $es,
+        $sync_fields_val, $prepare_action, $save_persistent
+    ) = @_;
+
+    my ( $action, $args, $wait_key, @actopts );
+    my ( $i, $id, $val, $called_form );
+
+    $sync_fields_val->();
+
+    my $empty_required = $NO;
+    foreach $i ( 0 .. $#{ $form->{fields} } ) {
+        if (    $form->{fields}[$i]{required}
+            and $form->{fields}[$i]{value} eq '' )
+        {
+            $empty_required = $YES;
+            curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
+            disp_msg(
+                $win,
+                "\"$form->{fields}[$i]{label}\" $ERR_EMPTY_FIELD_MSG",
+                $ERR_EMPTY_FIELD_TITLE
+            );
+            curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
+            last;
+        }
+    }
+
+    unless ($empty_required) {
+        my $act = CCFE::Action::parse( $form->{action} );
+        $action  = $act->{verb};
+        $args    = $act->{args};
+        @actopts = @{ $act->{opts} };
+
+        my ( $aborted, $opt_es );
+        ( $wait_key, $aborted, $opt_es ) =
+          apply_action_opts( \@actopts, $win, $CONFIRM_TITLE );
+        $es = $opt_es if defined $opt_es;
+        $action = 'ABORTED' if $aborted;
+        $save_persistent->();
+        if ( $action eq 'run' ) {
+            $prepare_action->( \$args );
+
+            trace("action: \"$action\":\n");
+            trace( "\n\n" . '-' x 80,
+                $LOG_ACTION_CMD + $LOG_NORMAL );
+            my ( $ss, $mm, $hh, $dd, $mt, $yy ) = localtime(time);
+            trace(
+                "DATE  : "
+                  . sprintf( "%02d/%02d/%d, %02d:%02d:%02d\n",
+                    $dd, ++$mt, 1900 + $yy, $hh, $mm, $ss )
+                  . "SCREEN: $title  [$formname]\n"
+                  . "DESCR : Action executed",
+                $LOG_ACTION_CMD + $LOG_NORMAL
+            );
+            trace( '-' x 80, $LOG_ACTION_CMD + $LOG_NORMAL );
+            trace( $args,    $LOG_ACTION_CMD + $LOG_NORMAL );
+            $es =
+              run_browse( $title, $args, $formname, $form->{path} );
+            curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
+        }
+        elsif ( $action eq 'form' ) {
+            foreach $i ( 0 .. $#{ $form->{fields} } ) {
+                $id  = $form->{fields}[$i]{id};
+                $val = $form->{fields}[$i]{value};
+                $val  =~ s/^\s+//;
+                $val  =~ s/\s+$//;
+                $args =~ s/%\{$id\}/$val/g;
+            }
+
+            ( $called_form, $args ) = split /\s+/, $args, 2;
+            $args =~ s/^\s+//;
+            $args =~ s/\s+$//;
+            trace( "call form \"$called_form\", args \"$args\"",
+                $LOG_ACTION_CMD );
+            $es =
+              do_form( $called_form, $title, split /\s+/, $args );
+            if ( $es and $es < $ES_USER_REQ ) {
+                trace(
+                    "WARNING: $es_str[$es] reading form \"$called_form\""
+                );
+                curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
+                disp_msg(
+                    $win,
+                    "$es_str[$es] $LOAD_FORM_ERR_MSG \"$called_form\"",
+                    $FORM_ERR_TITLE
+                );
+                curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
+            }
+        }
+        elsif ( $action eq 'system' ) {
+            $prepare_action->( \$args );
+            if ( restricted_denies_verb( 'system', $args ) ) {
+                disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
+            }
+            else {
+                call_system( $wait_key, $args );
+            }
+        }
+        elsif ( $action eq 'exec' ) {
+            $prepare_action->( \$args );
+            if ( restricted_denies_verb( 'exec', $args ) ) {
+                disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
+            }
+            else {
+                $ctx->{state}{exec_args} = $args;
+            }
+        }
+        else {
+            trace("unknown form action type \"$action\"");
+        }
+        $LOG_REQUESTED = $NO;
+    }
+
+    return $es;
+}
+
 sub do_form {
     my ( $formname, $title, @argv ) = @_;
 
@@ -3354,8 +3479,6 @@ sub do_form {
     my @fp;    # field pointers; M7 Phase 3: per-call lexical, not a `local`
     my ( $es, $rows, $cols, $i, $nfields, $field, $ch, $fsub, $y, $npages );
     my $cform;
-    my ( $action, $args, $wait_key );
-    my @actopts;
     my ($pan);
     my ( $win, $mwinr, $dots, $c );
     my ( $exit_id, $exit_descr );
@@ -3879,110 +4002,9 @@ sub do_form {
                 }
             }
             elsif ( $ch eq "\r" or $ch eq "\n" ) {
-                $sync_fields_val->();
-
-                my $empty_required = $NO;
-                foreach $i ( 0 .. $#{ $form{fields} } ) {
-                    if (    $form{fields}[$i]{required}
-                        and $form{fields}[$i]{value} eq '' )
-                    {
-                        $empty_required = $YES;
-                        curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
-                        disp_msg(
-                            $win,
-                            "\"$form{fields}[$i]{label}\" $ERR_EMPTY_FIELD_MSG",
-                            $ERR_EMPTY_FIELD_TITLE
-                        );
-                        curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
-                        last;
-                    }
-                }
-
-                unless ($empty_required) {
-                    my $act = CCFE::Action::parse( $form{action} );
-                    $action  = $act->{verb};
-                    $args    = $act->{args};
-                    @actopts = @{ $act->{opts} };
-
-                    my ( $aborted, $opt_es );
-                    ( $wait_key, $aborted, $opt_es ) =
-                      apply_action_opts( \@actopts, $win, $CONFIRM_TITLE );
-                    $es = $opt_es if defined $opt_es;
-                    $action = 'ABORTED' if $aborted;
-                    $save_persistent->();
-                    if ( $action eq 'run' ) {
-                        $prepare_action->( \$args );
-
-                        trace("action: \"$action\":\n");
-                        trace( "\n\n" . '-' x 80,
-                            $LOG_ACTION_CMD + $LOG_NORMAL );
-                        my ( $ss, $mm, $hh, $dd, $mt, $yy ) = localtime(time);
-                        trace(
-                            "DATE  : "
-                              . sprintf( "%02d/%02d/%d, %02d:%02d:%02d\n",
-                                $dd, ++$mt, 1900 + $yy, $hh, $mm, $ss )
-                              . "SCREEN: $title  [$formname]\n"
-                              . "DESCR : Action executed",
-                            $LOG_ACTION_CMD + $LOG_NORMAL
-                        );
-                        trace( '-' x 80, $LOG_ACTION_CMD + $LOG_NORMAL );
-                        trace( $args,    $LOG_ACTION_CMD + $LOG_NORMAL );
-                        $es =
-                          run_browse( $title, $args, $formname, $form{path} );
-                        curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
-                    }
-                    elsif ( $action eq 'form' ) {
-                        foreach $i ( 0 .. $#{ $form{fields} } ) {
-                            $id  = $form{fields}[$i]{id};
-                            $val = $form{fields}[$i]{value};
-                            $val  =~ s/^\s+//;
-                            $val  =~ s/\s+$//;
-                            $args =~ s/%\{$id\}/$val/g;
-                        }
-
-                        ( $called_form, $args ) = split /\s+/, $args, 2;
-                        $args =~ s/^\s+//;
-                        $args =~ s/\s+$//;
-                        trace( "call form \"$called_form\", args \"$args\"",
-                            $LOG_ACTION_CMD );
-                        $es =
-                          do_form( $called_form, $title, split /\s+/, $args );
-                        if ( $es and $es < $ES_USER_REQ ) {
-                            trace(
-"WARNING: $es_str[$es] reading form \"$called_form\""
-                            );
-                            curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
-                            disp_msg(
-                                $win,
-"$es_str[$es] $LOAD_FORM_ERR_MSG \"$called_form\"",
-                                $FORM_ERR_TITLE
-                            );
-                            curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
-                        }
-                    }
-                    elsif ( $action eq 'system' ) {
-                        $prepare_action->( \$args );
-                        if ( restricted_denies_verb( 'system', $args ) ) {
-                            disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
-                        }
-                        else {
-                            call_system( $wait_key, $args );
-                        }
-                    }
-                    elsif ( $action eq 'exec' ) {
-                        $prepare_action->( \$args );
-                        if ( restricted_denies_verb( 'exec', $args ) ) {
-                            disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
-                        }
-                        else {
-                            $ctx->{state}{exec_args} = $args;
-                        }
-                    }
-                    else {
-                        trace("unknown form action type \"$action\"");
-                    }
-                    $LOG_REQUESTED = $NO;
-                }
+                $es =
+                  run_form_submit( \%form, $cform, $win, $title, $formname,
+                    $es, $sync_fields_val, $prepare_action, $save_persistent );
             }
             elsif ( $ch == $ctx->{cfg}{keys}{back}{code} or ord($ch) == 27 ) {
                 $es = $ES_CANCEL;
