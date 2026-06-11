@@ -3366,6 +3366,56 @@ sub resize_form {
 # list's values in place (forward on TAB, backward on Shift-TAB), wrapping
 # round; any other list_cmd kind beeps.  Mutates the field buffer directly;
 # $check_val_changes (which captures this call's %form/$cform/@fp) is passed in.
+# do_form's Save handler, extracted from the event loop (TD-3).  Syncs the
+# visible field buffers into the field values and writes a labelled, aligned
+# dump of every non-separator field to the log, then confirms (or reports a log
+# write error).  $sync_fields_val (capturing this call's %form/$cform) is passed
+# in.  The label-padding eval-string is the legacy idiom kept verbatim.
+sub form_save_fields {
+    my ( $form, $win, $title, $formname, $sync_fields_val ) = @_;
+
+    $sync_fields_val->();
+    $LOG_REQUESTED = $YES;
+    trace( "\n\n" . '-' x 80, $LOG_NORMAL );
+    my ( $ss, $mm, $hh, $dd, $mt, $yy ) = localtime(time);
+    trace(
+        "DATE  : "
+          . sprintf( "%02d/%02d/%d, %02d:%02d:%02d\n",
+            $dd, ++$mt, 1900 + $yy, $hh, $mm, $ss )
+          . "SCREEN: $title  [$formname]\n"
+          . "DESCR : Save fields value",
+        $LOG_NORMAL
+    );
+    trace( '-' x 80, $LOG_NORMAL );
+    my $maxlen = 0;
+    foreach my $i ( 0 .. $#{ $form->{fields} } ) {
+        my $len = length( $form->{fields}[$i]{label} )
+          if $form->{fields}[$i]{type} != $SEPARATOR;
+        $maxlen = $len if $len > $maxlen;
+    }
+    foreach my $i ( 0 .. $#{ $form->{fields} } ) {
+        if ( $form->{fields}[$i]{type} != $SEPARATOR ) {
+            my $buff = eval
+              "sprintf \"%-${maxlen}s\",\$form->{fields}[\$i]{label}";
+            trace(
+                sprintf( "%s:'%s'",
+                    $buff, $form->{fields}[$i]{value} ),
+                $LOG_NORMAL
+            );
+        }
+    }
+    $LOG_REQUESTED = $NO;
+    if ($@) {
+        chop($@);
+        disp_msg( $win, "$@ $LOG_WRITE_ERROR_MSG",
+            $LOG_WRITE_ERROR_TITLE );
+    }
+    else {
+        disp_msg( $win, $SAVE_FIELDVAL_MSG, $SAVE_FIELDVAL_TITLE );
+    }
+    return;
+}
+
 sub form_tab_cycle {
     my ( $form, $cform, $ch, $check_val_changes ) = @_;
 
@@ -4166,45 +4216,8 @@ sub do_form {
                 form_driver( $cform, REQ_END_LINE );
             }
             elsif ( $ch == $ctx->{cfg}{keys}{save}{code} ) {
-                $sync_fields_val->();
-                $LOG_REQUESTED = $YES;
-                trace( "\n\n" . '-' x 80, $LOG_NORMAL );
-                my ( $ss, $mm, $hh, $dd, $mt, $yy ) = localtime(time);
-                trace(
-                    "DATE  : "
-                      . sprintf( "%02d/%02d/%d, %02d:%02d:%02d\n",
-                        $dd, ++$mt, 1900 + $yy, $hh, $mm, $ss )
-                      . "SCREEN: $title  [$formname]\n"
-                      . "DESCR : Save fields value",
-                    $LOG_NORMAL
-                );
-                trace( '-' x 80, $LOG_NORMAL );
-                my $maxlen = 0;
-                foreach $i ( 0 .. $#{ $form{fields} } ) {
-                    my $len = length( $form{fields}[$i]{label} )
-                      if $form{fields}[$i]{type} != $SEPARATOR;
-                    $maxlen = $len if $len > $maxlen;
-                }
-                foreach $i ( 0 .. $#{ $form{fields} } ) {
-                    if ( $form{fields}[$i]{type} != $SEPARATOR ) {
-                        my $buff = eval
-                          "sprintf \"%-${maxlen}s\",\$form{fields}[\$i]{label}";
-                        trace(
-                            sprintf( "%s:'%s'",
-                                $buff, $form{fields}[$i]{value} ),
-                            $LOG_NORMAL
-                        );
-                    }
-                }
-                $LOG_REQUESTED = $NO;
-                if ($@) {
-                    chop($@);
-                    disp_msg( $win, "$@ $LOG_WRITE_ERROR_MSG",
-                        $LOG_WRITE_ERROR_TITLE );
-                }
-                else {
-                    disp_msg( $win, $SAVE_FIELDVAL_MSG, $SAVE_FIELDVAL_TITLE );
-                }
+                form_save_fields( \%form, $win, $title, $formname,
+                    $sync_fields_val );
             }
             elsif ( $ch == $ctx->{cfg}{keys}{shell_escape}{code} ) {
                 if ( restricted_denies_shell() ) {
