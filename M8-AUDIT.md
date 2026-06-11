@@ -174,6 +174,9 @@ stay green.
 
 ## What is filed (recommended next, roughly by priority)
 
+> These are packaged as actionable, issue-ready work items in
+> **`TECH-DEBT.md`** (TD-1…TD-5, with scope / steps / acceptance criteria).
+
 1. **RESTRICTED-mode hardening** (the §4 high items) — locked system config,
    read-only object dirs in restricted deployments, shell-free argv exec, and
    `eval`-free colour-config parsing. This is the highest-value follow-up.
