@@ -27,15 +27,18 @@ jobs:
         # Linux pseudo-terminal is available; the rest run headlessly.
         run: prove -lr t/
 
-      - name: Perl::Critic (new modules)
-        # Enforced on src/lib only; the legacy single file is exempt until it
-        # is de-globalised (see .perlcriticrc and REFACTOR.md).
-        run: perlcritic --profile .perlcriticrc src/lib
+      - name: Perl::Critic (modules sev 3, ccfe.pl sev 5)
+        # src/lib is held to severity 3; the legacy main script ccfe.pl is now
+        # in the gate too, at severity 5 with its documented legacy idioms
+        # exempted (see .perlcriticrc-ccfe and REFACTOR.md / TECH-DEBT.md).
+        run: |
+          perlcritic --profile .perlcriticrc src/lib
+          perlcritic --profile .perlcriticrc-ccfe src/ccfe.pl
 
-      - name: Formatting check (perltidy on new modules)
+      - name: Formatting check (perltidy on modules and ccfe.pl)
         run: |
           status=0
-          for f in $(find src/lib -name '*.pm'); do
+          for f in $(find src/lib -name '*.pm') src/ccfe.pl; do
             if ! perltidy --profile=.perltidyrc -st "$f" 2>/dev/null \
                  | diff -q - "$f" >/dev/null; then
               echo "Not tidy: $f (run: perltidy --profile=.perltidyrc -b $f)"

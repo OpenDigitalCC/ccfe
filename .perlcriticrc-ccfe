@@ -1,0 +1,62 @@
+# Perl::Critic configuration for the legacy main script src/ccfe.pl.
+#
+# src/lib/CCFE/ is modern code held to severity 3 by .perlcriticrc.  ccfe.pl is
+# the original single-file program: it predates `use strict`, was de-globalised
+# and broken up under M7/TD-3, and is now perltidy-clean and in the CI gate.
+# Linting it at src/lib's severity 3 would bury the signal under deliberate
+# legacy idioms, so it has its own profile here: severity 5 ("gentle") with the
+# documented legacy idiom classes exempted.  The point is to *hold the line* --
+# catch any NEW high-severity problem -- without churning the legacy idioms or
+# weakening the strict gate on the modules.
+#
+# CI runs:  perlcritic --profile .perlcriticrc-ccfe src/ccfe.pl
+# To see what tightening would flag:  perlcritic --severity 4 src/ccfe.pl
+
+severity = 5
+
+# --- inherited from .perlcriticrc (apply to ccfe.pl for the same reasons) ----
+
+# `use v5.36` turns on the modern feature bundle; not a version-string smell.
+[-ValuesAndExpressions::ProhibitVersionStrings]
+
+# /x on every regex adds noise to trivial patterns.
+[-RegularExpressions::RequireExtendedFormatting]
+
+# Lookup helpers return `undef` in scalar context as a documented "not found".
+[-Subroutines::ProhibitExplicitReturnUndef]
+
+# `use v5.36` subroutine signatures read as prototypes to older Perl::Critic.
+[-Subroutines::ProhibitSubroutinePrototypes]
+
+# --- legacy idioms deliberately kept in ccfe.pl ------------------------------
+
+# Bareword file/dir handles (LOG, INF, OUTF, DIR): the original I/O style.  New
+# code (e.g. the TD-5 _log_write 3-arg lexical handle) uses lexical handles;
+# the remaining barewords are localised and low-risk.
+[-InputOutput::ProhibitBarewordFileHandles]
+[-InputOutput::ProhibitBarewordDirHandles]
+
+# Two-argument open() at the legacy call sites.  The security-relevant opens
+# (log append, config/object loading) were moved to 3-arg under TD-1/TD-5.
+[-InputOutput::ProhibitTwoArgOpen]
+
+# A handful of documented eval-string sites (e.g. the save-fields label
+# padding).  The config colour/attr eval-string -- the injection vector -- was
+# removed in TD-1d (attr_value); these remaining sites take no untrusted input.
+[-BuiltinFunctions::ProhibitStringyEval]
+
+# Package-global loop iterators (`for $i (...)`): the legacy global `$i` is used
+# throughout for menu/form/field iteration.  Left as-is; not a correctness risk.
+[-Variables::RequireLexicalLoopIterators]
+
+# `splice @list, $i++, ...` inside the do_list display-wrap and similar: the
+# legacy in-place list editing.
+[-ControlStructures::ProhibitMutatingListFunctions]
+
+# `my $x = ... if COND;` at a couple of legacy sites.  Discouraged, but the
+# values are consumed immediately in the same block.
+[-Variables::ProhibitConditionalDeclarations]
+
+# The single intentional nested named sub: _log_write() lives in a bare block
+# closing over its persistent lexical log handle (a deliberate singleton).
+[-Subroutines::ProhibitNestedSubs]
