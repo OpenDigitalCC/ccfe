@@ -64,6 +64,11 @@ use FindBin ();    # to locate the program at runtime (see the path block below)
 # single-byte locale.  See disp_width() below.
 our $HAVE_CHARWIDTH = eval { require Text::CharWidth; 1 };
 
+# The explicit run-state container (M7 de-globalisation, REFACTOR.md §3.2).
+# Built first so the config defaults and load_config below fill $ctx->{cfg}
+# rather than scattered package globals; see M7-CTX-PLAN.md (Phase 4).
+our $ctx = CCFE::Context::new();
+
 $VERSION      = '2.1.1';
 $VERSION_DATE = '11/06/2026';
 $VERSION_YEAR = '2009, 2026';
@@ -105,13 +110,13 @@ $NO  = $OFF = $FALSE = 0;
 $YES = $ON  = $TRUE  = 1;
 
 $DEBUG            = $NO;
-$PERMIT_DEBUG     = $YES;
+$ctx->{cfg}{PERMIT_DEBUG}     = $YES;
 $MARK_PRIV_SHCUTS = $YES;
 
 $MAIN_PATH = '/usr/bin:/bin:/usr/local/bin:/sbin:/usr/sbin';
-$PATH      = "$ENV{HOME}/bin";
+$ctx->{cfg}{PATH}      = "$ENV{HOME}/bin";
 
-$LOG_FNAME        = "$LOGDIR/$USERNAME.log";
+$ctx->{cfg}{LOG_FNAME}        = "$LOGDIR/$USERNAME.log";
 $LOG_DATE         = $NO;
 $LOG_NORMAL       = 1;
 $LOG_LIST_CMD     = 2;
@@ -123,7 +128,7 @@ $LOG_ACTION_OUT   = 64;
 $LOG_SYSCALL_ENV  = 128;
 $LOG_SCAN_PATHS   = 256;
 $LOG_INITFORM_OUT = 512;
-$LOG_LEVEL        = $LOG_NORMAL;
+$ctx->{cfg}{LOG_LEVEL}        = $LOG_NORMAL;
 $LOG_REQUESTED    = $NO;
 
 $LW_COLS        = 76;
@@ -136,17 +141,17 @@ $MSG_WIN_ROWS = 5;
 $MS_HEADER_ROWS = 2;
 $MS_TOP_ROWS    = 2;
 $MS_BOTTOM_ROWS = 0;
-$MS_FOOTER_ROWS = 2;
+$ctx->{cfg}{MS_FOOTER_ROWS} = 2;
 
 $FS_HEADER_ROWS = 2;
 $FS_TOP_ROWS    = 3;
 $FS_BOTTOM_ROWS = 0;
-$FS_FOOTER_ROWS = 2;
+$ctx->{cfg}{FS_FOOTER_ROWS} = 2;
 
 $RS_HEADER_ROWS = 2;
 $RS_TOP_ROWS    = 1;
 $RS_BOTTOM_ROWS = 0;
-$RS_FOOTER_ROWS = 2;
+$ctx->{cfg}{RS_FOOTER_ROWS} = 2;
 
 $ES_NO_ERR     = 0;
 $ES_SYNTAX_ERR = 1;
@@ -396,7 +401,7 @@ sub valid_shell {
 sub restricted_denies_verb {
     my ( $verb, $args ) = @_;
     my $deny =
-      CCFE::Restrict::denies_verb( $RESTRICTED, \@RESTRICTED_ALLOW, $verb,
+      CCFE::Restrict::denies_verb( $ctx->{cfg}{RESTRICTED}, \@RESTRICTED_ALLOW, $verb,
         $args );
     trace("RESTRICTED: denied $verb:\"$args\" (not in RESTRICTED_ALLOW)")
       if $deny;
@@ -404,7 +409,7 @@ sub restricted_denies_verb {
 }
 
 sub restricted_denies_shell {
-    my $deny = CCFE::Restrict::denies_shell($RESTRICTED);
+    my $deny = CCFE::Restrict::denies_shell($ctx->{cfg}{RESTRICTED});
     trace('RESTRICTED: interactive shell escape denied') if $deny;
     return $deny;
 }
@@ -429,8 +434,8 @@ sub trace {
         $caller .= "[$$]: " if $caller;
     }
 
-    if ($LOG_FNAME) {
-        if ( $LOG_LEVEL & $log_level ) {
+    if ($ctx->{cfg}{LOG_FNAME}) {
+        if ( $ctx->{cfg}{LOG_LEVEL} & $log_level ) {
             $log_it = $YES;
             if ( $LOG_NORMAL & $log_level ) {
                 $log_it = $NO if !$LOG_REQUESTED;
@@ -441,7 +446,7 @@ sub trace {
         if ($log_it) {
             $prev_umask = umask 0177;
             eval {
-                open( LOG, ">>$LOG_FNAME" ) or die("$!\n");
+                open( LOG, ">>$ctx->{cfg}{LOG_FNAME}" ) or die("$!\n");
                 if ($LOG_DATE) {
                     $now = sprintf "%s %02d %d %02d:%02d:%02d%s",
                       $months[ $buff[4] ],
@@ -609,7 +614,7 @@ sub exec_command {
     chdir "$SCREEN_DIR";
     trace( "Changed CWD from $prev_wdir to " . getcwd() );
     $prev_path = $ENV{PATH};
-    $ENV{PATH} = sprintf "%s%s:%s", $MAIN_PATH, $MAIN_PATH ? ":$PATH" : '',
+    $ENV{PATH} = sprintf "%s%s:%s", $MAIN_PATH, $MAIN_PATH ? ":$ctx->{cfg}{PATH}" : '',
       $SCREEN_DIR;
     if ($extra_path) {
         my @dirs = split /:/, $extra_path;
@@ -626,7 +631,7 @@ sub exec_command {
     @$stderr_ref = ();
     local *CATCHERR = IO::File->new_tmpfile;
     my $pid =
-      open3( gensym, \*CATCHOUT, ">&CATCHERR", $OPEN3_SHELL, '-c', $cmd );
+      open3( gensym, \*CATCHOUT, ">&CATCHERR", $ctx->{cfg}{OPEN3_SHELL}, '-c', $cmd );
     while (<CATCHOUT>) {
         push @$stdout_ref, $_;
     }
@@ -653,11 +658,11 @@ sub init_title {
 
     $title =~ s/^\s+//;
     $title =~ s/\s+$//;
-    addstr( $win, 0, 0, $USERNAME . '@' . $HOSTNAME ) if ( $LAYOUT == $NORMAL );
-    attron( $win, $TITLE_ATTR ) if ( $LAYOUT == $NORMAL );
+    addstr( $win, 0, 0, $USERNAME . '@' . $HOSTNAME ) if ( $ctx->{cfg}{LAYOUT} == $NORMAL );
+    attron( $win, $TITLE_ATTR ) if ( $ctx->{cfg}{LAYOUT} == $NORMAL );
     addstr( $win, 0, int( ( $COLS - disp_width($title) ) / 2 ), $title );
-    attroff( $win, $TITLE_ATTR ) if ( $LAYOUT == $NORMAL );
-    hline( $win, $winRows - 1, 0, ACS_HLINE, $COLS ) if ( $LAYOUT == $NORMAL );
+    attroff( $win, $TITLE_ATTR ) if ( $ctx->{cfg}{LAYOUT} == $NORMAL );
+    hline( $win, $winRows - 1, 0, ACS_HLINE, $COLS ) if ( $ctx->{cfg}{LAYOUT} == $NORMAL );
 }
 
 sub init_top {
@@ -669,7 +674,7 @@ sub init_top {
     foreach $i ( 0 .. $#tlines ) {
         $maxLen = length( $tlines[$i] ) if length( $tlines[$i] ) > $maxLen;
     }
-    if ( $LAYOUT == $SIMPLE ) {
+    if ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) {
         $tlmargin = $has_border ? 2 : 0;
     }
     else {
@@ -728,8 +733,8 @@ sub init_footer {
     $labelSize = int( ( $maxX + 1 ) / $nOptPerRow );
 
     hline( $win, $y0, $x0, ACS_HLINE, $maxX - ( $has_border ? 2 : 0 ) )
-      if ( $LAYOUT == $NORMAL );
-    if ( $LAYOUT == $NORMAL and $has_border ) {
+      if ( $ctx->{cfg}{LAYOUT} == $NORMAL );
+    if ( $ctx->{cfg}{LAYOUT} == $NORMAL and $has_border ) {
         addch( $win, $y0, $x0 - 1,   ACS_LTEE );
         addch( $win, $y0, $maxX - 1, ACS_RTEE );
     }
@@ -751,7 +756,7 @@ sub init_footer {
         }
         addstr( $win, $y, $x, "$keys{$keysList[$i]}{key}" );
         addstr( $win, "$keys{$keysList[$i]}{label}" );
-        if ( $LAYOUT == $NORMAL ) {
+        if ( $ctx->{cfg}{LAYOUT} == $NORMAL ) {
             # The control-key label (e.g. "F4") is highlighted.  A configured
             # $KEY_ATTR (e.g. a colour pair) takes over; otherwise keep the
             # original bkgd-relative reverse so it stands out either way.
@@ -778,7 +783,7 @@ sub call_shell {
     endwin();
     system("clear");
     print "$CALLNAME: $CALL_SHELL_MSG\n\n";
-    system("PS1=\"$prompt\" $USER_SHELL");
+    system("PS1=\"$prompt\" $ctx->{cfg}{USER_SHELL}");
     reset_prog_mode();
     chdir $prev_cwd;
 }
@@ -790,7 +795,7 @@ sub call_system {
     def_prog_mode();
     endwin();
     my $prev_path = $ENV{PATH};
-    $ENV{PATH} = sprintf "%s%s", $MAIN_PATH, $MAIN_PATH ? ":$PATH" : '';
+    $ENV{PATH} = sprintf "%s%s", $MAIN_PATH, $MAIN_PATH ? ":$ctx->{cfg}{PATH}" : '';
     system("clear");
     trace("run \"$cmd\"");
     $res = system($cmd);
@@ -815,7 +820,7 @@ sub disp_msg {
     my ( $pwin, $msg, $title ) = @_;
     my ( $panel, $win, $ch, $width );
 
-    my $win_bg_attr = $LAYOUT == $SIMPLE ? A_NORMAL : A_REVERSE;
+    my $win_bg_attr = $ctx->{cfg}{LAYOUT} == $SIMPLE ? A_NORMAL : A_REVERSE;
     my $bottom_attr = A_NORMAL;
 
     $msg = substr( $msg, 0, $COLS - 4 ) if length($msg) > $COLS - 4;
@@ -856,7 +861,7 @@ sub open_wait_msg {
     my ( $msg,   $win_bg_attr, $y0, $msg_x0 );
 
     $msg = $WAIT_MSG_MSG;
-    if ( $LAYOUT == $SIMPLE ) {
+    if ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) {
         $width       = 62;
         $win_bg_attr = A_NORMAL;
         $y0          = $LINES - 3;
@@ -898,7 +903,7 @@ sub ask_string {
     my @fp;
     my @fset;
 
-    my $win_bg_attr = $LAYOUT == $SIMPLE ? A_NORMAL : A_REVERSE;
+    my $win_bg_attr = $ctx->{cfg}{LAYOUT} == $SIMPLE ? A_NORMAL : A_REVERSE;
     my $lmargin     = 1;
     my $prompt_x    = $FIELD_LMARGIN;
     my $prompt_y    = 0;
@@ -910,7 +915,7 @@ sub ask_string {
     $height = $ASKS_WIN_ROWS;
     $x0     = int( ( $COLS - $width ) / 2 );
     $y0     = int( ( $LINES - $height ) / 2 );
-    if ( $LAYOUT == $SIMPLE ) {
+    if ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) {
         $height   = 10;
         $y0       = $LINES - $height;
         $prompt_x = 1;
@@ -969,7 +974,7 @@ sub ask_string {
     }
     form_driver( $cform, REQ_END_LINE );
 
-    curs_set($ON) if $HIDE_CURSOR;
+    curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
     while (1) {
         $ch = getch($win);
         if ( $ch == KEY_LEFT ) {
@@ -1036,7 +1041,7 @@ sub ask_string {
     map { free_field($_) } @fp;
     @fp   = ();
     @fset = ();
-    curs_set($OFF) if $HIDE_CURSOR;
+    curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
     return ( $es, $strbuff );
 }
 
@@ -1063,11 +1068,11 @@ sub disp_page {
     $pos         = "$obj:$n/$tot";
     $screen_name = basename($screen_name) if $screen_name;
     $buff        = sprintf( "%s %3s %s",
-        $SHOW_SCREEN_NAME ? $screen_name : '',
+        $ctx->{cfg}{SHOW_SCREEN_NAME} ? $screen_name : '',
         $ovl_flag, $pos );
     addstr( $win, 0, $COLS - length($buff), $buff );
     chgat( $win, 0, $COLS - length($pos) - 4, 3, A_REVERSE, NULL, NULL )
-      if $ovl_flag and $LAYOUT == $NORMAL;
+      if $ovl_flag and $ctx->{cfg}{LAYOUT} == $NORMAL;
     move( $win, $saveY, $saveX );
 }
 
@@ -1411,7 +1416,7 @@ sub load_config {
                                             )
                                           )
                                         {
-                                            $LAYOUT =
+                                            $ctx->{cfg}{LAYOUT} =
                                               $layout_vals{ lc($attrv) };
                                         }
                                         else {
@@ -1427,7 +1432,7 @@ sub load_config {
                                             defined( $bool_vals{ lc($attrv) } )
                                           )
                                         {
-                                            $HIDE_CURSOR =
+                                            $ctx->{cfg}{HIDE_CURSOR} =
                                               $bool_vals{ lc($attrv) };
                                         }
                                         else {
@@ -1443,7 +1448,7 @@ sub load_config {
                                             defined( $bool_vals{ lc($attrv) } )
                                           )
                                         {
-                                            $ENABLE_MOUSE =
+                                            $ctx->{cfg}{ENABLE_MOUSE} =
                                               $bool_vals{ lc($attrv) };
                                         }
                                         else {
@@ -1459,7 +1464,7 @@ sub load_config {
                                             defined( $bool_vals{ lc($attrv) } )
                                           )
                                         {
-                                            $SHOW_SCREEN_NAME =
+                                            $ctx->{cfg}{SHOW_SCREEN_NAME} =
                                               $bool_vals{ lc($attrv) };
                                         }
                                         else {
@@ -1471,12 +1476,12 @@ sub load_config {
                                         last ASWITCH;
                                     }
                                     elsif (/^PATH$/) {
-                                        $PATH = $attrv;
+                                        $ctx->{cfg}{PATH} = $attrv;
                                         last ASWITCH;
                                     }
                                     elsif (/^LOG_LEVEL$/) {
-                                        $LOG_LEVEL = $attrv;
-                                        $LOG_FNAME = '' if $LOG_LEVEL == 0;
+                                        $ctx->{cfg}{LOG_LEVEL} = $attrv;
+                                        $ctx->{cfg}{LOG_FNAME} = '' if $ctx->{cfg}{LOG_LEVEL} == 0;
                                         last ASWITCH;
                                     }
                                     elsif (/^PERMIT_DEBUG$/) {
@@ -1484,7 +1489,7 @@ sub load_config {
                                             defined( $bool_vals{ lc($attrv) } )
                                           )
                                         {
-                                            $PERMIT_DEBUG =
+                                            $ctx->{cfg}{PERMIT_DEBUG} =
                                               $bool_vals{ lc($attrv) };
                                         }
                                         else {
@@ -1496,11 +1501,11 @@ sub load_config {
                                         last ASWITCH;
                                     }
                                     elsif (/^SHELL$/) {
-                                        $OPEN3_SHELL = $attrv;
+                                        $ctx->{cfg}{OPEN3_SHELL} = $attrv;
                                         last ASWITCH;
                                     }
                                     elsif (/^USER_SHELL$/) {
-                                        $USER_SHELL = $attrv;
+                                        $ctx->{cfg}{USER_SHELL} = $attrv;
                                         last ASWITCH;
                                     }
                                     elsif (/^RESTRICTED$/) {
@@ -1508,7 +1513,7 @@ sub load_config {
                                             defined( $bool_vals{ lc($attrv) } )
                                           )
                                         {
-                                            $RESTRICTED =
+                                            $ctx->{cfg}{RESTRICTED} =
                                               $bool_vals{ lc($attrv) };
                                         }
                                         else {
@@ -1598,7 +1603,7 @@ sub load_config {
                               ASWITCH: {
                                     $_ = uc $attrk;
                                     if (/^MAX_ROWS$/) {
-                                        $MAX_PAD_LINES = $attrv;
+                                        $ctx->{cfg}{MAX_PAD_LINES} = $attrv;
                                         last ASWITCH;
                                     }
                                     if (/^INFO_ATTR$/) {
@@ -1614,20 +1619,20 @@ sub load_config {
                                         last ASWITCH;
                                     }
                                     if (/^FNKEYS_ROWS$/) {
-                                        $RS_FOOTER_ROWS = 1 + $attrv;
+                                        $ctx->{cfg}{RS_FOOTER_ROWS} = 1 + $attrv;
                                         last ASWITCH;
                                     }
                                     if (/^END_MARKER$/) {
-                                        if ( $END_MARKER =
+                                        if ( $ctx->{cfg}{END_MARKER} =
                                             substr( $attrv, 0, $COLS ) )
                                         {
                                             my $filler =
                                               ' ' x
                                               int(
-                                                ( $COLS - length($END_MARKER) )
+                                                ( $COLS - length($ctx->{cfg}{END_MARKER}) )
                                                 / 2 );
-                                            $END_MARKER =
-                                              "$filler$END_MARKER$filler"
+                                            $ctx->{cfg}{END_MARKER} =
+                                              "$filler$ctx->{cfg}{END_MARKER}$filler"
                                               . (
                                                 length($out) < $COLS
                                                 ? ' '
@@ -1657,7 +1662,7 @@ sub load_config {
                                         or /^FIELD_PAD.\Q$term\E$/ )
                                     {
                                         if ( $attrv =~ /"(.)"/ ) {
-                                            $FIELD_PAD = ord($1);
+                                            $ctx->{cfg}{FIELD_PAD} = ord($1);
                                         }
                                         else {
                                             trace(
@@ -1669,7 +1674,7 @@ sub load_config {
                                     }
                                     elsif (/^HIDDEN_FIELD_PAD$/) {
                                         if ( $attrv =~ /"(.)"/ ) {
-                                            $HFIELD_PAD = ord($1);
+                                            $ctx->{cfg}{HFIELD_PAD} = ord($1);
                                         }
                                         else {
                                             trace(
@@ -1684,7 +1689,7 @@ sub load_config {
                                             defined( $bool_vals{ lc($attrv) } )
                                           )
                                         {
-                                            $SHOW_CHGD_FIELDS =
+                                            $ctx->{cfg}{SHOW_CHGD_FIELDS} =
                                               $bool_vals{ lc($attrv) };
                                         }
                                         else {
@@ -1700,7 +1705,7 @@ sub load_config {
                                             defined( $bool_vals{ lc($attrv) } )
                                           )
                                         {
-                                            $SHOW_FIELD_FLAGS =
+                                            $ctx->{cfg}{SHOW_FIELD_FLAGS} =
                                               $bool_vals{ lc($attrv) };
                                         }
                                         else {
@@ -1716,7 +1721,7 @@ sub load_config {
                                             defined( $bool_vals{ lc($attrv) } )
                                           )
                                         {
-                                            $SHOW_DOTS =
+                                            $ctx->{cfg}{SHOW_DOTS} =
                                               $bool_vals{ lc($attrv) };
                                         }
                                         else {
@@ -1732,7 +1737,7 @@ sub load_config {
                                             defined( $bool_vals{ lc($attrv) } )
                                           )
                                         {
-                                            $INITIAL_OVL_MODE =
+                                            $ctx->{cfg}{INITIAL_OVL_MODE} =
                                               $bool_vals{ lc($attrv) };
                                         }
                                         else {
@@ -1759,7 +1764,7 @@ sub load_config {
                                         if (    $attrv =~ /^-*[0-9]+$/
                                             and $attrv >= -1 )
                                         {
-                                            $FIELD_VALUE_POS = $attrv;
+                                            $ctx->{cfg}{FIELD_VALUE_POS} = $attrv;
                                         }
                                         else {
                                             trace(
@@ -1770,7 +1775,7 @@ sub load_config {
                                         last ASWITCH;
                                     }
                                     elsif (/^FNKEYS_ROWS$/) {
-                                        $FS_FOOTER_ROWS = 1 + $attrv;
+                                        $ctx->{cfg}{FS_FOOTER_ROWS} = 1 + $attrv;
                                         last ASWITCH;
                                     }
                                     else {
@@ -1880,7 +1885,7 @@ sub load_config {
                                             defined( $bool_vals{ lc($attrv) } )
                                           )
                                         {
-                                            $MARK_NOACT_ITEMS =
+                                            $ctx->{cfg}{MARK_NOACT_ITEMS} =
                                               $bool_vals{ lc($attrv) };
                                         }
                                         else {
@@ -1892,7 +1897,7 @@ sub load_config {
                                         last ASWITCH;
                                     }
                                     if (/^FNKEYS_ROWS$/) {
-                                        $MS_FOOTER_ROWS = 1 + $attrv;
+                                        $ctx->{cfg}{MS_FOOTER_ROWS} = 1 + $attrv;
                                         last ASWITCH;
                                     }
                                     if (/^SCREEN_ATTR$/) {
@@ -1965,10 +1970,10 @@ sub do_menu {
 
     unless ( $es = load_menu( $menuname, \%menu ) ) {
         foreach $i ( 0 .. $#{ $menu{items} } ) {
-            if ( $MARK_NOACT_ITEMS and !$menu{items}[$i]{action} ) {
+            if ( $ctx->{cfg}{MARK_NOACT_ITEMS} and !$menu{items}[$i]{action} ) {
                 $menu{items}[$i]{descr} = "($menu{items}[$i]{descr})";
             }
-            if ( $LAYOUT != $SIMPLE ) {
+            if ( $ctx->{cfg}{LAYOUT} != $SIMPLE ) {
                 $menu{items}[$i]{descr} = " $menu{items}[$i]{descr} ";
             }
             $item = new_item( $menu{items}[$i]{descr}, "" );
@@ -2010,14 +2015,14 @@ sub do_menu {
             $mwinr =
               $eff_lines -
               ( $MS_HEADER_ROWS + $MS_TOP_ROWS + $MS_BOTTOM_ROWS
-                  + $MS_FOOTER_ROWS );
+                  + $ctx->{cfg}{MS_FOOTER_ROWS} );
             $win = newwin( $eff_lines, $eff_cols, 0, 0 );
             $pan = new_panel($win);
             bkgd( $win, $MENU_SCREEN_ATTR );
             set_menu_format( $cmenu, $mwinr, 1 );
             scale_menu( $cmenu, $rows, $cols );
             $mlmargin = int( ( $eff_cols - $cols ) / 2 );
-            $mlmargin = 1 if ( $LAYOUT == $SIMPLE );
+            $mlmargin = 1 if ( $ctx->{cfg}{LAYOUT} == $SIMPLE );
             $mlmargin = 0 if $mlmargin < 0;
             $msub =
               derwin( $win, $rows, $cols, $MS_HEADER_ROWS + $MS_TOP_ROWS,
@@ -2030,7 +2035,7 @@ sub do_menu {
             init_title( $win, $MS_HEADER_ROWS, $title );
             init_top( $win, $NO, $MS_HEADER_ROWS, $MS_TOP_ROWS,
                 @{ $menu{top} } );
-            init_footer( $win, $NO, $MS_FOOTER_ROWS, @MSKeys );
+            init_footer( $win, $NO, $ctx->{cfg}{MS_FOOTER_ROWS}, @MSKeys );
             post_menu($cmenu);
             refresh($win);
         };
@@ -2118,10 +2123,10 @@ sub do_menu {
                 if ( restricted_denies_shell() ) {
                     ;    # disabled in RESTRICTED mode (also off the key bar)
                 }
-                elsif ( valid_shell($USER_SHELL) ) {
-                    curs_set($ON) if $HIDE_CURSOR;
+                elsif ( valid_shell($ctx->{cfg}{USER_SHELL}) ) {
+                    curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
                     call_shell;
-                    curs_set($OFF) if $HIDE_CURSOR;
+                    curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
                     refresh($win);
                 }
                 else {
@@ -2187,7 +2192,7 @@ sub do_menu {
                         }
                     }
                     elsif ( $action eq 'form' ) {
-                        curs_set($ON) if $HIDE_CURSOR;
+                        curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
                         ( $called_form, $args ) = split /\s+/, $args, 2;
                         $args =~ s/^\s+//;
                         $args =~ s/\s+$//;
@@ -2195,7 +2200,7 @@ sub do_menu {
                             $LOG_ACTION_CMD );
                         $es = do_form( $called_form, $menu{items}[$ci]{descr},
                             split /\s+/, $args );
-                        curs_set($OFF) if $HIDE_CURSOR;
+                        curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
                         if ( $es and $es < $ES_USER_REQ ) {
                             trace(
 "WARNING: $es_str[$es] while reading form \"$args\""
@@ -2213,9 +2218,9 @@ sub do_menu {
                             disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
                         }
                         else {
-                            curs_set($ON) if $HIDE_CURSOR;
+                            curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
                             call_system( $wait_key, $args );
-                            curs_set($OFF) if $HIDE_CURSOR;
+                            curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
                         }
                         refresh($win);
                     }
@@ -2246,7 +2251,7 @@ sub do_menu {
                     trace(
 "No action for option \"$exit_id\" of menu \"$menuname\""
                     );
-                    if ( $LAYOUT != $SIMPLE ) {
+                    if ( $ctx->{cfg}{LAYOUT} != $SIMPLE ) {
                         $exit_descr =~ s/^\s+//;
                         $exit_descr =~ s/\s+$//;
                     }
@@ -2299,8 +2304,8 @@ sub do_list {
     my ( $pos_msg, $saveY, $saveX );
     my @top_msg;
     my @lw_keys;
-    my $title_y   = ( $LAYOUT == $SIMPLE ) ? 1 : 0;
-    my $top_msg_y = ( $LAYOUT == $SIMPLE ) ? 3 : 2;
+    my $title_y   = ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) ? 1 : 0;
+    my $top_msg_y = ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) ? 3 : 2;
     my $nselected = 0;
     my ( $mpad, $px, $mpad_x0, $mpad_y0, $mpad_x1, $mpad_y1 );
     my ( $lflag, $rflag );
@@ -2329,7 +2334,7 @@ sub do_list {
                 @lw_keys =
                   qw( help redraw back sel_items exit find find_next sel_all unsel_all );
             }
-            $mark = ( $LAYOUT == $SIMPLE ) ? '>' : ' ';
+            $mark = ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) ? '>' : ' ';
             last SWITCH;
         }
         if (/^display$/) {
@@ -2387,10 +2392,10 @@ sub do_list {
       $top_msg_y + ( scalar @top_msg ) + $list_height + $LW_FOOTER_ROWS;
     $win_height += 2;
 
-    my $win_fg_attr  = $LAYOUT == $SIMPLE ? A_NORMAL  : A_NORMAL;
-    my $win_bg_attr  = $LAYOUT == $SIMPLE ? A_NORMAL  : A_REVERSE;
-    my $menu_fg_attr = $LAYOUT == $SIMPLE ? A_REVERSE : A_NORMAL;
-    my $menu_bg_attr = $LAYOUT == $SIMPLE ? A_NORMAL  : A_REVERSE;
+    my $win_fg_attr  = $ctx->{cfg}{LAYOUT} == $SIMPLE ? A_NORMAL  : A_NORMAL;
+    my $win_bg_attr  = $ctx->{cfg}{LAYOUT} == $SIMPLE ? A_NORMAL  : A_REVERSE;
+    my $menu_fg_attr = $ctx->{cfg}{LAYOUT} == $SIMPLE ? A_REVERSE : A_NORMAL;
+    my $menu_bg_attr = $ctx->{cfg}{LAYOUT} == $SIMPLE ? A_NORMAL  : A_REVERSE;
 
     $type = lc($type);
     undef(@selected);
@@ -2442,7 +2447,7 @@ sub do_list {
     bkgd( $mwin, $menu_bg_attr );
     box( $mwin, 0, 0 );
     if ( defined($title) ) {
-        $title = " $title " if $LAYOUT == $NORMAL;
+        $title = " $title " if $ctx->{cfg}{LAYOUT} == $NORMAL;
     }
     addstr( $mwin, $title_y, int( ( $LW_COLS - disp_width($title) ) / 2 ),
         $title );
@@ -2451,7 +2456,7 @@ sub do_list {
     scale_menu( $cmenu, $rows, $cols );
 
     $mpanel = new_panel($mwin);
-    if ( $LAYOUT == $NORMAL ) {
+    if ( $ctx->{cfg}{LAYOUT} == $NORMAL ) {
         $mlmargin = int( ( $LW_COLS - $cols ) / 2 );
         $mlmargin = 1 if $mlmargin < 1;
     }
@@ -2708,7 +2713,7 @@ sub do_form {
     $set_field_active_attr = sub {
         my ( $bg, $fg );
         my $fidx = int( field_index( current_field($cform) ) / 7 );
-        if ( $SHOW_CHGD_FIELDS and $form{fields}[$fidx]{changed} ) {
+        if ( $ctx->{cfg}{SHOW_CHGD_FIELDS} and $form{fields}[$fidx]{changed} ) {
             $fg = $acf_valueFg;
             $bg = $acf_valueBg;
         }
@@ -2729,7 +2734,7 @@ sub do_form {
         my $curr_val = field_buffer( current_field($cform), 0 );
         $curr_val =~ s/\s+$//;
         my $fi = int( field_index( current_field($cform) ) / 7 );
-        if ($SHOW_CHGD_FIELDS) {
+        if ($ctx->{cfg}{SHOW_CHGD_FIELDS}) {
             if ( $curr_val ne $form{fields}[$fi]{value} ) {
                 $form{fields}[$fi]{changed} = $YES;
                 set_field_fore( $fp[ field_index( current_field($cform) ) ],
@@ -2926,7 +2931,7 @@ sub do_form {
           ( $FS_HEADER_ROWS +
               $FS_TOP_ROWS +
               $FS_BOTTOM_ROWS +
-              $FS_FOOTER_ROWS );
+              $ctx->{cfg}{FS_FOOTER_ROWS} );
         $win = newwin( $LINES, $COLS, 0, 0 );
         $pan = new_panel($win);
 
@@ -2943,7 +2948,7 @@ sub do_form {
         if ( $form{init} ) {
             my ( $action, $args ) = split /:/, $form{init}, 2;
             if ( $action eq 'command' ) {
-                curs_set($OFF) if $HIDE_CURSOR;
+                curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
                 my ( $wpan, $wwin ) = open_wait_msg;
                 %{$field_vals} = ();
                 my $prev_path = $ENV{PATH};
@@ -2997,7 +3002,7 @@ sub do_form {
                     }
                 }
                 close_wait_msg( $wpan, $wwin, $win );
-                curs_set($ON) if $HIDE_CURSOR;
+                curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
                 if ($child_es) {
                     del_panel($pan);
                     delwin($win);
@@ -3036,7 +3041,7 @@ sub do_form {
                 $type    = $form{fields}[$i]{type};
                 $default = $form{fields}[$i]{default};
                 $script  = $form{fields}[$i]{help_script};
-                $fpad    = $hidden ? $HFIELD_PAD : $FIELD_PAD;
+                $fpad    = $hidden ? $ctx->{cfg}{HFIELD_PAD} : $ctx->{cfg}{FIELD_PAD};
 
                 $all_ids .= " " if !( $form{fields}[$i]{option} );
                 $all_ids .= "%{$id}" if $id !~ /^$FSEP_ID_PRFX/;
@@ -3044,7 +3049,7 @@ sub do_form {
                     $label =
                       $field_vals->{$id} ? $field_vals->{$id} : 'ERROR!';
                 }
-                if ( $LAYOUT == $SIMPLE ) {
+                if ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) {
                     $len = $COLS - ( 52 + $rflags_size + 2 )
                       if ( 52 + $len + $rflags_size + 2 > $COLS );
                 }
@@ -3069,7 +3074,7 @@ sub do_form {
                 # full-width line(s) and the value drops to the row after the
                 # last label line, so it is never pushed off-screen or truncated.
                 # The geometry is pure (CCFE::Layout); resize_form reuses it.
-                my $auto = ( $LAYOUT == $NORMAL and $FIELD_VALUE_POS == -1 );
+                my $auto = ( $ctx->{cfg}{LAYOUT} == $NORMAL and $ctx->{cfg}{FIELD_VALUE_POS} == -1 );
                 my $geom = CCFE::Layout::field_geometry(
                     {
                         cols        => $COLS,
@@ -3077,7 +3082,7 @@ sub do_form {
                         label_x     => $label_x,
                         label_w     => $lw,
                         rflags_size => $rflags_size,
-                        value_pos   => $FIELD_VALUE_POS,
+                        value_pos   => $ctx->{cfg}{FIELD_VALUE_POS},
                         gap         => $FIELD_VALUE_GAP,
                         auto        => $auto,
                     }
@@ -3135,7 +3140,7 @@ sub do_form {
                 field_opts_off( $field, O_ACTIVE );
                 set_field_fore( $field, $labelFg );    # blend with the panel
                 set_field_back( $field, $labelBg );
-                if ( !$SHOW_FIELD_FLAGS ) {
+                if ( !$ctx->{cfg}{SHOW_FIELD_FLAGS} ) {
                     field_opts_off( $field, O_VISIBLE );
                 }
                 field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
@@ -3155,7 +3160,7 @@ sub do_form {
                 field_opts_off( $field, O_ACTIVE );
                 set_field_fore( $field, $labelFg );    # blend with the panel
                 set_field_back( $field, $labelBg );
-                if ( !$SHOW_FIELD_FLAGS ) {
+                if ( !$ctx->{cfg}{SHOW_FIELD_FLAGS} ) {
                     field_opts_off( $field, O_VISIBLE );
                 }
                 field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
@@ -3203,7 +3208,7 @@ sub do_form {
                 push @fp,   $field;
                 push @fset, ${$field};
 
-                if ($SHOW_DOTS) {
+                if ($ctx->{cfg}{SHOW_DOTS}) {
                     $dots = '';
                     for ( $c = $dots_x - 1 ; $c < $lvald_x - 2 ; $c++ ) {
                         $dots .= ( $c % 2 ) ? '.' : ' ';
@@ -3248,7 +3253,7 @@ sub do_form {
                 set_field_buffer( $field, 0, $val );
                 set_field_buffer( $field, 1, $val );
                 $form{fields}[$i]{value} = $val;
-                if ( $LAYOUT == $NORMAL and $type == $NUMERIC ) {
+                if ( $ctx->{cfg}{LAYOUT} == $NORMAL and $type == $NUMERIC ) {
                     set_field_just( $field, JUSTIFY_RIGHT );
                 }
 
@@ -3312,7 +3317,7 @@ sub do_form {
         init_title( $win, $FS_HEADER_ROWS, $title );
         disp_page( $win, form_page($cform) + 1, $npages, 'form', $formname );
         init_top( $win, $NO, $FS_HEADER_ROWS, $FS_TOP_ROWS, @{ $form{top} } );
-        init_footer( $win, $NO, $FS_FOOTER_ROWS, @FSKeys );
+        init_footer( $win, $NO, $ctx->{cfg}{FS_FOOTER_ROWS}, @FSKeys );
         my $post_rc = post_form($cform);
         trace( "do_form: post_form => $post_rc ($npages page(s))", $LOG_NORMAL );
         if ($ovl_mode) {
@@ -3323,7 +3328,7 @@ sub do_form {
         }
         form_driver( $cform, REQ_END_LINE );
         refresh($win);
-        curs_set($ON) if $HIDE_CURSOR;
+        curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
 
         # On a terminal resize, re-paginate the fields for the new height and
         # rebuild the window/form at the new $LINES/$COLS.  Field values are
@@ -3338,7 +3343,7 @@ sub do_form {
             $mwinr =
               $eff_lines -
               ( $FS_HEADER_ROWS + $FS_TOP_ROWS + $FS_BOTTOM_ROWS
-                  + $FS_FOOTER_ROWS );
+                  + $ctx->{cfg}{FS_FOOTER_ROWS} );
 
             # Commit the field currently being edited to its buffer so the
             # value survives the free_form/new_form cycle below.
@@ -3367,7 +3372,7 @@ sub do_form {
                 my $f      = $form{fields}[$li];
                 my $is_sep = ( $f->{type} == $SEPARATOR );
                 my $reflow =
-                  ( $LAYOUT == $NORMAL and $FIELD_VALUE_POS == -1 and !$is_sep );
+                  ( $ctx->{cfg}{LAYOUT} == $NORMAL and $ctx->{cfg}{FIELD_VALUE_POS} == -1 and !$is_sep );
                 my $label   = $f->{label};
                 my $len     = $f->{len};
                 my $label_x = $FIELD_LMARGIN + ( $f->{htab} || 0 ) * $HTAB_COLS;
@@ -3384,7 +3389,7 @@ sub do_form {
                             label_x     => $label_x,
                             label_w     => $lw,
                             rflags_size => $rflags_size,
-                            value_pos   => $FIELD_VALUE_POS,
+                            value_pos   => $ctx->{cfg}{FIELD_VALUE_POS},
                             gap         => $FIELD_VALUE_GAP,
                             auto        => 1,
                         }
@@ -3428,7 +3433,7 @@ sub do_form {
 
                     # ... and the dot run (its width follows the value column).
                     my $dots;
-                    if ($SHOW_DOTS) {
+                    if ($ctx->{cfg}{SHOW_DOTS}) {
                         $dots = '';
                         for ( my $c = $dots_x - 1 ; $c < $lvald_x - 2 ; $c++ ) {
                             $dots .= ( $c % 2 ) ? '.' : ' ';
@@ -3518,7 +3523,7 @@ sub do_form {
                 $formname );
             init_top( $win, $NO, $FS_HEADER_ROWS, $FS_TOP_ROWS,
                 @{ $form{top} } );
-            init_footer( $win, $NO, $FS_FOOTER_ROWS, @FSKeys );
+            init_footer( $win, $NO, $ctx->{cfg}{FS_FOOTER_ROWS}, @FSKeys );
             my $pr = post_form($cform);
             trace( "resize_form: post_form => $pr ($npages page(s))",
                 $LOG_NORMAL );
@@ -3695,13 +3700,13 @@ sub do_form {
                         and $form{fields}[$i]{value} eq '' )
                     {
                         $empty_required = $YES;
-                        curs_set($OFF) if $HIDE_CURSOR;
+                        curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
                         disp_msg(
                             $win,
                             "\"$form{fields}[$i]{label}\" $ERR_EMPTY_FIELD_MSG",
                             $ERR_EMPTY_FIELD_TITLE
                         );
-                        curs_set($ON) if $HIDE_CURSOR;
+                        curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
                         last;
                     }
                 }
@@ -3760,7 +3765,7 @@ sub do_form {
                         trace( $args,    $LOG_ACTION_CMD + $LOG_NORMAL );
                         $es =
                           run_browse( $title, $args, $formname, $form{path} );
-                        curs_set($ON) if $HIDE_CURSOR;
+                        curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
                     }
                     elsif ( $action eq 'form' ) {
                         foreach $i ( 0 .. $#{ $form{fields} } ) {
@@ -3782,13 +3787,13 @@ sub do_form {
                             trace(
 "WARNING: $es_str[$es] reading form \"$called_form\""
                             );
-                            curs_set($OFF) if $HIDE_CURSOR;
+                            curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
                             disp_msg(
                                 $win,
 "$es_str[$es] $LOAD_FORM_ERR_MSG \"$called_form\"",
                                 $FORM_ERR_TITLE
                             );
-                            curs_set($ON) if $HIDE_CURSOR;
+                            curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
                         }
                     }
                     elsif ( $action eq 'system' ) {
@@ -3820,7 +3825,7 @@ sub do_form {
                 last;
             }
             elsif ( $ch == $keys{list}{code} ) {
-                curs_set($OFF) if $HIDE_CURSOR;
+                curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
                 my $ci = int( field_index( current_field($cform) ) / 7 );
                 if ( $form{fields}[$ci]{list_cmd} ) {
                     my $val;
@@ -3910,7 +3915,7 @@ sub do_form {
                 else {
                     disp_msg( $win, $NULL_LIST_MSG, $NULL_LIST_TITLE );
                 }
-                curs_set($ON) if $HIDE_CURSOR;
+                curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
             }
             elsif ( $ch == $keys{show_action}{code} ) {
                 $sync_fields_val->();
@@ -3919,10 +3924,10 @@ sub do_form {
                 if ($args) {
                     $prepare_action->( \$args );
                     my @cmd = split /\n/, $args;
-                    curs_set($OFF) if $HIDE_CURSOR;
+                    curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
                     ($es) = do_list( $win, $SHOW_ACTION_TITLE, 'display', \@cmd,
                         undef );
-                    curs_set($ON) if $HIDE_CURSOR;
+                    curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
                 }
                 else {
                     trace("ERROR: empty form action");
@@ -3987,7 +3992,7 @@ sub do_form {
                 if ( restricted_denies_shell() ) {
                     ;    # disabled in RESTRICTED mode (also off the key bar)
                 }
-                elsif ( valid_shell($USER_SHELL) ) {
+                elsif ( valid_shell($ctx->{cfg}{USER_SHELL}) ) {
                     call_shell;
                     refresh($win);
                 }
@@ -4154,7 +4159,7 @@ sub run_browse {
 
     $child_es = 0;
 
-    if ( $LAYOUT == $SIMPLE ) {
+    if ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) {
         $status_fg_attr = A_NORMAL;
         $status_bg_attr = A_NORMAL;
     }
@@ -4167,7 +4172,7 @@ sub run_browse {
     $prev_wdir = getcwd();
     chdir "$SCREEN_DIR";
     trace( "Changed CWD from $prev_wdir to " . getcwd() );
-    $ENV{PATH} = sprintf "%s%s:.", $MAIN_PATH, $MAIN_PATH ? ":$PATH" : '';
+    $ENV{PATH} = sprintf "%s%s:.", $MAIN_PATH, $MAIN_PATH ? ":$ctx->{cfg}{PATH}" : '';
     if ($extra_path) {
         my @dirs = split /:/, $extra_path;
         foreach $i ( 0 .. $#dirs ) {
@@ -4181,7 +4186,7 @@ sub run_browse {
     trace("run \"$cmd\"");
 
     $mwinr = $LINES -
-      ( $RS_HEADER_ROWS + $RS_TOP_ROWS + $RS_BOTTOM_ROWS + $RS_FOOTER_ROWS );
+      ( $RS_HEADER_ROWS + $RS_TOP_ROWS + $RS_BOTTOM_ROWS + $ctx->{cfg}{RS_FOOTER_ROWS} );
     $win = newwin( $LINES, $COLS, 0, 0 );
     $mwin = subwin( $win, $mwinr, $COLS, $RS_HEADER_ROWS + $RS_TOP_ROWS, 0 );
     $hwin = subwin( $win, $RS_HEADER_ROWS, $COLS, 0,               0 );
@@ -4190,7 +4195,7 @@ sub run_browse {
     bkgd( $win, $MENU_SCREEN_ATTR );    # themed screen background (panel look)
 
     init_title( $hwin, $RS_HEADER_ROWS, $RB_TITLE );
-    init_footer( $win, $NO, $RS_FOOTER_ROWS, qw(int) );
+    init_footer( $win, $NO, $ctx->{cfg}{RS_FOOTER_ROWS}, qw(int) );
 
     scrollok( $mwin, 1 );
     keypad( $mwin, $ON );
@@ -4206,7 +4211,7 @@ sub run_browse {
 
     $start_time = time;
     $errfh      = gensym();
-    eval { $cpid = open3( $infh, $outfh, $errfh, $OPEN3_SHELL, '-c', $cmd ); };
+    eval { $cpid = open3( $infh, $outfh, $errfh, $ctx->{cfg}{OPEN3_SHELL}, '-c', $cmd ); };
     fatal($@) if $@;
     trace("successfully forked child PID $cpid");
     $sel = new IO::Select;
@@ -4302,14 +4307,14 @@ sub run_browse {
     $ENV{PATH} = $prev_path;
     chdir "$prev_wdir";
     trace( "Restored CWD to " . getcwd() );
-    if ($END_MARKER) {
-        print $tmpfh "$RS_INFO_ID:$END_MARKER";
+    if ($ctx->{cfg}{END_MARKER}) {
+        print $tmpfh "$RS_INFO_ID:$ctx->{cfg}{END_MARKER}";
         $pad_lines++;
     }
 
-    if ( $pad_lines > $MAX_PAD_LINES ) {
+    if ( $pad_lines > $ctx->{cfg}{MAX_PAD_LINES} ) {
         disp_msg( $win, $BIG_OUTPUT_MSG, $BIG_OUTPUT_TITLE );
-        $pad_lines = $MAX_PAD_LINES;
+        $pad_lines = $ctx->{cfg}{MAX_PAD_LINES};
     }
     elsif ( $pad_lines < $mwinr ) {
         $pad_lines = $mwinr;
@@ -4320,12 +4325,12 @@ sub run_browse {
     load_pad;
 
     delwin($mwin);
-    init_footer( $win, $NO, $RS_FOOTER_ROWS, @RSKeys );
-    curs_set($OFF) if $HIDE_CURSOR;
+    init_footer( $win, $NO, $ctx->{cfg}{RS_FOOTER_ROWS}, @RSKeys );
+    curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
     addstr( $twin, 0, 0, "Status: " );
-    attron( $twin, A_REVERSE ) if ( $LAYOUT == $SIMPLE );
+    attron( $twin, A_REVERSE ) if ( $ctx->{cfg}{LAYOUT} == $SIMPLE );
     addstr( $twin, $child_es ? $RB_FAILED_MSG : $RB_OK_MSG );
-    attroff( $twin, A_REVERSE ) if ( $LAYOUT == $SIMPLE );
+    attroff( $twin, A_REVERSE ) if ( $ctx->{cfg}{LAYOUT} == $SIMPLE );
     addstr( $twin, $child_es ? ' ' : '     ' );
     addstr(
         $twin,
@@ -4385,10 +4390,10 @@ sub run_browse {
             if ( restricted_denies_shell() ) {
                 ;    # disabled in RESTRICTED mode (also off the key bar)
             }
-            elsif ( valid_shell($USER_SHELL) ) {
-                curs_set($ON) if $HIDE_CURSOR;
+            elsif ( valid_shell($ctx->{cfg}{USER_SHELL}) ) {
+                curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
                 call_shell;
-                curs_set($OFF) if $HIDE_CURSOR;
+                curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
                 refresh($win);
             }
             else {
@@ -4414,7 +4419,7 @@ sub run_browse {
             # follows the new height.
             $mwinr =
               $LINES - ( $RS_HEADER_ROWS + $RS_TOP_ROWS + $RS_BOTTOM_ROWS
-                  + $RS_FOOTER_ROWS );
+                  + $ctx->{cfg}{RS_FOOTER_ROWS} );
             $mwinr = 1 if $mwinr < 1;
             my $rl = $LINES < 24 ? 24 : $LINES;
             my $rc = $COLS < 80  ? 80 : $COLS;
@@ -4431,7 +4436,7 @@ sub run_browse {
             $pan  = new_panel($win);
             bkgd( $win, $MENU_SCREEN_ATTR );
             init_title( $hwin, $RS_HEADER_ROWS, $RB_TITLE );
-            init_footer( $win, $NO, $RS_FOOTER_ROWS, @RSKeys );
+            init_footer( $win, $NO, $ctx->{cfg}{RS_FOOTER_ROWS}, @RSKeys );
             scrollok( $mwin, 1 );
             keypad( $mwin, $ON );
             $npages =
@@ -4454,7 +4459,7 @@ sub run_browse {
             # The runnable-script save is an escape vector (writes a chmod +x
             # #!shell file): omit it in RESTRICTED mode.  Plain text saves stay.
             push @save_types, "$SAVE_SCRIPT $SAVE_SCRIPT_DESCR"
-              unless $RESTRICTED;
+              unless $ctx->{cfg}{RESTRICTED};
             ( $es, $val ) =
               do_list( $win, $SAVE_TYPE_TITLE, 'single-val', \@save_types,
                 undef );
@@ -4465,7 +4470,7 @@ sub run_browse {
             );
             if ($val) {
                 my $fname = "$ENV{HOME}/$save_fname.out";
-                $fname = "$ENV{HOME}/$save_fname." . basename($OPEN3_SHELL)
+                $fname = "$ENV{HOME}/$save_fname." . basename($ctx->{cfg}{OPEN3_SHELL})
                   if ( $val eq $SAVE_SCRIPT );
                 ( $es, $fname ) =
                   ask_string( $SAVE_FNAME_TITLE, $SAVE_FNAME_PROMPT, $fname );
@@ -4510,8 +4515,8 @@ sub run_browse {
                                 print OUTF or die('DIED');
                             }
                         }
-                        elsif ( $val eq $SAVE_SCRIPT and !$RESTRICTED ) {
-                            print OUTF "#!$OPEN3_SHELL\n";
+                        elsif ( $val eq $SAVE_SCRIPT and !$ctx->{cfg}{RESTRICTED} ) {
+                            print OUTF "#!$ctx->{cfg}{OPEN3_SHELL}\n";
                             print OUTF "# $cmd_descr\n";
                             print OUTF "$cmd\n";
                             chmod 0755, $fname;
@@ -4764,7 +4769,7 @@ sub list_plugins {
     exit 0;
 }
 
-# True if a bare command name is found in $PATH (for a manifest's `requires`).
+# True if a bare command name is found in $ctx->{cfg}{PATH} (for a manifest's `requires`).
 sub cmd_in_path {
     my ($cmd) = @_;
     return 1 if $cmd =~ m{/} && -x $cmd;
@@ -5053,34 +5058,34 @@ trace(
 chdir "$WRKDIR";
 trace( 'Changed CWD to ' . getcwd() );
 
-$HIDE_CURSOR      = $YES;
-$SHOW_SCREEN_NAME = $YES;
-$INITIAL_OVL_MODE = $NO;
+$ctx->{cfg}{HIDE_CURSOR}      = $YES;
+$ctx->{cfg}{SHOW_SCREEN_NAME} = $YES;
+$ctx->{cfg}{INITIAL_OVL_MODE} = $NO;
 # Mouse is opt-in (config `mouse = YES`): grabbing mouse events stops the
 # terminal's own click-to-select text, which keyboard-first users may want.
-$ENABLE_MOUSE     = $NO;
+$ctx->{cfg}{ENABLE_MOUSE}     = $NO;
 $MOUSE_ON         = $NO;
-$FIELD_PAD        = 95;
-$HFIELD_PAD       = 42;
-$SHOW_CHGD_FIELDS = $YES;
-$SHOW_FIELD_FLAGS = $YES;
-$SHOW_DOTS        = $YES;
-$MARK_NOACT_ITEMS = $NO;
-$MAX_PAD_LINES    = 5000;
+$ctx->{cfg}{FIELD_PAD}        = 95;
+$ctx->{cfg}{HFIELD_PAD}       = 42;
+$ctx->{cfg}{SHOW_CHGD_FIELDS} = $YES;
+$ctx->{cfg}{SHOW_FIELD_FLAGS} = $YES;
+$ctx->{cfg}{SHOW_DOTS}        = $YES;
+$ctx->{cfg}{MARK_NOACT_ITEMS} = $NO;
+$ctx->{cfg}{MAX_PAD_LINES}    = 5000;
 $RS_INFO_ATTR     = A_REVERSE;
 $RS_STDERR_ATTR   = A_BOLD;
 $RS_STDOUT_ATTR   = A_NORMAL;
-$END_MARKER       = '';
-$OPEN3_SHELL      = '/bin/sh';
-$USER_SHELL       = ( getpwuid($>) )[8];
+$ctx->{cfg}{END_MARKER}       = '';
+$ctx->{cfg}{OPEN3_SHELL}      = '/bin/sh';
+$ctx->{cfg}{USER_SHELL}       = ( getpwuid($>) )[8];
 @fval_delim       = ( ' ', ' ' );
-$FIELD_VALUE_POS  = -1;
+$ctx->{cfg}{FIELD_VALUE_POS}  = -1;
 # Auto value placement (FIELD_VALUE_POS == -1, NORMAL layout): the value column
 # sits this many columns past the longest label on the page, instead of being
 # right-aligned to the screen edge.  This keeps the dot run short and the form
 # compact, so values stay on-screen on narrow terminals.
 $FIELD_VALUE_GAP  = 4;
-$RESTRICTED       = $NO;
+$ctx->{cfg}{RESTRICTED}       = $NO;
 @RESTRICTED_ALLOW = ();
 $HAS_COLOR        = $NO;
 # Menu/screen theme attributes.  Defaults preserve the historical monochrome
@@ -5095,16 +5100,11 @@ $MENU_SEL_ATTR    = A_REVERSE;
 $TITLE_ATTR       = A_BOLD;
 $KEY_ATTR         = undef;     # undef = the original bkgd-relative highlight
 
-# The explicit run-state container (M7 de-globalisation, REFACTOR.md §3.2).
-# Created here at startup and threaded into the screen subs as each phase moves
-# a structure off the package globals onto it; see M7-CTX-PLAN.md.
-my $ctx = CCFE::Context::new();
-
 if ( $res = load_config ) {
     trace("$es_str[$res] loading configuration file");
 }
 harden_child_env();
-if ($RESTRICTED) {
+if ($ctx->{cfg}{RESTRICTED}) {
     # Hide the now-inert escape keys from the on-screen key bars; the key
     # handlers also enforce the policy, so this is defence in depth + UX.
     @MSKeys = grep { $_ ne 'shell_escape' } @MSKeys;
@@ -5127,7 +5127,7 @@ if ($RESTRICTED) {
 # such call only reserved a pair number -- init_dynamic_pairs() creates them
 # here.  Otherwise nothing changes and the appearance is exactly as before.
 # See CCFE::Theme / REFACTOR.md.
-if ( has_colors() and !$ENV{NO_COLOR} and $LAYOUT != $SIMPLE ) {
+if ( has_colors() and !$ENV{NO_COLOR} and $ctx->{cfg}{LAYOUT} != $SIMPLE ) {
     start_color();
     eval { use_default_colors() };    # lets pairs use the terminal's own bg
     CCFE::Theme::init_standard_pairs();
@@ -5135,14 +5135,14 @@ if ( has_colors() and !$ENV{NO_COLOR} and $LAYOUT != $SIMPLE ) {
     $HAS_COLOR = $YES;
     trace("colour enabled (standard pairs + $dyn fg/bg pair(s) created)");
 }
-if ( !$PERMIT_DEBUG ) {
+if ( !$ctx->{cfg}{PERMIT_DEBUG} ) {
     trace('debugging disabled by configuration!');
     $DEBUG = $NO;
 }
 # Mouse (opt-in via `mouse = YES`): grab single and double left-clicks so a
 # menu item can be pointed at (click selects, double-click activates).  A short
 # double-click interval keeps a deliberate double-click responsive.
-if ($ENABLE_MOUSE) {
+if ($ctx->{cfg}{ENABLE_MOUSE}) {
     my $old = 0;
     my $set = mousemask( BUTTON1_CLICKED() | BUTTON1_DOUBLE_CLICKED(), $old );
     if ($set) {
@@ -5154,8 +5154,8 @@ if ($ENABLE_MOUSE) {
         trace('mouse requested but the terminal has none');
     }
 }
-trace("Using \"$USER_SHELL\" for user shell escape");
-trace("Using \"$OPEN3_SHELL\" for commands execution");
+trace("Using \"$ctx->{cfg}{USER_SHELL}\" for user shell escape");
+trace("Using \"$ctx->{cfg}{OPEN3_SHELL}\" for commands execution");
 
 if ( $keys{back}{code} == -1 ) {
     $keys{back}{code}  = KEY_F(10);
@@ -5164,12 +5164,12 @@ if ( $keys{back}{code} == -1 ) {
     trace("\"Back\" fn key not defined - force F10=Back");
 }
 
-$ovl_mode       = $INITIAL_OVL_MODE;
-$ASKS_FIELD_PAD = $FIELD_PAD;
+$ovl_mode       = $ctx->{cfg}{INITIAL_OVL_MODE};
+$ASKS_FIELD_PAD = $ctx->{cfg}{FIELD_PAD};
 
 if ( $shcut_type = get_shortcut($shcut) ) {
     noecho;
-    curs_set($OFF) if $HIDE_CURSOR;
+    curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
 
     # Run the interaction under a guard: should anything die uncaught from deep
     # in a menu/form (e.g. a Curses XS error), restore the terminal and report a

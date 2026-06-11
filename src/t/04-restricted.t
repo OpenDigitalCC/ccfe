@@ -21,20 +21,20 @@ require "$src/ccfe.pl";
 no warnings 'once';
 
 # ---- restricted_denies_shell() -----------------------------------------
-$main::RESTRICTED = 0;
+$main::ctx->{cfg}{RESTRICTED} = 0;
 ok( !main::restricted_denies_shell(),
     'shell escape is allowed when not restricted' );
-$main::RESTRICTED = 1;
+$main::ctx->{cfg}{RESTRICTED} = 1;
 ok( main::restricted_denies_shell(),
     'shell escape is denied in RESTRICTED mode' );
 
 # ---- restricted_denies_verb() ------------------------------------------
-$main::RESTRICTED       = 0;
+$main::ctx->{cfg}{RESTRICTED} = 0;
 @main::RESTRICTED_ALLOW = ();
 ok( !main::restricted_denies_verb( 'system', 'vi /etc/passwd' ),
     'system: allowed when not restricted' );
 
-$main::RESTRICTED = 1;
+$main::ctx->{cfg}{RESTRICTED} = 1;
 ok( main::restricted_denies_verb( 'system', 'vi /etc/passwd' ),
     'system: denied in RESTRICTED mode with an empty allowlist' );
 ok( main::restricted_denies_verb( 'exec', '/bin/sh' ),
@@ -90,7 +90,7 @@ like(
 );
 like(
     $code,
-    qr/push\s+\@save_types,.*?unless\s+\$RESTRICTED/s,
+    qr/push\s+\@save_types,.*?unless\s+\$ctx->\{cfg\}\{RESTRICTED\}/s,
     'the runnable-script save option is omitted under RESTRICTED'
 );
 like(
