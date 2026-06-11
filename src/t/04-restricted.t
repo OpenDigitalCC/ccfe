@@ -30,7 +30,7 @@ ok( main::restricted_denies_shell(),
 
 # ---- restricted_denies_verb() ------------------------------------------
 $main::ctx->{cfg}{RESTRICTED} = 0;
-@main::RESTRICTED_ALLOW = ();
+$main::ctx->{cfg}{RESTRICTED_ALLOW} = [];
 ok( !main::restricted_denies_verb( 'system', 'vi /etc/passwd' ),
     'system: allowed when not restricted' );
 
@@ -44,7 +44,7 @@ ok( !main::restricted_denies_verb( 'run', 'df -h' ),
 ok( !main::restricted_denies_verb( 'menu', 'demo' ),
     'menu: is never gated' );
 
-@main::RESTRICTED_ALLOW = ( 'top', 'df' );
+$main::ctx->{cfg}{RESTRICTED_ALLOW} = [ 'top', 'df' ];
 ok( !main::restricted_denies_verb( 'system', 'df -h' ),
     'an allowlisted program is permitted' );
 ok( main::restricted_denies_verb( 'system', 'vi' ),

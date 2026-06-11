@@ -401,8 +401,8 @@ sub valid_shell {
 sub restricted_denies_verb {
     my ( $verb, $args ) = @_;
     my $deny =
-      CCFE::Restrict::denies_verb( $ctx->{cfg}{RESTRICTED}, \@RESTRICTED_ALLOW, $verb,
-        $args );
+      CCFE::Restrict::denies_verb( $ctx->{cfg}{RESTRICTED},
+        $ctx->{cfg}{RESTRICTED_ALLOW}, $verb, $args );
     trace("RESTRICTED: denied $verb:\"$args\" (not in RESTRICTED_ALLOW)")
       if $deny;
     return $deny;
@@ -696,16 +696,16 @@ sub init_footer {
         my ($klist_ref) = @_;
 
         my @sorted = sort {
-            if ( $keys{$a}{key} !~ /F[0-9]+/ )
+            if ( $ctx->{cfg}{keys}{$a}{key} !~ /F[0-9]+/ )
             {
                 return 0;
             }
-            elsif ( $keys{$b}{key} !~ /F[0-9]+/ ) {
+            elsif ( $ctx->{cfg}{keys}{$b}{key} !~ /F[0-9]+/ ) {
                 return 0;
             }
             else {
                 return
-                  substr( $keys{$a}{key}, 1 ) <=> substr( $keys{$b}{key}, 1 );
+                  substr( $ctx->{cfg}{keys}{$a}{key}, 1 ) <=> substr( $ctx->{cfg}{keys}{$b}{key}, 1 );
             }
         } @$klist_ref;
         @$klist_ref = @sorted;
@@ -716,7 +716,7 @@ sub init_footer {
     $x0 = $has_border ? 1 : 0;
     $i = 0;
     while ( $i <= $#keysList ) {
-        if ( !$keys{ $keysList[$i] }{label} or !$keys{ $keysList[$i] }{key} ) {
+        if ( !$ctx->{cfg}{keys}{ $keysList[$i] }{label} or !$ctx->{cfg}{keys}{ $keysList[$i] }{key} ) {
             splice( @keysList, $i, 1 );
         }
         else {
@@ -754,8 +754,8 @@ sub init_footer {
             $y++;
             $x = $x0;
         }
-        addstr( $win, $y, $x, "$keys{$keysList[$i]}{key}" );
-        addstr( $win, "$keys{$keysList[$i]}{label}" );
+        addstr( $win, $y, $x, "$ctx->{cfg}{keys}{$keysList[$i]}{key}" );
+        addstr( $win, "$ctx->{cfg}{keys}{$keysList[$i]}{label}" );
         if ( $ctx->{cfg}{LAYOUT} == $NORMAL ) {
             # The control-key label (e.g. "F4") is highlighted.  A configured
             # $ctx->{cfg}{KEY_ATTR} (e.g. a colour pair) takes over; otherwise keep the
@@ -766,7 +766,7 @@ sub init_footer {
               : ( ( getbkgd($win) & A_REVERSE ) ? A_NORMAL : A_REVERSE );
             # chgat() takes the colour pair as a separate argument, so extract
             # it from $ka (0 = no colour, i.e. the monochrome default).
-            chgat( $win, $y, $x, length( $keys{ $keysList[$i] }{key} ),
+            chgat( $win, $y, $x, length( $ctx->{cfg}{keys}{ $keysList[$i] }{key} ),
                 $ka, PAIR_NUMBER($ka), NULL );
         }
         $x += $labelSize;
@@ -1010,11 +1010,11 @@ sub ask_string {
         elsif ( $ch == KEY_BACKSPACE ) {
             form_driver( $cform, REQ_DEL_PREV );
         }
-        elsif ( $ch == $keys{back}{code} or ord($ch) == 27 ) {
+        elsif ( $ch == $ctx->{cfg}{keys}{back}{code} or ord($ch) == 27 ) {
             $es = $ES_CANCEL;
             last;
         }
-        elsif ( $ch == $keys{exit}{code} ) {
+        elsif ( $ch == $ctx->{cfg}{keys}{exit}{code} ) {
             $es = $ES_EXIT;
             last;
         }
@@ -1525,7 +1525,7 @@ sub load_config {
                                         last ASWITCH;
                                     }
                                     elsif (/^RESTRICTED_ALLOW$/) {
-                                        push @RESTRICTED_ALLOW,
+                                        push @{ $ctx->{cfg}{RESTRICTED_ALLOW} },
                                           split /\s*,\s*/, $attrv;
                                         last ASWITCH;
                                     }
@@ -1564,11 +1564,11 @@ sub load_config {
                                                 )
                                               )
                                             {
-                                                $keys{ lc($attrv) }{code} =
+                                                $ctx->{cfg}{keys}{ lc($attrv) }{code} =
                                                   KEY_F($1);
-                                                $keys{ lc($attrv) }{key} =
+                                                $ctx->{cfg}{keys}{ lc($attrv) }{key} =
                                                   "F$1";
-                                                $keys{ lc($attrv) }{label} =
+                                                $ctx->{cfg}{keys}{ lc($attrv) }{label} =
                                                   eval "\$KEY_F$1_LABEL";
                                             }
                                             else {
@@ -1750,7 +1750,7 @@ sub load_config {
                                     }
                                     elsif (/^VALUE_DELIMITERS$/) {
                                         if ( $attrv =~ /"(.)"\s*,\s*"(.)"/ ) {
-                                            @fval_delim = ( $1, $2 );
+                                            $ctx->{cfg}{fval_delim} = [ $1, $2 ];
                                         }
                                         else {
                                             trace(
@@ -2111,15 +2111,15 @@ sub do_menu {
                 clearok( curscr, 1 );
                 refresh(curscr);
             }
-            elsif ( $ch == $keys{redraw}{code} ) {
+            elsif ( $ch == $ctx->{cfg}{keys}{redraw}{code} ) {
                 clearok( curscr, 1 );
                 refresh(curscr);
             }
-            elsif ( $ch == $keys{back}{code} or ord($ch) == 27 ) {
+            elsif ( $ch == $ctx->{cfg}{keys}{back}{code} or ord($ch) == 27 ) {
                 $es = $ES_CANCEL;
                 last;
             }
-            elsif ( $ch == $keys{shell_escape}{code} ) {
+            elsif ( $ch == $ctx->{cfg}{keys}{shell_escape}{code} ) {
                 if ( restricted_denies_shell() ) {
                     ;    # disabled in RESTRICTED mode (also off the key bar)
                 }
@@ -2133,7 +2133,7 @@ sub do_menu {
                     disp_msg( $win, $BAD_SHELL_MSG, $BAD_SHELL_TITLE );
                 }
             }
-            elsif ( $ch == $keys{exit}{code} ) {
+            elsif ( $ch == $ctx->{cfg}{keys}{exit}{code} ) {
                 $es = $ES_EXIT;
                 last;
             }
@@ -2538,7 +2538,7 @@ sub do_list {
             ( $es, $srch_pattern ) =
               ask_string( $SEARCH_PTRN_TITLE, $SEARCH_PTRN_PROMPT );
             if ( $es == $ES_EXIT ) {
-                $ch = $keys{exit}{code};
+                $ch = $ctx->{cfg}{keys}{exit}{code};
                 last;
             }
             noutrefresh($pwin);
@@ -2567,21 +2567,21 @@ sub do_list {
             clearok( curscr, 1 );
             refresh(curscr);
         }
-        elsif ( $ch == $keys{redraw}{code} ) {
+        elsif ( $ch == $ctx->{cfg}{keys}{redraw}{code} ) {
             clearok( curscr, 1 );
             refresh(curscr);
         }
-        elsif ( ( $ch == $keys{back}{code} or ord($ch) == 27 )
+        elsif ( ( $ch == $ctx->{cfg}{keys}{back}{code} or ord($ch) == 27 )
             and in( 'back', @lw_keys ) )
         {
             $es = $ES_CANCEL;
             last;
         }
-        elsif ( $ch == $keys{exit}{code} and in( 'exit', @lw_keys ) ) {
+        elsif ( $ch == $ctx->{cfg}{keys}{exit}{code} and in( 'exit', @lw_keys ) ) {
             $es = $ES_EXIT;
             last;
         }
-        elsif ( ( $ch == $keys{sel_items}{code} or $ch eq ' ' )
+        elsif ( ( $ch == $ctx->{cfg}{keys}{sel_items}{code} or $ch eq ' ' )
             and $type eq 'multi-val' )
         {
 
@@ -2633,7 +2633,7 @@ sub do_list {
     free_menu($cmenu);
     map { free_item($_) } @il;
     refresh($pwin);
-    @selected = () if ( $ch == $keys{back}{code} or ord($ch) == 27 );
+    @selected = () if ( $ch == $ctx->{cfg}{keys}{back}{code} or ord($ch) == 27 );
     return $es, @selected;
 }
 
@@ -3172,7 +3172,7 @@ sub do_form {
                     fatal("new_field(BEGIN_DELIMITER $label) failed");
                 }
                 if ( $form{fields}[$i]{enabled} ) {
-                    set_field_buffer( $field, 0, $fval_delim[0] );
+                    set_field_buffer( $field, 0, $ctx->{cfg}{fval_delim}[0] );
                 }
                 else {
                     set_field_buffer( $field, 0, ' ' );
@@ -3194,7 +3194,7 @@ sub do_form {
                         set_field_buffer( $field, 0, '>' );
                     }
                     else {
-                        set_field_buffer( $field, 0, $fval_delim[1] );
+                        set_field_buffer( $field, 0, $ctx->{cfg}{fval_delim}[1] );
                     }
                 }
                 else {
@@ -3560,7 +3560,7 @@ sub do_form {
             else {
                 set_field_buffer(
                     $fp[ field_index( current_field($cform) ) - 3 ],
-                    0, $fval_delim[0] );
+                    0, $ctx->{cfg}{fval_delim}[0] );
             }
             if ( data_ahead($cform) ) {
                 set_field_buffer(
@@ -3570,7 +3570,7 @@ sub do_form {
             else {
                 set_field_buffer(
                     $fp[ field_index( current_field($cform) ) - 2 ],
-                    0, $fval_delim[1] );
+                    0, $ctx->{cfg}{fval_delim}[1] );
             }
 
             $ch = getch($win);
@@ -3820,11 +3820,11 @@ sub do_form {
                     $LOG_REQUESTED = $NO;
                 }
             }
-            elsif ( $ch == $keys{back}{code} or ord($ch) == 27 ) {
+            elsif ( $ch == $ctx->{cfg}{keys}{back}{code} or ord($ch) == 27 ) {
                 $es = $ES_CANCEL;
                 last;
             }
-            elsif ( $ch == $keys{list}{code} ) {
+            elsif ( $ch == $ctx->{cfg}{keys}{list}{code} ) {
                 curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
                 my $ci = int( field_index( current_field($cform) ) / 7 );
                 if ( $form{fields}[$ci]{list_cmd} ) {
@@ -3895,7 +3895,7 @@ sub do_form {
                             $type, \@list, \@selected );
                         $val = join( $multi_val_sep, @selected );
                         if ( $es == $ES_EXIT ) {
-                            $ch = $keys{exit}{code};
+                            $ch = $ctx->{cfg}{keys}{exit}{code};
                             last;
                         }
                     }
@@ -3917,7 +3917,7 @@ sub do_form {
                 }
                 curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
             }
-            elsif ( $ch == $keys{show_action}{code} ) {
+            elsif ( $ch == $ctx->{cfg}{keys}{show_action}{code} ) {
                 $sync_fields_val->();
                 my $args = $form{action};
                 $args =~ s/^(\b*[a-zA-Z]+)\(?([a-zA-Z_,]*)\)?/$1/;
@@ -3934,7 +3934,7 @@ sub do_form {
                     disp_msg( $win, $NULL_FACTION_MSG, $NULL_FACTION_TITLE );
                 }
             }
-            elsif ( $ch == $keys{reset_field}{code} ) {
+            elsif ( $ch == $ctx->{cfg}{keys}{reset_field}{code} ) {
                 my $fi = int( field_index( current_field($cform) ) / 7 );
                 set_field_buffer( current_field($cform), 0,
                     field_buffer( current_field($cform), 1 ) );
@@ -3947,7 +3947,7 @@ sub do_form {
                     $ctx->{cfg}{af_valueBg} );
                 form_driver( $cform, REQ_END_LINE );
             }
-            elsif ( $ch == $keys{save}{code} ) {
+            elsif ( $ch == $ctx->{cfg}{keys}{save}{code} ) {
                 $sync_fields_val->();
                 $LOG_REQUESTED = $YES;
                 trace( "\n\n" . '-' x 80, $LOG_NORMAL );
@@ -3988,7 +3988,7 @@ sub do_form {
                     disp_msg( $win, $SAVE_FIELDVAL_MSG, $SAVE_FIELDVAL_TITLE );
                 }
             }
-            elsif ( $ch == $keys{shell_escape}{code} ) {
+            elsif ( $ch == $ctx->{cfg}{keys}{shell_escape}{code} ) {
                 if ( restricted_denies_shell() ) {
                     ;    # disabled in RESTRICTED mode (also off the key bar)
                 }
@@ -4003,11 +4003,11 @@ sub do_form {
             elsif ( $ch == KEY_RESIZE ) {
                 $resize_form->();
             }
-            elsif ( $ch == $keys{redraw}{code} ) {
+            elsif ( $ch == $ctx->{cfg}{keys}{redraw}{code} ) {
                 clearok( curscr, 1 );
                 refresh(curscr);
             }
-            elsif ( $ch == $keys{exit}{code} ) {
+            elsif ( $ch == $ctx->{cfg}{keys}{exit}{code} ) {
                 $es = $ES_EXIT;
                 last;
             }
@@ -4386,7 +4386,7 @@ sub run_browse {
             $py = $pad_lines - $mwinr;
             $py = 0 if $py < 0;
         }
-        elsif ( $ch == $keys{shell_escape}{code} ) {
+        elsif ( $ch == $ctx->{cfg}{keys}{shell_escape}{code} ) {
             if ( restricted_denies_shell() ) {
                 ;    # disabled in RESTRICTED mode (also off the key bar)
             }
@@ -4400,15 +4400,15 @@ sub run_browse {
                 disp_msg( $win, $BAD_SHELL_MSG, $BAD_SHELL_TITLE );
             }
         }
-        elsif ( $ch == $keys{show_action}{code} ) {
+        elsif ( $ch == $ctx->{cfg}{keys}{show_action}{code} ) {
             my @buff = split /\n/, $cmd;
             ($es) =
               do_list( $win, $SHOW_ACTION_TITLE, 'display', \@buff, undef );
         }
-        elsif ( $ch == $keys{back}{code} or ord($ch) == 27 ) {
+        elsif ( $ch == $ctx->{cfg}{keys}{back}{code} or ord($ch) == 27 ) {
             last;
         }
-        elsif ( $ch == $keys{exit}{code} ) {
+        elsif ( $ch == $ctx->{cfg}{keys}{exit}{code} ) {
             $es = $ES_EXIT;
             last;
         }
@@ -4444,11 +4444,11 @@ sub run_browse {
             clearok( curscr, 1 );
             refresh($win);
         }
-        elsif ( $ch == $keys{redraw}{code} ) {
+        elsif ( $ch == $ctx->{cfg}{keys}{redraw}{code} ) {
             clearok( curscr, 1 );
             refresh(curscr);
         }
-        elsif ( $ch == $keys{save}{code} ) {
+        elsif ( $ch == $ctx->{cfg}{keys}{save}{code} ) {
             trim( \$cmd_descr );
             $save_fname = basename($save_fname);
             my $val;
@@ -4475,7 +4475,7 @@ sub run_browse {
                 ( $es, $fname ) =
                   ask_string( $SAVE_FNAME_TITLE, $SAVE_FNAME_PROMPT, $fname );
                 if ( $es == $ES_EXIT ) {
-                    $ch = $keys{exit}{code};
+                    $ch = $ctx->{cfg}{keys}{exit}{code};
                     last;
                 }
                 refresh($win);
@@ -4547,7 +4547,7 @@ sub run_browse {
                 }
             }
             if ( $es == $ES_EXIT ) {
-                $ch = $keys{exit}{code};
+                $ch = $ctx->{cfg}{keys}{exit}{code};
                 last;
             }
         }
@@ -4556,7 +4556,7 @@ sub run_browse {
               ask_string( $SEARCH_PTRN_TITLE, $SEARCH_PTRN_PROMPT,
                 $search_string );
             if ( $es == $ES_EXIT ) {
-                $ch = $keys{exit}{code};
+                $ch = $ctx->{cfg}{keys}{exit}{code};
                 last;
             }
             refresh($win);
@@ -4940,7 +4940,7 @@ $es_str[$ES_NO_ITEMS]   = $ES_NO_ITEMS_MSG;
 exit check_shortcut( $options{k} ) if defined $options{k};
 exit dump_shortcut( $options{D} )  if defined $options{D};
 
-%keys = (
+$ctx->{cfg}{keys} = {
     help => {
         code  => -1,
         label => $KEY_F1_LABEL
@@ -5005,7 +5005,7 @@ exit dump_shortcut( $options{D} )  if defined $options{D};
         key   => 'u',
         label => $KEY_UNSELALL_LABEL
     }
-);
+};
 @MSKeys = qw( help redraw back shell_escape exit do );
 @FSKeys =
   qw( help redraw back list reset_field show_action save shell_escape exit do );
@@ -5078,15 +5078,15 @@ $ctx->{cfg}{RS_STDOUT_ATTR}   = A_NORMAL;
 $ctx->{cfg}{END_MARKER}       = '';
 $ctx->{cfg}{OPEN3_SHELL}      = '/bin/sh';
 $ctx->{cfg}{USER_SHELL}       = ( getpwuid($>) )[8];
-@fval_delim       = ( ' ', ' ' );
+$ctx->{cfg}{fval_delim} = [ ' ', ' ' ];
 $ctx->{cfg}{FIELD_VALUE_POS}  = -1;
 # Auto value placement (FIELD_VALUE_POS == -1, NORMAL layout): the value column
 # sits this many columns past the longest label on the page, instead of being
 # right-aligned to the screen edge.  This keeps the dot run short and the form
 # compact, so values stay on-screen on narrow terminals.
 $FIELD_VALUE_GAP  = 4;
-$ctx->{cfg}{RESTRICTED}       = $NO;
-@RESTRICTED_ALLOW = ();
+$ctx->{cfg}{RESTRICTED}        = $NO;
+$ctx->{cfg}{RESTRICTED_ALLOW} = [];
 $HAS_COLOR        = $NO;
 # Menu/screen theme attributes.  Defaults preserve the historical monochrome
 # look (overall screen normal, selected item reversed, bold title, reverse
@@ -5113,7 +5113,7 @@ if ($ctx->{cfg}{RESTRICTED}) {
     trace(
         sprintf 'RESTRICTED mode ON: shell escape + save-to-script disabled; '
           . 'system:/exec: limited to [%s]',
-        join( ', ', @RESTRICTED_ALLOW ) || 'nothing'
+        join( ', ', @{ $ctx->{cfg}{RESTRICTED_ALLOW} } ) || 'nothing'
     );
 }
 
@@ -5157,10 +5157,10 @@ if ($ctx->{cfg}{ENABLE_MOUSE}) {
 trace("Using \"$ctx->{cfg}{USER_SHELL}\" for user shell escape");
 trace("Using \"$ctx->{cfg}{OPEN3_SHELL}\" for commands execution");
 
-if ( $keys{back}{code} == -1 ) {
-    $keys{back}{code}  = KEY_F(10);
-    $keys{back}{key}   = 'F10';
-    $keys{back}{label} = ':Back';
+if ( $ctx->{cfg}{keys}{back}{code} == -1 ) {
+    $ctx->{cfg}{keys}{back}{code}  = KEY_F(10);
+    $ctx->{cfg}{keys}{back}{key}   = 'F10';
+    $ctx->{cfg}{keys}{back}{label} = ':Back';
     trace("\"Back\" fn key not defined - force F10=Back");
 }
 
