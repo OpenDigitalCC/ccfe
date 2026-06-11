@@ -4785,6 +4785,14 @@ sub run_browse {
     trace("Allocating ${pad_lines}x$COLS pad buffer");
     $p = newpad( $ctx->{state}{pad_lines}, $COLS );
     keypad( $p, 1 );
+
+    # Theme the whole output pane, not just the written cells: give the pad the
+    # same panel background as the browser window ($win, above) so a themed
+    # install fills blank lines and the trailing run of each line instead of
+    # leaving them terminal-default ("themed text, black gaps").  A no-op under
+    # the monochrome SIMPLE layout, where MENU_SCREEN_ATTR is A_NORMAL.  Set
+    # before load_pad so the captured text is drawn over the themed background.
+    bkgd( $p, $ctx->{cfg}{MENU_SCREEN_ATTR} );
     load_pad;
 
     delwin($mwin);
