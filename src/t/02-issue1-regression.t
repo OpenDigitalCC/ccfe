@@ -9,12 +9,10 @@
 # do_form()'s error branch when a field's list_cmd command failed without
 # writing anything to stderr.
 #
-# Driving the real curses UI (pressing F2 on a failing list_cmd) needs a
-# pseudo-terminal harness (libio-pty-perl / libexpect-perl) that is not a
-# standard part of this build, so this test instead pins the three guards
-# that make the crash unreachable.  It fails loudly if any of them is
-# removed.  Replace with a pty-driven end-to-end test once Expect is
-# available.
+# t/23-empty-list.t now drives the real repro (F2 on an empty-list field) via
+# the pty harness.  This test is kept as the fast structural guard: it pins the
+# three source-level checks that make the crash unreachable and fails loudly if
+# any is removed, without needing a terminal.
 #
 use strict;
 use warnings;
