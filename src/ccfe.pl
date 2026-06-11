@@ -2879,264 +2879,264 @@ sub build_form_fields {
     my ( $id, $label, $len, $hscroll, $hidden, $type, $default, $script,
         $fpad, $val, $field, $dots, $c );
 
-        while ( $i <= $#{ $form->{fields} } ) {
-            $id = $form->{fields}[$i]{id};
-            unless ( in( $id, @{$remove} ) ) {
-                if ( in( $id, @{$enable} ) ) {
-                    $form->{fields}[$i]{enabled} = $YES;
-                    trace("$INIT_ENABLE_FIELDS enabled field ID \"$id\"")
-                      ;    #$LOG_FIELDS_VAL
-                }
-                if ( in( $id, @{$disable} ) ) {
-                    $form->{fields}[$i]{enabled} = $NO;
-                    trace("$INIT_DISABLE_FIELDS disabled field ID \"$id\"")
-                      ;    #$LOG_FIELDS_VAL
-                }
-                $label   = $form->{fields}[$i]{label};
-                $len     = $form->{fields}[$i]{len};
-                $hscroll = $form->{fields}[$i]{hscroll};
-                $hidden  = $form->{fields}[$i]{hidden};
-                $type    = $form->{fields}[$i]{type};
-                $default = $form->{fields}[$i]{default};
-                $script  = $form->{fields}[$i]{help_script};
-                $fpad    = $hidden ? $ctx->{cfg}{HFIELD_PAD} : $ctx->{cfg}{FIELD_PAD};
-
-                $all_ids .= " " if !( $form->{fields}[$i]{option} );
-                $all_ids .= "%{$id}" if $id !~ /^$FSEP_ID_PRFX/;
-                if ( $type == $SEPARATOR and !defined($label) ) {
-                    $label =
-                      $field_vals->{$id} ? $field_vals->{$id} : 'ERROR!';
-                }
-                if ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) {
-                    $len = $COLS - ( 52 + $rflags_size + 2 )
-                      if ( 52 + $len + $rflags_size + 2 > $COLS );
-                }
-                my $lflags_x = 0;
-                my $label_x =
-                  $lflags_x +
-                  $lflags_size +
-                  $form->{fields}[$i]{htab} * $HTAB_COLS;
-                my $lw = disp_width($label);    # label width in columns
-                $val = '';
-                $val = $default if defined($default);
-                $val = $field_vals->{$id} if defined( $field_vals->{$id} );
-                $val = substr( $val, 0, $len )
-                  if ( $hscroll == $NO )
-                  and ( length($val) > $len );
-
-                # Value/flag columns and wrapping.  The value is right-aligned to
-                # the screen edge (classic SMIT look), so it expands to use the
-                # width on a wide terminal.  When the label is too long to leave
-                # at least $FIELD_VALUE_GAP columns before that value -- a long
-                # label on a narrow terminal -- the label wraps onto its own
-                # full-width line(s) and the value drops to the row after the
-                # last label line, so it is never pushed off-screen or truncated.
-                # The geometry is pure (CCFE::Layout); resize_form reuses it.
-                my $auto = ( $ctx->{cfg}{LAYOUT} == $NORMAL and $ctx->{cfg}{FIELD_VALUE_POS} == -1 );
-                my $geom = CCFE::Layout::field_geometry(
-                    {
-                        cols        => $COLS,
-                        len         => $len,
-                        label_x     => $label_x,
-                        label_w     => $lw,
-                        rflags_size => $rflags_size,
-                        value_pos   => $ctx->{cfg}{FIELD_VALUE_POS},
-                        gap         => $FIELD_VALUE_GAP,
-                        auto        => $auto,
-                    }
-                );
-                my $val_x     = $geom->{val_x};
-                my $label_w   = $geom->{label_w};
-                my $wrap_rows = $geom->{wrap_rows};
-                my $dots_x    = $geom->{dots_x};
-                my $lvald_x   = $geom->{lvald_x};
-                my $rvald_x   = $geom->{rvald_x};
-                my $rflags_x  = $geom->{rflags_x};
-                trace(
-                    "do_form: wrapped label \"$id\" over $wrap_rows line(s)",
-                    $LOG_NORMAL
-                ) if $wrap_rows;
-                $form->{fields}[$i]{wrap_rows} = $wrap_rows;
-
-                # Advance to this field's top row, breaking to a new page if the
-                # whole (possibly multi-row) block would not fit on this one.
-                my $pg = CCFE::Layout::page_advance(
-                    {
-                        y         => $y,
-                        vtab      => $form->{fields}[$i]{vtab},
-                        wrap_rows => $wrap_rows,
-                        mwinr     => $mwinr,
-                    }
-                );
-                $y = $pg->{y};
-                my $vr = $pg->{vr};    # row of the value and its markers
-
-                $field =
-                  $wrap_rows
-                  ? new_field( $wrap_rows, $label_w, $y, $label_x, 0, 0 )
-                  : new_field( 1, $lw, $y, $label_x, 0, 0 );
-                if ( $field eq '' ) { fatal("new_field(LABEL $label) failed") }
-                set_field_buffer( $field, 0, $label );
-                field_opts_off( $field, O_ACTIVE );
-                field_opts_off( $field, O_EDIT );
-                set_field_fore( $field, $ctx->{cfg}{labelFg} );
-                set_field_back( $field, $ctx->{cfg}{labelBg} );
-
-                if ( !$y ) {
-                    set_new_page( $field, 1 );
-                    $npages++;
-                }
-                push @{$fp},   $field;
-                push @{$fset}, ${$field};
-
-                $field = new_field( 1, $lflags_size, $vr, $lflags_x, 0, 0 );
-                if ( $field eq '' ) {
-                    fatal("new_field(PRE_FLAGS $label) failed");
-                }
-                set_field_buffer( $field, 0,
-                    sprintf( "%s ", $form->{fields}[$i]{required} ? '*' : ' ' ) );
-                field_opts_off( $field, O_ACTIVE );
-                set_field_fore( $field, $ctx->{cfg}{labelFg} );    # blend with the panel
-                set_field_back( $field, $ctx->{cfg}{labelBg} );
-                if ( !$ctx->{cfg}{SHOW_FIELD_FLAGS} ) {
-                    field_opts_off( $field, O_VISIBLE );
-                }
-                field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
-                push @{$fp},   $field;
-                push @{$fset}, ${$field};
-
-                $field = new_field( 1, $rflags_size, $vr, $rflags_x, 0, 0 );
-                if ( $field eq '' ) {
-                    fatal("new_field(POST_FLAGS $label) failed");
-                }
-                set_field_buffer(
-                    $field, 0,
-                    sprintf( "%s%s",
-                        $form->{fields}[$i]{list_cmd}             ? '+' : ' ',
-                        ( $form->{fields}[$i]{type} == $NUMERIC ) ? '#' : ' ' )
-                );
-                field_opts_off( $field, O_ACTIVE );
-                set_field_fore( $field, $ctx->{cfg}{labelFg} );    # blend with the panel
-                set_field_back( $field, $ctx->{cfg}{labelBg} );
-                if ( !$ctx->{cfg}{SHOW_FIELD_FLAGS} ) {
-                    field_opts_off( $field, O_VISIBLE );
-                }
-                field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
-                push @{$fp},   $field;
-                push @{$fset}, ${$field};
-
-                $field = new_field( 1, 1, $vr, $lvald_x, 0, 0 );
-                if ( $field eq '' ) {
-                    fatal("new_field(BEGIN_DELIMITER $label) failed");
-                }
-                if ( $form->{fields}[$i]{enabled} ) {
-                    set_field_buffer( $field, 0, $ctx->{cfg}{fval_delim}[0] );
-                }
-                else {
-                    set_field_buffer( $field, 0, ' ' );
-                }
-                field_opts_off( $field, O_ACTIVE );
-                field_opts_off( $field, O_EDIT );
-                set_field_fore( $field, $ctx->{cfg}{labelFg} );
-                set_field_back( $field, $ctx->{cfg}{labelBg} );
-                field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
-                push @{$fp},   $field;
-                push @{$fset}, ${$field};
-                $field = new_field( 1, 1, $vr, $rvald_x, 0, 0 );
-
-                if ( $field eq '' ) {
-                    fatal("new_field(END_DELIMITER $label) failed");
-                }
-                if ( $form->{fields}[$i]{enabled} ) {
-                    if ( length($val) > $len ) {
-                        set_field_buffer( $field, 0, '>' );
-                    }
-                    else {
-                        set_field_buffer( $field, 0, $ctx->{cfg}{fval_delim}[1] );
-                    }
-                }
-                else {
-                    set_field_buffer( $field, 0, ' ' );
-                }
-                field_opts_off( $field, O_ACTIVE );
-                field_opts_off( $field, O_EDIT );
-                set_field_fore( $field, $ctx->{cfg}{labelFg} );
-                set_field_back( $field, $ctx->{cfg}{labelBg} );
-                field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
-                push @{$fp},   $field;
-                push @{$fset}, ${$field};
-
-                if ($ctx->{cfg}{SHOW_DOTS}) {
-                    $dots = '';
-                    for ( $c = $dots_x - 1 ; $c < $lvald_x - 2 ; $c++ ) {
-                        $dots .= ( $c % 2 ) ? '.' : ' ';
-                    }
-                    $dots .= ': ';
-                }
-                else {
-                    $dots = ' ';
-                }
-                $field = new_field( 1, length($dots), $vr, $dots_x, 0, 0 );
-                if ( $field eq '' ) { fatal("new_field(DOTS $label) failed") }
-                set_field_buffer( $field, 0, $dots );
-                field_opts_off( $field, O_ACTIVE );
-                field_opts_off( $field, O_EDIT );
-                set_field_fore( $field, $ctx->{cfg}{labelFg} );    # dots adopt the panel/label colour
-                set_field_back( $field, $ctx->{cfg}{labelBg} );
-                field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
-                push @{$fp},   $field;
-                push @{$fset}, ${$field};
-
-                $field = new_field( 1, $len, $vr, $val_x, 0, 1 );
-                if ( $field eq '' ) { fatal("new_field(VAL $label) failed") }
-                field_opts_off( $field, O_AUTOSKIP );
-                unless ( $form->{fields}[$i]{enabled} ) {
-                    field_opts_off( $field, O_ACTIVE );
-                }
-                elsif ( !( $type & $BOOLEAN ) ) {
-                    set_field_pad( $field, $fpad );
-                }
-                if ($hscroll) {
-                    field_opts_off( $field, O_STATIC );
-                }
-                else {
-                    field_opts_on( $field, O_STATIC );
-                }
-                if ($hidden) {
-                    field_opts_off( $field, O_PUBLIC );
-                }
-                else {
-                    field_opts_on( $field, O_PUBLIC );
-                }
-                set_field_buffer( $field, 0, $val );
-                set_field_buffer( $field, 1, $val );
-                $form->{fields}[$i]{value} = $val;
-                if ( $ctx->{cfg}{LAYOUT} == $NORMAL and $type == $NUMERIC ) {
-                    set_field_just( $field, JUSTIFY_RIGHT );
-                }
-
-                if ( $form->{fields}[$i]{enabled} ) {
-                    set_field_fore( $field, $form->{fields}[$i]{valueFg} );
-                    set_field_back( $field, $form->{fields}[$i]{valueBg} );
-                }
-                else {
-                    set_field_fore( $field, $ctx->{cfg}{labelFg} );
-                    set_field_back( $field, $ctx->{cfg}{labelBg} );
-                }
-                $y = $vr + 1;    # next field starts below the value row
-                field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
-                push @{$fp}, $field;
-                $form->{fields}[$i]{ptr} = $field;
-                push @{$fset}, ${$field};
-                $i++;
-            }
-            else {
-                splice @{ $form->{fields} }, $i, 1;
-                trace("$INIT_REMOVE_FIELDS removed field ID \"$id\"")
+    while ( $i <= $#{ $form->{fields} } ) {
+        $id = $form->{fields}[$i]{id};
+        unless ( in( $id, @{$remove} ) ) {
+            if ( in( $id, @{$enable} ) ) {
+                $form->{fields}[$i]{enabled} = $YES;
+                trace("$INIT_ENABLE_FIELDS enabled field ID \"$id\"")
                   ;    #$LOG_FIELDS_VAL
             }
+            if ( in( $id, @{$disable} ) ) {
+                $form->{fields}[$i]{enabled} = $NO;
+                trace("$INIT_DISABLE_FIELDS disabled field ID \"$id\"")
+                  ;    #$LOG_FIELDS_VAL
+            }
+            $label   = $form->{fields}[$i]{label};
+            $len     = $form->{fields}[$i]{len};
+            $hscroll = $form->{fields}[$i]{hscroll};
+            $hidden  = $form->{fields}[$i]{hidden};
+            $type    = $form->{fields}[$i]{type};
+            $default = $form->{fields}[$i]{default};
+            $script  = $form->{fields}[$i]{help_script};
+            $fpad    = $hidden ? $ctx->{cfg}{HFIELD_PAD} : $ctx->{cfg}{FIELD_PAD};
+
+            $all_ids .= " " if !( $form->{fields}[$i]{option} );
+            $all_ids .= "%{$id}" if $id !~ /^$FSEP_ID_PRFX/;
+            if ( $type == $SEPARATOR and !defined($label) ) {
+                $label =
+                  $field_vals->{$id} ? $field_vals->{$id} : 'ERROR!';
+            }
+            if ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) {
+                $len = $COLS - ( 52 + $rflags_size + 2 )
+                  if ( 52 + $len + $rflags_size + 2 > $COLS );
+            }
+            my $lflags_x = 0;
+            my $label_x =
+              $lflags_x +
+              $lflags_size +
+              $form->{fields}[$i]{htab} * $HTAB_COLS;
+            my $lw = disp_width($label);    # label width in columns
+            $val = '';
+            $val = $default if defined($default);
+            $val = $field_vals->{$id} if defined( $field_vals->{$id} );
+            $val = substr( $val, 0, $len )
+              if ( $hscroll == $NO )
+              and ( length($val) > $len );
+
+            # Value/flag columns and wrapping.  The value is right-aligned to
+            # the screen edge (classic SMIT look), so it expands to use the
+            # width on a wide terminal.  When the label is too long to leave
+            # at least $FIELD_VALUE_GAP columns before that value -- a long
+            # label on a narrow terminal -- the label wraps onto its own
+            # full-width line(s) and the value drops to the row after the
+            # last label line, so it is never pushed off-screen or truncated.
+            # The geometry is pure (CCFE::Layout); resize_form reuses it.
+            my $auto = ( $ctx->{cfg}{LAYOUT} == $NORMAL and $ctx->{cfg}{FIELD_VALUE_POS} == -1 );
+            my $geom = CCFE::Layout::field_geometry(
+                {
+                    cols        => $COLS,
+                    len         => $len,
+                    label_x     => $label_x,
+                    label_w     => $lw,
+                    rflags_size => $rflags_size,
+                    value_pos   => $ctx->{cfg}{FIELD_VALUE_POS},
+                    gap         => $FIELD_VALUE_GAP,
+                    auto        => $auto,
+                }
+            );
+            my $val_x     = $geom->{val_x};
+            my $label_w   = $geom->{label_w};
+            my $wrap_rows = $geom->{wrap_rows};
+            my $dots_x    = $geom->{dots_x};
+            my $lvald_x   = $geom->{lvald_x};
+            my $rvald_x   = $geom->{rvald_x};
+            my $rflags_x  = $geom->{rflags_x};
+            trace(
+                "do_form: wrapped label \"$id\" over $wrap_rows line(s)",
+                $LOG_NORMAL
+            ) if $wrap_rows;
+            $form->{fields}[$i]{wrap_rows} = $wrap_rows;
+
+            # Advance to this field's top row, breaking to a new page if the
+            # whole (possibly multi-row) block would not fit on this one.
+            my $pg = CCFE::Layout::page_advance(
+                {
+                    y         => $y,
+                    vtab      => $form->{fields}[$i]{vtab},
+                    wrap_rows => $wrap_rows,
+                    mwinr     => $mwinr,
+                }
+            );
+            $y = $pg->{y};
+            my $vr = $pg->{vr};    # row of the value and its markers
+
+            $field =
+              $wrap_rows
+              ? new_field( $wrap_rows, $label_w, $y, $label_x, 0, 0 )
+              : new_field( 1, $lw, $y, $label_x, 0, 0 );
+            if ( $field eq '' ) { fatal("new_field(LABEL $label) failed") }
+            set_field_buffer( $field, 0, $label );
+            field_opts_off( $field, O_ACTIVE );
+            field_opts_off( $field, O_EDIT );
+            set_field_fore( $field, $ctx->{cfg}{labelFg} );
+            set_field_back( $field, $ctx->{cfg}{labelBg} );
+
+            if ( !$y ) {
+                set_new_page( $field, 1 );
+                $npages++;
+            }
+            push @{$fp},   $field;
+            push @{$fset}, ${$field};
+
+            $field = new_field( 1, $lflags_size, $vr, $lflags_x, 0, 0 );
+            if ( $field eq '' ) {
+                fatal("new_field(PRE_FLAGS $label) failed");
+            }
+            set_field_buffer( $field, 0,
+                sprintf( "%s ", $form->{fields}[$i]{required} ? '*' : ' ' ) );
+            field_opts_off( $field, O_ACTIVE );
+            set_field_fore( $field, $ctx->{cfg}{labelFg} );    # blend with the panel
+            set_field_back( $field, $ctx->{cfg}{labelBg} );
+            if ( !$ctx->{cfg}{SHOW_FIELD_FLAGS} ) {
+                field_opts_off( $field, O_VISIBLE );
+            }
+            field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
+            push @{$fp},   $field;
+            push @{$fset}, ${$field};
+
+            $field = new_field( 1, $rflags_size, $vr, $rflags_x, 0, 0 );
+            if ( $field eq '' ) {
+                fatal("new_field(POST_FLAGS $label) failed");
+            }
+            set_field_buffer(
+                $field, 0,
+                sprintf( "%s%s",
+                    $form->{fields}[$i]{list_cmd}             ? '+' : ' ',
+                    ( $form->{fields}[$i]{type} == $NUMERIC ) ? '#' : ' ' )
+            );
+            field_opts_off( $field, O_ACTIVE );
+            set_field_fore( $field, $ctx->{cfg}{labelFg} );    # blend with the panel
+            set_field_back( $field, $ctx->{cfg}{labelBg} );
+            if ( !$ctx->{cfg}{SHOW_FIELD_FLAGS} ) {
+                field_opts_off( $field, O_VISIBLE );
+            }
+            field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
+            push @{$fp},   $field;
+            push @{$fset}, ${$field};
+
+            $field = new_field( 1, 1, $vr, $lvald_x, 0, 0 );
+            if ( $field eq '' ) {
+                fatal("new_field(BEGIN_DELIMITER $label) failed");
+            }
+            if ( $form->{fields}[$i]{enabled} ) {
+                set_field_buffer( $field, 0, $ctx->{cfg}{fval_delim}[0] );
+            }
+            else {
+                set_field_buffer( $field, 0, ' ' );
+            }
+            field_opts_off( $field, O_ACTIVE );
+            field_opts_off( $field, O_EDIT );
+            set_field_fore( $field, $ctx->{cfg}{labelFg} );
+            set_field_back( $field, $ctx->{cfg}{labelBg} );
+            field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
+            push @{$fp},   $field;
+            push @{$fset}, ${$field};
+            $field = new_field( 1, 1, $vr, $rvald_x, 0, 0 );
+
+            if ( $field eq '' ) {
+                fatal("new_field(END_DELIMITER $label) failed");
+            }
+            if ( $form->{fields}[$i]{enabled} ) {
+                if ( length($val) > $len ) {
+                    set_field_buffer( $field, 0, '>' );
+                }
+                else {
+                    set_field_buffer( $field, 0, $ctx->{cfg}{fval_delim}[1] );
+                }
+            }
+            else {
+                set_field_buffer( $field, 0, ' ' );
+            }
+            field_opts_off( $field, O_ACTIVE );
+            field_opts_off( $field, O_EDIT );
+            set_field_fore( $field, $ctx->{cfg}{labelFg} );
+            set_field_back( $field, $ctx->{cfg}{labelBg} );
+            field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
+            push @{$fp},   $field;
+            push @{$fset}, ${$field};
+
+            if ($ctx->{cfg}{SHOW_DOTS}) {
+                $dots = '';
+                for ( $c = $dots_x - 1 ; $c < $lvald_x - 2 ; $c++ ) {
+                    $dots .= ( $c % 2 ) ? '.' : ' ';
+                }
+                $dots .= ': ';
+            }
+            else {
+                $dots = ' ';
+            }
+            $field = new_field( 1, length($dots), $vr, $dots_x, 0, 0 );
+            if ( $field eq '' ) { fatal("new_field(DOTS $label) failed") }
+            set_field_buffer( $field, 0, $dots );
+            field_opts_off( $field, O_ACTIVE );
+            field_opts_off( $field, O_EDIT );
+            set_field_fore( $field, $ctx->{cfg}{labelFg} );    # dots adopt the panel/label colour
+            set_field_back( $field, $ctx->{cfg}{labelBg} );
+            field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
+            push @{$fp},   $field;
+            push @{$fset}, ${$field};
+
+            $field = new_field( 1, $len, $vr, $val_x, 0, 1 );
+            if ( $field eq '' ) { fatal("new_field(VAL $label) failed") }
+            field_opts_off( $field, O_AUTOSKIP );
+            unless ( $form->{fields}[$i]{enabled} ) {
+                field_opts_off( $field, O_ACTIVE );
+            }
+            elsif ( !( $type & $BOOLEAN ) ) {
+                set_field_pad( $field, $fpad );
+            }
+            if ($hscroll) {
+                field_opts_off( $field, O_STATIC );
+            }
+            else {
+                field_opts_on( $field, O_STATIC );
+            }
+            if ($hidden) {
+                field_opts_off( $field, O_PUBLIC );
+            }
+            else {
+                field_opts_on( $field, O_PUBLIC );
+            }
+            set_field_buffer( $field, 0, $val );
+            set_field_buffer( $field, 1, $val );
+            $form->{fields}[$i]{value} = $val;
+            if ( $ctx->{cfg}{LAYOUT} == $NORMAL and $type == $NUMERIC ) {
+                set_field_just( $field, JUSTIFY_RIGHT );
+            }
+
+            if ( $form->{fields}[$i]{enabled} ) {
+                set_field_fore( $field, $form->{fields}[$i]{valueFg} );
+                set_field_back( $field, $form->{fields}[$i]{valueBg} );
+            }
+            else {
+                set_field_fore( $field, $ctx->{cfg}{labelFg} );
+                set_field_back( $field, $ctx->{cfg}{labelBg} );
+            }
+            $y = $vr + 1;    # next field starts below the value row
+            field_opts_off( $field, O_VISIBLE ) if ( $type == $SEPARATOR );
+            push @{$fp}, $field;
+            $form->{fields}[$i]{ptr} = $field;
+            push @{$fset}, ${$field};
+            $i++;
         }
-        push @{$fset}, 0;
+        else {
+            splice @{ $form->{fields} }, $i, 1;
+            trace("$INIT_REMOVE_FIELDS removed field ID \"$id\"")
+              ;    #$LOG_FIELDS_VAL
+        }
+    }
+    push @{$fset}, 0;
     return ( $npages, $all_ids );
 }
 
