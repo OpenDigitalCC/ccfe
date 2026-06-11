@@ -12,7 +12,7 @@ All work must keep the suite green and the four CI checks passing
 |----|-------|-----------|----------|--------|-----------|--------|
 | TD-1 | RESTRICTED-mode hardening | security | **high** | L (4 sub-tasks) | — | ✅ done |
 | TD-2 | Close the pty test-coverage gaps | coverage | high | M | — | ✅ done |
-| TD-3 | Break up the oversized `ccfe.pl` subs | quality | med | L | TD-2 | 🟡 in progress |
+| TD-3 | Break up the oversized `ccfe.pl` subs | quality | med | L | TD-2 | ✅ done |
 | TD-4 | Docs & packaging polish (man pages, POD) | docs | med | M | — | ✅ done |
 | TD-5 | Logging I/O polish | performance | low | S | — | ✅ done |
 
@@ -75,9 +75,18 @@ exit status, the no-final-newline flush — taking the suite 366 → 372.
 
 Every sub the audit flagged is now broken up: do_form 1392→590, load_config
 592→496, run_browse 543→272, do_list 344→295, do_menu 331→230, load_form
-224→120. Still open under TD-3 (the one remaining item): the `ccfe.pl` perltidy
-pass + CI-gate decision — a policy call on perltidy/perlcritic severity and which
-legacy idioms to exempt for the (deliberately gate-exempt) main script.
+224→120.
+
+**TD-3 done.** Finally `ccfe.pl` was brought under the CI gate. It was reformatted
+with `perltidy` (proven whitespace-only: with all whitespace stripped the token
+stream is byte-identical to the previous file) and added to the perltidy
+tidy/tidy-check targets. For `perlcritic`, rather than weaken `src/lib`'s
+strict severity-3 `.perlcriticrc`, a dedicated `.perlcriticrc-ccfe` lints the
+legacy script at severity 5 with the documented legacy idiom classes exempted
+(bareword file/dir handles, 2-arg open, stringy eval, global loop iterators,
+in-place list mutation, conditional `my`, the `_log_write` singleton nested sub)
+— enough to catch new high-severity issues without churning the legacy idioms.
+`make check` (test + critic + tidy-check) is green; CI runs both profiles.
 
 ---
 
