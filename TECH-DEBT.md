@@ -12,7 +12,7 @@ All work must keep the suite green and the four CI checks passing
 |----|-------|-----------|----------|--------|-----------|--------|
 | TD-1 | RESTRICTED-mode hardening | security | **high** | L (4 sub-tasks) | — | ✅ done |
 | TD-2 | Close the pty test-coverage gaps | coverage | high | M | — | ✅ done |
-| TD-3 | Break up the oversized `ccfe.pl` subs | quality | med | L | TD-2 | open |
+| TD-3 | Break up the oversized `ccfe.pl` subs | quality | med | L | TD-2 | 🟡 in progress |
 | TD-4 | Docs & packaging polish (man pages, POD) | docs | med | M | — | open |
 | TD-5 | Logging I/O polish | performance | low | S | — | open |
 
@@ -23,6 +23,23 @@ TD-1b user-writable object-dir refusal. Proven by t/25–t/27; README "Restricte
 mode" updated. **TD-2 done**: pty coverage for the browser (search/save), the
 issue-#1 empty-list repro, F7 shell-escape, the `-s`/`-v`/`-h` CLI; fixed three
 latent warnings (two in `list_shortcuts`) along the way. Test count 313 → 351.
+
+**TD-3 in progress** — `do_form` broken up from **1392 → 590 lines**. First the
+field-creation loop, the init-command phase and the `KEY_RESIZE` rebuild were
+lifted (`build_form_fields`, `run_form_init`, `resize_form`), and the
+confirm/log/wait_key opts handling was shared with `do_menu`
+(`apply_action_opts`). Then the four big event-loop arms became helpers:
+`run_form_submit` (Enter dispatch: run/form/system/exec), `form_value_list`
+(F2 chooser; returns a break flag for the ES_EXIT case), `form_tab_cycle`
+(TAB/Shift-TAB single-val cycling) and `form_save_fields` (Save). The event
+loop is now a thin dispatcher of mostly one-line arms. Each extraction was
+guarded by the form behaviour net, which was first strengthened with three new
+pty tests (t/29 fields/nav/separator/boolean, t/30 F2-list/F5-preview,
+t/31 TAB-cycle/Save) — test count 351 → 366. The remaining `do_form` bulk is the
+per-call helper closures (kept as closures to preserve the M7 "won't stay
+shared" fix) and setup/teardown. Still open under TD-3: the other big subs
+(`run_browse` 543, `load_config` 582, `do_list`, `do_menu`, `load_form`) and the
+`ccfe.pl` perltidy pass + CI-gate decision.
 
 ---
 
