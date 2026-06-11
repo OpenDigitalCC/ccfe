@@ -17,8 +17,10 @@ require_ok('CCFE::Context') or BAIL_OUT('cannot load CCFE::Context');
 
 my $ctx = CCFE::Context::new();
 is( ref $ctx, 'HASH', 'new() returns a plain hashref' );
-is( ref $ctx->{cfg}, 'HASH', '  with a seeded cfg sub-hash' );
-is_deeply( $ctx->{cfg}, {}, '  that starts empty' );
+is( ref $ctx->{cfg},   'HASH', '  with a seeded cfg sub-hash' );
+is( ref $ctx->{state}, 'HASH', '  and a seeded state sub-hash' );
+is_deeply( $ctx->{cfg},   {}, '  cfg starts empty' );
+is_deeply( $ctx->{state}, {}, '  state starts empty' );
 
 # Each call is independent -- a child/fresh context must not alias an earlier
 # one (this is what will replace the `local %form/%menu` recursion state).

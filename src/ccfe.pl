@@ -250,16 +250,16 @@ if ( $CALLNAME ne $REALNAME ) {
 @fn_key_functions =
   qw( back exit help list redraw reset_field save sel_items shell_escape show_action );
 
-$SCREEN_DIR = '';
+$ctx->{state}{SCREEN_DIR} = '';
 
 $HTAB_COLS     = 2;
 $FIELD_LMARGIN = 2;
 $FIELD_RMARGIN = 2;
 
-$child_es     = 0;
-$last_item_id = '';
-$pad_lines    = 0;
-undef $exec_args;
+$ctx->{state}{child_es}     = 0;
+$ctx->{state}{last_item_id} = '';
+$ctx->{state}{pad_lines}    = 0;
+undef $ctx->{state}{exec_args};
 undef $cpid;
 undef $tmpfh;
 
@@ -276,7 +276,7 @@ $SIG{INT} = sub {
         undef $cpid;
         print $tmpfh "$RS_INFO_ID:\n";
         print $tmpfh "$RS_INFO_ID:$msg\n";
-        $pad_lines += 2;
+        $ctx->{state}{pad_lines} += 2;
     }
     trace("SIGINT handler end");
 };
@@ -284,7 +284,7 @@ $SIG{INT} = sub {
 sub REAPER {
     my $child;
     while ( ( $child = waitpid( -1, WNOHANG ) ) > 0 ) {
-        $child_es = $? >> 8;
+        $ctx->{state}{child_es} = $? >> 8;
     }
     $SIG{CHLD} = \&REAPER;
 }
@@ -611,15 +611,15 @@ sub exec_command {
     my ( $prev_path, $prev_wdir );
 
     $prev_wdir = getcwd();
-    chdir "$SCREEN_DIR";
+    chdir "$ctx->{state}{SCREEN_DIR}";
     trace( "Changed CWD from $prev_wdir to " . getcwd() );
     $prev_path = $ENV{PATH};
     $ENV{PATH} = sprintf "%s%s:%s", $MAIN_PATH, $MAIN_PATH ? ":$ctx->{cfg}{PATH}" : '',
-      $SCREEN_DIR;
+      $ctx->{state}{SCREEN_DIR};
     if ($extra_path) {
         my @dirs = split /:/, $extra_path;
         foreach $i ( 0 .. $#dirs ) {
-            $dirs[$i] = "$SCREEN_DIR/$dirs[$i]" unless $dirs[$i] =~ /^\//;
+            $dirs[$i] = "$ctx->{state}{SCREEN_DIR}/$dirs[$i]" unless $dirs[$i] =~ /^\//;
         }
         $extra_path = join( ':', @dirs );
     }
@@ -1119,7 +1119,7 @@ sub load_menu {
                 # The bracket parser is now a pure module (CCFE::MenuFile);
                 # load_menu keeps the file finding/reading, fills the caller's
                 # %menu hashref (M7 Phase 2) and applies the remaining side
-                # effects -- $SCREEN_DIR and the default top message.
+                # effects -- $ctx->{state}{SCREEN_DIR} and the default top message.
                 my ( $parsed, $pstatus, $warns );
                 ( $parsed, $pstatus, $warns, $ic ) =
                   CCFE::MenuFile::parse($text);
@@ -1128,7 +1128,7 @@ sub load_menu {
                 $res = $ES_SYNTAX_ERR if $pstatus eq 'syntax_error';
                 if ( $res == $ES_NO_ERR ) {
                     @{ $menu->{top} } = @MENU_TOP_MSG unless @{ $menu->{top} };
-                    $SCREEN_DIR = $dir;
+                    $ctx->{state}{SCREEN_DIR} = $dir;
                     $$path      = $dir;
                 }
             }
@@ -1337,15 +1337,15 @@ sub load_form {
                             $choice =~ /^\s*(\w+)\s*:\s*(.+)\s*$/;
                             $id = $1;
                             $form{action} = $2;
-                            last if ( $id eq $last_item_id );
+                            last if ( $id eq $ctx->{state}{last_item_id} );
                         }
-                        if ( $id ne $last_item_id ) {
+                        if ( $id ne $ctx->{state}{last_item_id} ) {
                             trace("ERROR: select-item with unknown item ID\n");
                             $form{action} = '';
                         }
                     }
 
-                    $SCREEN_DIR = $dir;
+                    $ctx->{state}{SCREEN_DIR} = $dir;
                     $$path      = $dir;
                 }
             }
@@ -2042,7 +2042,7 @@ sub do_menu {
         $draw_menu->();
 
         $es = 0;
-        while ( !defined($exec_args) ) {
+        while ( !defined($ctx->{state}{exec_args}) ) {
             disp_page( $win, item_index( current_item($cmenu) ) + 1,
                 item_count($cmenu), 'menu', $menuname );
 
@@ -2139,7 +2139,7 @@ sub do_menu {
             }
             elsif ( $ch eq "\r" or $ch eq "\n" ) {
                 $ci           = item_index( current_item($cmenu) );
-                $last_item_id = $menu{items}[$ci]{id};
+                $ctx->{state}{last_item_id} = $menu{items}[$ci]{id};
                 if ( $menu{items}[$ci]{action} ) {
                     my $act = CCFE::Action::parse( $menu{items}[$ci]{action} );
                     $action  = $act->{verb};
@@ -2229,7 +2229,7 @@ sub do_menu {
                             disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
                         }
                         else {
-                            $exec_args = $args;
+                            $ctx->{state}{exec_args} = $args;
                         }
                     }
                     elsif ( $action eq 'run' ) {
@@ -2843,7 +2843,7 @@ sub do_form {
         trace("Found $c persistent field(s)");
         return 0 if $c eq 0;
 
-        $hash  = md5_hex("$SCREEN_DIR/$formname$FORMEXT");
+        $hash  = md5_hex("$ctx->{state}{SCREEN_DIR}/$formname$FORMEXT");
         $fname = "$PERS_DIR/$hash";
 
         foreach my $sd ( $PRIV_DIR, $PERS_DIR ) {
@@ -2863,7 +2863,7 @@ sub do_form {
 
         eval {
             open( OUTF, ">$fname" ) or die("$!\n");
-            print OUTF "# $SCREEN_DIR/$formname$FORMEXT\n";
+            print OUTF "# $ctx->{state}{SCREEN_DIR}/$formname$FORMEXT\n";
             foreach my $i ( 0 .. $#{ $form{fields} } ) {
                 if ( $form{fields}[$i]{persist} ) {
                     $id  = $form{fields}[$i]{id};
@@ -2892,7 +2892,7 @@ sub do_form {
         my @res = ();
         my ( $fname, $hash );
 
-        $hash  = md5_hex("$SCREEN_DIR/$formname$FORMEXT");
+        $hash  = md5_hex("$ctx->{state}{SCREEN_DIR}/$formname$FORMEXT");
         $fname = "$PERS_DIR/$hash";
         eval {
             open( INF, "$fname" ) or die("$!\n");
@@ -2957,7 +2957,7 @@ sub do_form {
                 my @err = ();
                 trace( "init form: executing \"$args\"", $LOG_INITFORM_OUT );
                 my $cmd_ok = exec_command( $args, $form{path}, \@res, \@err );
-                trace( "init form exit status: $child_es", $LOG_INITFORM_OUT );
+                trace( "init form exit status: $ctx->{state}{child_es}", $LOG_INITFORM_OUT );
                 trace( "init form stdout:",                $LOG_INITFORM_OUT );
                 foreach $s (@res) {
                     trace( "  \"$s\"", $LOG_INITFORM_OUT );
@@ -3003,7 +3003,7 @@ sub do_form {
                 }
                 close_wait_msg( $wpan, $wwin, $win );
                 curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
-                if ($child_es) {
+                if ($ctx->{state}{child_es}) {
                     del_panel($pan);
                     delwin($win);
                     return;
@@ -3534,7 +3534,7 @@ sub do_form {
         };
 
         $es = $ES_NO_ERR;
-        while ( $es != $ES_EXIT and !defined($exec_args) ) {
+        while ( $es != $ES_EXIT and !defined($ctx->{state}{exec_args}) ) {
           SWITCH: {
                 my $fi    = int( field_index( current_field($cform) ) / 7 );
                 my $ftype = $form{fields}[$fi]{type};
@@ -3811,7 +3811,7 @@ sub do_form {
                             disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
                         }
                         else {
-                            $exec_args = $args;
+                            $ctx->{state}{exec_args} = $args;
                         }
                     }
                     else {
@@ -4074,7 +4074,7 @@ sub run_browse {
         my ( $buff, $chbuff, $row1, $c, $ln );
 
         $buff = '';
-        $row1 = $row + ( $row < $pad_lines ? 1 : 0 );
+        $row1 = $row + ( $row < $ctx->{state}{pad_lines} ? 1 : 0 );
         for $ln ( $row .. $row1 ) {
             for $c ( 0 .. $COLS - 1 ) {
                 inchnstr( $p, $ln, $c, $chbuff, 1 );
@@ -4090,14 +4090,14 @@ sub run_browse {
 
         $prev_row = $$row_ptr;
         $pos0     = -1;
-        while ( $$row_ptr <= $pad_lines and $pos0 <= 0 ) {
+        while ( $$row_ptr <= $ctx->{state}{pad_lines} and $pos0 <= 0 ) {
             $$row_ptr++;
             $buff = get_search_buff($$row_ptr);
             $buff =~ m/$search_string/g;
             $pos0 = pos($buff) - length($search_string);
             $pos0 = -1 if ( $pos0 > $COLS );
         }
-        if ( $$row_ptr > $pad_lines ) {
+        if ( $$row_ptr > $ctx->{state}{pad_lines} ) {
             $$row_ptr = $prev_row;
             disp_msg( $p, $FOUND_NONE_MSG, $FOUND_NONE_TITLE );
         }
@@ -4107,7 +4107,7 @@ sub run_browse {
         my ( $buff, $pos0, $row, $nfound );
 
         $nfound = 0;
-        for $row ( 0 .. $pad_lines ) {
+        for $row ( 0 .. $ctx->{state}{pad_lines} ) {
             $pos0 = -1;
             $buff = get_search_buff($row);
             do {
@@ -4126,7 +4126,7 @@ sub run_browse {
                 }
             } while ( $pos0 >= 0 );
         }
-        if ( !$nfound and ( $pad_lines <= $mwinr ) ) {
+        if ( !$nfound and ( $ctx->{state}{pad_lines} <= $mwinr ) ) {
             disp_msg( $p, $FOUND_NONE_MSG, $FOUND_NONE_TITLE );
         }
     }
@@ -4137,12 +4137,12 @@ sub run_browse {
 
         move( $p, 0, 0 );
         seek( $tmpfh, 0, 0 );
-        while ( $buff = <$tmpfh> and $c <= $pad_lines ) {
+        while ( $buff = <$tmpfh> and $c <= $ctx->{state}{pad_lines} ) {
             $c++;
             ( $src, $buff ) = split /:/, $buff, 2;
             if ( length($buff) == $COLS + 1 ) {
                 chop($buff);
-                $pad_lines--;
+                $ctx->{state}{pad_lines}--;
             }
             if ( $src eq $RS_STDOUT_ID ) {
                 attrset( $p, $ctx->{cfg}{RS_STDOUT_ATTR} );
@@ -4157,7 +4157,7 @@ sub run_browse {
         }
     }
 
-    $child_es = 0;
+    $ctx->{state}{child_es} = 0;
 
     if ( $ctx->{cfg}{LAYOUT} == $SIMPLE ) {
         $status_fg_attr = A_NORMAL;
@@ -4170,13 +4170,13 @@ sub run_browse {
 
     $prev_path = $ENV{PATH};
     $prev_wdir = getcwd();
-    chdir "$SCREEN_DIR";
+    chdir "$ctx->{state}{SCREEN_DIR}";
     trace( "Changed CWD from $prev_wdir to " . getcwd() );
     $ENV{PATH} = sprintf "%s%s:.", $MAIN_PATH, $MAIN_PATH ? ":$ctx->{cfg}{PATH}" : '';
     if ($extra_path) {
         my @dirs = split /:/, $extra_path;
         foreach $i ( 0 .. $#dirs ) {
-            $dirs[$i] = "$SCREEN_DIR/$dirs[$i]" unless $dirs[$i] =~ /^\//;
+            $dirs[$i] = "$ctx->{state}{SCREEN_DIR}/$dirs[$i]" unless $dirs[$i] =~ /^\//;
         }
         $extra_path = join( ':', @dirs );
     }
@@ -4225,7 +4225,7 @@ sub run_browse {
     print $tmpfh "$RS_INFO_ID:\n";
     addstr( $mwin, "\n" );
     refresh($mwin);
-    $pad_lines = 1;
+    $ctx->{state}{pad_lines} = 1;
 
     $err_lines = $out_lines = 0;
     while ( @ready = $sel->can_read ) {
@@ -4267,7 +4267,7 @@ sub run_browse {
                 }
             }
             foreach $s (@lines) {
-                $pad_lines += length($s) ? round( length($s) / $COLS + .5 ) : 1;
+                $ctx->{state}{pad_lines} += length($s) ? round( length($s) / $COLS + .5 ) : 1;
                 print $tmpfh "$src:$s\n";
                 trace( "$src:$s", $LOG_ACTION_OUT );
             }
@@ -4277,7 +4277,7 @@ sub run_browse {
     }
     if ( defined($outprev) ) {
         $out_lines++;
-        $pad_lines +=
+        $ctx->{state}{pad_lines} +=
           length($outprev) ? round( length($outprev) / $COLS + .5 ) : 1;
         print $tmpfh "$RS_STDOUT_ID:$outprev\n";
         trace( "$RS_STDERR_ID:$s", $LOG_ACTION_OUT );
@@ -4285,7 +4285,7 @@ sub run_browse {
     }
     if ( defined($errprev) ) {
         $err_lines++;
-        $pad_lines +=
+        $ctx->{state}{pad_lines} +=
           length($errprev) ? round( length($errprev) / $COLS + .5 ) : 1;
         print $tmpfh "$RS_STDERR_ID:$errprev\n";
         trace( "$RS_STDERR_ID:$s", $LOG_ACTION_OUT );
@@ -4309,18 +4309,18 @@ sub run_browse {
     trace( "Restored CWD to " . getcwd() );
     if ($ctx->{cfg}{END_MARKER}) {
         print $tmpfh "$RS_INFO_ID:$ctx->{cfg}{END_MARKER}";
-        $pad_lines++;
+        $ctx->{state}{pad_lines}++;
     }
 
-    if ( $pad_lines > $ctx->{cfg}{MAX_PAD_LINES} ) {
+    if ( $ctx->{state}{pad_lines} > $ctx->{cfg}{MAX_PAD_LINES} ) {
         disp_msg( $win, $BIG_OUTPUT_MSG, $BIG_OUTPUT_TITLE );
-        $pad_lines = $ctx->{cfg}{MAX_PAD_LINES};
+        $ctx->{state}{pad_lines} = $ctx->{cfg}{MAX_PAD_LINES};
     }
-    elsif ( $pad_lines < $mwinr ) {
-        $pad_lines = $mwinr;
+    elsif ( $ctx->{state}{pad_lines} < $mwinr ) {
+        $ctx->{state}{pad_lines} = $mwinr;
     }
     trace("Allocating ${pad_lines}x$COLS pad buffer");
-    $p = newpad( $pad_lines, $COLS );
+    $p = newpad( $ctx->{state}{pad_lines}, $COLS );
     keypad( $p, 1 );
     load_pad;
 
@@ -4329,14 +4329,14 @@ sub run_browse {
     curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
     addstr( $twin, 0, 0, "Status: " );
     attron( $twin, A_REVERSE ) if ( $ctx->{cfg}{LAYOUT} == $SIMPLE );
-    addstr( $twin, $child_es ? $RB_FAILED_MSG : $RB_OK_MSG );
+    addstr( $twin, $ctx->{state}{child_es} ? $RB_FAILED_MSG : $RB_OK_MSG );
     attroff( $twin, A_REVERSE ) if ( $ctx->{cfg}{LAYOUT} == $SIMPLE );
-    addstr( $twin, $child_es ? ' ' : '     ' );
+    addstr( $twin, $ctx->{state}{child_es} ? ' ' : '     ' );
     addstr(
         $twin,
         sprintf(
             "[ES=%d]   stdout: %d %s   " . "stderr: %d %s   %s: %02d:%02d:%02d",
-            $child_es,  $out_lines,    $RB_LINES_MSG,
+            $ctx->{state}{child_es},  $out_lines,    $RB_LINES_MSG,
             $err_lines, $RB_LINES_MSG, $RB_TIME_MSG,
             $exec_hh,   $exec_mm,      $exec_ss
         )
@@ -4346,7 +4346,7 @@ sub run_browse {
     refresh($win);
 
     $search_string = '';
-    $npages = round( $pad_lines / $mwinr + ( $pad_lines % $mwinr ? .5 : 0 ) );
+    $npages = round( $ctx->{state}{pad_lines} / $mwinr + ( $ctx->{state}{pad_lines} % $mwinr ? .5 : 0 ) );
     $py     = 0;
     while (1) {
         $pg = round( ( $py + 1 ) / $mwinr + ( ( $py + 1 ) % $mwinr ? .5 : 0 ) );
@@ -4363,7 +4363,7 @@ sub run_browse {
             $py-- if $py > 0;
         }
         if ( $ch == KEY_DOWN ) {
-            $py++ if $py < $pad_lines - $mwinr;
+            $py++ if $py < $ctx->{state}{pad_lines} - $mwinr;
         }
         elsif ( $ch == KEY_PPAGE ) {
             my $c = $mwinr;
@@ -4374,7 +4374,7 @@ sub run_browse {
         }
         elsif ( $ch == KEY_NPAGE ) {
             my $c = $mwinr;
-            while ( $py < $pad_lines - $mwinr and $c > 0 ) {
+            while ( $py < $ctx->{state}{pad_lines} - $mwinr and $c > 0 ) {
                 $py++;
                 $c--;
             }
@@ -4383,7 +4383,7 @@ sub run_browse {
             $py = 0;
         }
         elsif ( $ch == KEY_END ) {
-            $py = $pad_lines - $mwinr;
+            $py = $ctx->{state}{pad_lines} - $mwinr;
             $py = 0 if $py < 0;
         }
         elsif ( $ch == $ctx->{cfg}{keys}{shell_escape}{code} ) {
@@ -4440,7 +4440,7 @@ sub run_browse {
             scrollok( $mwin, 1 );
             keypad( $mwin, $ON );
             $npages =
-              round( $pad_lines / $mwinr + ( $pad_lines % $mwinr ? .5 : 0 ) );
+              round( $ctx->{state}{pad_lines} / $mwinr + ( $ctx->{state}{pad_lines} % $mwinr ? .5 : 0 ) );
             clearok( curscr, 1 );
             refresh($win);
         }
@@ -4501,7 +4501,7 @@ sub run_browse {
                             printf OUTF "EXEC TIME  : %02dh %02dm %02ds\n",
                               $exec_hh, $exec_mm,
                               $exec_ss;
-                            print OUTF "EXIT STATUS: ", $child_es, "\n";
+                            print OUTF "EXIT STATUS: ", $ctx->{state}{child_es}, "\n";
                             print OUTF "STDOUT     : ", $out_lines,
                               " line(s)\n";
                             print OUTF "STDERR     : ", $err_lines,
@@ -4568,12 +4568,12 @@ sub run_browse {
             unless ( $es == $ES_CANCEL ) {
                 load_pad if ($search_string);
                 search_all;
-                search_next( \$py ) if $pad_lines > $mwinr;
+                search_next( \$py ) if $ctx->{state}{pad_lines} > $mwinr;
             }
         }
         elsif ( $ch eq 'n' ) {
             search_next( \$py );
-            $py = $pad_lines - $mwinr if $py > $pad_lines - $mwinr;
+            $py = $ctx->{state}{pad_lines} - $mwinr if $py > $ctx->{state}{pad_lines} - $mwinr;
             $py = 0 if $py < 0;
         }
         else {
@@ -5212,11 +5212,11 @@ if ( $shcut_type = get_shortcut($shcut) ) {
     refresh();
     endwin();
     system("clear") if $es == $ES_NO_ERR or $es >= $ES_USER_REQ;
-    if ( defined($exec_args) ) {
-        chdir "$SCREEN_DIR";
+    if ( defined($ctx->{state}{exec_args}) ) {
+        chdir "$ctx->{state}{SCREEN_DIR}";
         trace( "Changed CWD from $prev_wdir to " . getcwd() );
-        trace("exec \"$exec_args\"");
-        exec($exec_args);
+        trace("exec \"$ctx->{state}{exec_args}\"");
+        exec($ctx->{state}{exec_args});
     }
 }
 else {

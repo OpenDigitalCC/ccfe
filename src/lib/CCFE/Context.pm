@@ -12,7 +12,10 @@ package CCFE::Context;
 # it so the change is mechanical and test-gated, never a big-bang rewrite:
 #
 #   cfg        config settings filled by load_config           (Phase 4)
-#   field_vals / menu / form / fp / ...   per-screen run state  (Phases 1-3)
+#   state      mutable shared run-state (current screen dir,    (Phase 5)
+#              last selected item, output-pad lines, ...)
+#   field_vals / menu / form / fp / ...   per-screen run state  (Phases 1-3,
+#              held as per-call lexicals, not on $ctx -- see the plan)
 #
 # Centralising construction means a future fresh/child context -- the explicit
 # replacement for the `local %form/%menu/...` nested-screen recursion -- has one
@@ -22,10 +25,11 @@ use v5.36;
 
 our $VERSION = '2.1.1';
 
-# Return a fresh, empty run-state container.  The cfg sub-hash is seeded so
-# load_config (Phase 4) and its readers can assume it exists.
+# Return a fresh, empty run-state container.  The cfg and state sub-hashes are
+# seeded so load_config (Phase 4) and the run-state readers (Phase 5) can assume
+# they exist.
 sub new {
-    return { cfg => {} };
+    return { cfg => {}, state => {} };
 }
 
 1;
