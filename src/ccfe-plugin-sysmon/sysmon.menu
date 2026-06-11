@@ -36,6 +36,41 @@ item {
   action = run:ps axv
 }
 item {
+  id     = PSTOP
+  descr  = List the busiest processes (by CPU / memory)
+  action = form:sysmon.d/pstop
+}
+item {
+  id     = DF
+  descr  = Report free disk space
+  action = form:sysmon.d/df
+}
+item {
+  id     = DU
+  descr  = Measure directory space usage
+  action = form:sysmon.d/du
+}
+item {
+  id     = MEM
+  descr  = Show memory and swap usage
+  action = run:free -h
+}
+item {
+  id     = SOCKETS
+  descr  = Show network sockets
+  action = form:sysmon.d/ss
+}
+item {
+  id     = UPTIME
+  descr  = Show uptime and load average
+  action = run:uptime
+}
+item {
+  id     = WHO
+  descr  = Show who is logged in
+  action = run:who -H
+}
+item {
   id     = VMSTAT
   descr  = Show virtual memory statistics
   action = form:sysmon.d/vmstat

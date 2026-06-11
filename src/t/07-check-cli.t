@@ -38,7 +38,9 @@ like( $o, qr/^OK: menu "demo"/, '  reports OK with kind/name' );
 # valid menu (plugin)
 ( $o, $rc ) = check('sysmon');
 is( $rc, 0, 'plugin menu: exit 0' );
-like( $o, qr/6 item/, '  reports item count' );
+# Non-zero count rather than a hard-coded number, so expanding the demo menu
+# does not break the test while still catching an empty/zero-item regression.
+like( $o, qr/[1-9][0-9]* item/, '  reports a non-zero item count' );
 
 # valid form inside a .d directory
 ( $o, $rc ) = check('sysmon.d/sar');

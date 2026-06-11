@@ -1,0 +1,49 @@
+#
+#  ccfe-plugin-sysmon - network sockets (ss).  Uses iproute2 only.
+#
+title {
+  Show network sockets
+}
+top {
+  Choose which sockets to list, then press Enter.
+}
+field {
+  id      = TCP
+  label   = TCP sockets (-t)
+  type    = BOOLEAN
+  default = const:YES
+  option  = -t
+}
+field {
+  id     = UDP
+  label  = UDP sockets (-u)
+  type   = BOOLEAN
+  option = -u
+  htab   = 1
+}
+field {
+  id      = LISTEN
+  label   = Listening sockets only (-l)
+  type    = BOOLEAN
+  default = const:YES
+  option  = -l
+  htab    = 1
+}
+field {
+  id      = NUMERIC
+  label   = Numeric output, no name resolution (-n)
+  type    = BOOLEAN
+  default = const:YES
+  option  = -n
+  htab    = 1
+}
+field {
+  id     = PROC
+  label  = Show the owning process (-p)
+  type   = BOOLEAN
+  option = -p
+  htab   = 1
+}
+action { run:
+  ss%{TCP}%{UDP}%{LISTEN}%{NUMERIC}%{PROC}
+}

@@ -1,0 +1,29 @@
+#
+#  ccfe-plugin-sysmon - top processes by CPU/memory (ps).  Uses procps only.
+#
+title {
+  List the busiest processes
+}
+top {
+  Pick a sort order (<F2> on the first field) and how many to show.
+}
+field {
+  id       = SORT
+  label    = Sort processes by
+  type     = STRING
+  len      = 6
+  list_cmd = const:single-val:"-%cpu : CPU usage (busiest first)","-%mem : memory usage","-etime : elapsed run time"
+  option   = --sort=
+  default  = const:-%cpu
+}
+field {
+  id      = COUNT
+  label   = Number of processes to list
+  type    = NUMERIC
+  len     = 3
+  default = const:15
+  htab    = 1
+}
+action { run:
+  ps aux %{SORT} | head -n %{COUNT}
+}

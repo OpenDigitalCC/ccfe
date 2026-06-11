@@ -1,0 +1,50 @@
+#
+#  ccfe-plugin-sysmon - directory space usage (du).  Uses coreutils only.
+#
+title {
+  Measure directory space usage
+}
+top {
+  Set a directory and options, then press Enter.
+}
+field {
+  id      = PATH
+  label   = Directory to measure
+  type    = STRING
+  len     = 40
+  default = const:.
+}
+field {
+  id      = HUMAN
+  label   = Human-readable sizes (-h)
+  type    = BOOLEAN
+  default = const:YES
+  option  = -h
+  vtab    = 1
+}
+field {
+  id     = SUMMARY
+  label  = Show only the grand total (-s)
+  type   = BOOLEAN
+  option = -s
+  htab   = 1
+}
+field {
+  id      = ONEFS
+  label   = Stay on one filesystem (-x)
+  type    = BOOLEAN
+  default = const:YES
+  option  = -x
+  htab    = 1
+}
+field {
+  id       = DEPTH
+  label    = Limit directory depth (blank = unlimited)
+  type     = NUMERIC
+  len      = 2
+  option   = --max-depth=
+  vtab     = 1
+}
+action { run:
+  du%{HUMAN}%{SUMMARY}%{ONEFS} %{DEPTH} %{PATH}
+}

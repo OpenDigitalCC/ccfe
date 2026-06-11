@@ -1,0 +1,49 @@
+#
+#  ccfe-plugin-sysmon - free disk space (df).  Uses coreutils only.
+#
+title {
+  Report free disk space
+}
+top {
+  Toggle options with the value list (<F2>); Enter runs the report.
+}
+field {
+  id      = HUMAN
+  label   = Human-readable sizes (-h)
+  type    = BOOLEAN
+  default = const:YES
+  option  = -h
+}
+field {
+  id     = INODES
+  label  = Show inode usage instead of blocks (-i)
+  type   = BOOLEAN
+  option = -i
+  htab   = 1
+}
+field {
+  id     = TYPE
+  label  = Print each filesystem's type (-T)
+  type   = BOOLEAN
+  option = -T
+  htab   = 1
+}
+field {
+  id      = LOCAL
+  label   = Limit to local filesystems (-l)
+  type    = BOOLEAN
+  default = const:YES
+  option  = -l
+  htab    = 1
+}
+field {
+  id       = FS
+  label    = Filesystem or mount point (blank = all)
+  type     = STRING
+  len      = 30
+  list_cmd = command:single-val:df -P | awk 'NR>1{print $NF}'
+  vtab     = 1
+}
+action { run:
+  df%{HUMAN}%{INODES}%{TYPE}%{LOCAL} %{FS}
+}
