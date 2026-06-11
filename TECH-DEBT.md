@@ -55,12 +55,20 @@ Save arm became `browser_save()` (returns a break flag for the two ES_EXIT
 cases). Verified by t/21 (search drives all three search helpers) and t/22
 (save: picker/script/file write).
 
+The three mid-sized subs were also broken up: `do_menu` **308 → 230** via
+`run_menu_action()` (the menu analogue of `run_form_submit`: parse the item
+action, apply its opts, dispatch menu/form/system/exec/run); `do_list`
+**344 → 295** via `list_setup()` (per-type footer keys / top message + the
+`display` line-wrap, also fixing a latent uninit-value warning); `load_form`
+**224 → 120** via `resolve_field_defaults()` (the per-field const/command/
+boolean default resolution + attribute filling). Verified by t/28/t/12,
+t/23/t/30, and t/14/t/19/t/20/t/29 respectively; full suite green (366).
+
 Still open under TD-3: `run_browse`'s open3 + `IO::Select` capture phase (~135
 lines — the most I/O-sensitive part: child spawn, stdout/stderr multiplexing,
 partial-line handling — left for now as higher-risk with less certain edge-case
-coverage); the other big subs (`do_list`, `do_menu`, `load_form`); and the
-`ccfe.pl` perltidy pass + CI-gate decision (a policy call on perltidy/perlcritic
-severity for the legacy file).
+coverage); and the `ccfe.pl` perltidy pass + CI-gate decision (a policy call on
+perltidy/perlcritic severity for the legacy file).
 
 ---
 
