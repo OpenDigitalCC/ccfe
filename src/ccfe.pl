@@ -1308,6 +1308,123 @@ sub load_menu {
     return $res;
 }
 
+# Resolve each parsed field's effective default and fill in its omitted
+# attributes (TD-3), extracted from load_form's post-parse processing.  The
+# pure CCFE::FormFile parser leaves a field's `default` as its raw
+# `const:`/`command:` spec; here a const default is taken verbatim, a command
+# default is run (cwd = the form's dir) and its output captured, and a boolean
+# default is validated and right-aligned.  Then every field gets its
+# type/len/enabled/htab/... defaults and a boolean field its synthetic
+# single-val list_cmd.  Mutates $form->{fields} in place.
+sub resolve_field_defaults ($form) {
+    foreach my $i ( 0 .. $#{ $form->{fields} } ) {
+        my $id      = $form->{fields}[$i]{id};
+        my $type    = $form->{fields}[$i]{type};
+        my $val     = '';
+        my $default = '';
+        if ( $form->{fields}[$i]{default} ) {
+            my ( $datatype, $data ) = split /:/,
+              $form->{fields}[$i]{default}, 2;
+          SWITCH: {
+                $_ = lc $datatype;
+                if (/^const$/) {
+                    $default = $data;
+                    last SWITCH;
+                }
+                if (/^command$/) {
+
+                    trace(
+"set default value field ID \"$id\" with cmd \"$data\"",
+                        $LOG_DEFAULT_CMD
+                    );
+                    my @res = ();
+                    my @err = ();
+                    unless (
+                        exec_command(
+                            $data, $form->{path},
+                            \@res, \@err
+                        )
+                      )
+                    {
+                        trace( "error:\n" . join( '', @err ),
+                            $LOG_DEFAULT_CMD );
+                        @res = ('ERROR!');
+                    }
+                    $default = join( ' ', @res );
+
+                    last SWITCH;
+                }
+                $default = 'ERROR!';
+            }
+            if ( $type & $BOOLEAN ) {
+                my @vals = ();
+                @vals = ( $BFIELD_YES, $BFIELD_NO )
+                  if $type == $BOOLEAN;
+                @vals =
+                  ( $BFIELD_NULL, $BFIELD_YES, $BFIELD_NO )
+                  if $type == $NULLBOOLEAN;
+                $default =~ s/\s+$//;
+                $default =~ s/^\s+//;
+                unless ( in( uc($default), @vals ) ) {
+                    trace(
+"wrong default value \"$default\" in (NULL)BOOLEAN in field ID $form->{fields}[$i]{id}"
+                    );
+                    $default = 'ERROR!';
+                }
+                $default =
+                  uc( ralign( $default, $BOOLEAN_FIELD_SIZE ) );
+            }
+        }
+        elsif ( $type & $BOOLEAN ) {
+            $default =
+              ralign( $BFIELD_DEFAULT, $BOOLEAN_FIELD_SIZE );
+        }
+        $form->{fields}[$i]{default} = $default;
+
+        if ( $type & $BOOLEAN ) {
+            $form->{fields}[$i]{len} = $BOOLEAN_FIELD_SIZE;
+        }
+
+        unless ( defined( $form->{fields}[$i]{type} ) ) {
+            $form->{fields}[$i]{type} = $STRING;
+        }
+        unless ( defined( $form->{fields}[$i]{len} ) ) {
+            $form->{fields}[$i]{len} = 20;
+        }
+        unless ( defined( $form->{fields}[$i]{enabled} ) ) {
+            $form->{fields}[$i]{enabled} = $YES;
+        }
+        unless ( defined( $form->{fields}[$i]{htab} ) ) {
+            $form->{fields}[$i]{htab} = 0;
+        }
+        unless ( defined( $form->{fields}[$i]{vtab} ) ) {
+            $form->{fields}[$i]{vtab} = 0;
+        }
+        unless ( defined( $form->{fields}[$i]{hidden} ) ) {
+            $form->{fields}[$i]{hidden} = $NO;
+        }
+        unless ( defined( $form->{fields}[$i]{ignore_unchgd} ) ) {
+            $form->{fields}[$i]{ignore_unchgd} = $NO;
+        }
+        unless ( defined( $form->{fields}[$i]{list_sep} ) ) {
+            $form->{fields}[$i]{list_sep} = ' ';
+        }
+        $form->{fields}[$i]{changed} = $NO;
+        $form->{fields}[$i]{valueFg} = $ctx->{cfg}{valueFg};
+        $form->{fields}[$i]{valueBg} = $ctx->{cfg}{valueBg};
+
+        if ( $type == $BOOLEAN ) {
+            $form->{fields}[$i]{list_cmd} =
+"const:single-val:\"$BFIELD_YES $BFIELD_YES_DESCR\",\"$BFIELD_NO $BFIELD_NO_DESCR\"";
+        }
+        if ( $type == $NULLBOOLEAN ) {
+            $form->{fields}[$i]{list_cmd} =
+"const:single-val:\"$BFIELD_YES $BFIELD_YES_DESCR\",\"$BFIELD_NO $BFIELD_NO_DESCR\",\"$BFIELD_NULL $BFIELD_NULL_DESCR\"";
+        }
+    }
+    return;
+}
+
 sub load_form {
     my ( $name, $path, $form ) = @_;    # $form: caller's hashref to fill
 
@@ -1385,111 +1502,7 @@ sub load_form {
                         }
                     }
 
-                    foreach my $i ( 0 .. $#{ $form{fields} } ) {
-                        my $id      = $form{fields}[$i]{id};
-                        my $type    = $form{fields}[$i]{type};
-                        my $val     = '';
-                        my $default = '';
-                        if ( $form{fields}[$i]{default} ) {
-                            my ( $datatype, $data ) = split /:/,
-                              $form{fields}[$i]{default}, 2;
-                          SWITCH: {
-                                $_ = lc $datatype;
-                                if (/^const$/) {
-                                    $default = $data;
-                                    last SWITCH;
-                                }
-                                if (/^command$/) {
-
-                                    trace(
-"set default value field ID \"$id\" with cmd \"$data\"",
-                                        $LOG_DEFAULT_CMD
-                                    );
-                                    my @res = ();
-                                    my @err = ();
-                                    unless (
-                                        exec_command(
-                                            $data, $form{path},
-                                            \@res, \@err
-                                        )
-                                      )
-                                    {
-                                        trace( "error:\n" . join( '', @err ),
-                                            $LOG_DEFAULT_CMD );
-                                        @res = ('ERROR!');
-                                    }
-                                    $default = join( ' ', @res );
-
-                                    last SWITCH;
-                                }
-                                $default = 'ERROR!';
-                            }
-                            if ( $type & $BOOLEAN ) {
-                                my @vals = ();
-                                @vals = ( $BFIELD_YES, $BFIELD_NO )
-                                  if $type == $BOOLEAN;
-                                @vals =
-                                  ( $BFIELD_NULL, $BFIELD_YES, $BFIELD_NO )
-                                  if $type == $NULLBOOLEAN;
-                                $default =~ s/\s+$//;
-                                $default =~ s/^\s+//;
-                                unless ( in( uc($default), @vals ) ) {
-                                    trace(
-"wrong default value \"$default\" in (NULL)BOOLEAN in field ID $form{fields}[$i]{id}"
-                                    );
-                                    $default = 'ERROR!';
-                                }
-                                $default =
-                                  uc( ralign( $default, $BOOLEAN_FIELD_SIZE ) );
-                            }
-                        }
-                        elsif ( $type & $BOOLEAN ) {
-                            $default =
-                              ralign( $BFIELD_DEFAULT, $BOOLEAN_FIELD_SIZE );
-                        }
-                        $form{fields}[$i]{default} = $default;
-
-                        if ( $type & $BOOLEAN ) {
-                            $form{fields}[$i]{len} = $BOOLEAN_FIELD_SIZE;
-                        }
-
-                        unless ( defined( $form{fields}[$i]{type} ) ) {
-                            $form{fields}[$i]{type} = $STRING;
-                        }
-                        unless ( defined( $form{fields}[$i]{len} ) ) {
-                            $form{fields}[$i]{len} = 20;
-                        }
-                        unless ( defined( $form{fields}[$i]{enabled} ) ) {
-                            $form{fields}[$i]{enabled} = $YES;
-                        }
-                        unless ( defined( $form{fields}[$i]{htab} ) ) {
-                            $form{fields}[$i]{htab} = 0;
-                        }
-                        unless ( defined( $form{fields}[$i]{vtab} ) ) {
-                            $form{fields}[$i]{vtab} = 0;
-                        }
-                        unless ( defined( $form{fields}[$i]{hidden} ) ) {
-                            $form{fields}[$i]{hidden} = $NO;
-                        }
-                        unless ( defined( $form{fields}[$i]{ignore_unchgd} ) ) {
-                            $form{fields}[$i]{ignore_unchgd} = $NO;
-                        }
-                        unless ( defined( $form{fields}[$i]{list_sep} ) ) {
-                            $form{fields}[$i]{list_sep} = ' ';
-                        }
-                        $form{fields}[$i]{changed} = $NO;
-                        $form{fields}[$i]{valueFg} = $ctx->{cfg}{valueFg};
-                        $form{fields}[$i]{valueBg} = $ctx->{cfg}{valueBg};
-
-                        if ( $type == $BOOLEAN ) {
-                            $form{fields}[$i]{list_cmd} =
-"const:single-val:\"$BFIELD_YES $BFIELD_YES_DESCR\",\"$BFIELD_NO $BFIELD_NO_DESCR\"";
-                        }
-                        if ( $type == $NULLBOOLEAN ) {
-                            $form{fields}[$i]{list_cmd} =
-"const:single-val:\"$BFIELD_YES $BFIELD_YES_DESCR\",\"$BFIELD_NO $BFIELD_NO_DESCR\",\"$BFIELD_NULL $BFIELD_NULL_DESCR\"";
-                        }
-                    }
+                    resolve_field_defaults( \%form );
 
                     ( $val, undef, $key ) =
                       extract_bracketed( $form{action}, '{',
