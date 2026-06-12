@@ -72,90 +72,91 @@ use FindBin ();    # to locate the program at runtime (see the path block below)
 # onto lexicals and $ctx; what remains global is genuinely program-wide.
 ## BEGIN-OUR (formatted; scalars, then arrays, then hashes)
 our (
-    $ALL_FIELDS_IDS_TAG,    $ASKS_FIELD_PAD,        $ASKS_FIELD_SIZE,
-    $ASKS_WIN_COLS,         $ASKS_WIN_FTR_ROWS,     $ASKS_WIN_ROWS,
-    $BAD_SHELL_MSG,         $BAD_SHELL_TITLE,       $BFIELD_DEFAULT,
-    $BFIELD_NO,             $BFIELD_NO_DESCR,       $BFIELD_NULL,
-    $BFIELD_NULL_DESCR,     $BFIELD_YES,            $BFIELD_YES_DESCR,
-    $BIG_OUTPUT_MSG,        $BIG_OUTPUT_TITLE,      $BINDIR,
-    $BOOLEAN,               $BOOLEAN_FIELD_SIZE,    $CALLNAME,
-    $CALL_SHELL_MSG,        $CALL_SYS_ES_MSG,       $CALL_SYS_MSG,
-    $CONFIRM_DESCR_NO,      $CONFIRM_DESCR_YES,     $CONFIRM_TITLE,
-    $CURSES_ACTIVE,         $DEBUG,                 $DESCR,
-    $DMENU_DEF_FNAME,       $EMPTY_LIST_MSG,        $EMPTY_LIST_TITLE,
-    $EXEC_NOTFOUND_MSG,     $EXEC_NOTFOUND_TITLE,   $ERR_EMPTY_FIELD_MSG,
-    $ERR_EMPTY_FIELD_TITLE, $ERR_LOAD_INITIAL_OBJ,  $ES_CANCEL,
-    $ES_EXIT,               $ES_FOPEN_ERR,          $ES_FOPEN_ERR_MSG,
-    $ES_NOT_FOUND,          $ES_NOT_FOUND_MSG,      $ES_NO_ERR,
-    $ES_NO_ERR_MSG,         $ES_NO_ITEMS,           $ES_NO_ITEMS_MSG,
-    $ES_SYNTAX_ERR,         $ES_SYNTAX_ERR_MSG,     $ES_USER_REQ,
-    $ETCDIR,                $FALSE,                 $FIELD_LMARGIN,
-    $FIELD_RMARGIN,         $FIELD_VALUE_GAP,       $FORMEXT,
-    $FORM_ARGV_ID,          $FORM_ERR_TITLE,        $FOUND_NONE_MSG,
-    $FOUND_NONE_TITLE,      $FSEP_ID_PRFX,          $FS_BOTTOM_ROWS,
-    $FS_HEADER_ROWS,        $FS_TOP_ROWS,           $HAS_COLOR,
-    $HOSTNAME,              $HTAB_COLS,             $INIT_DISABLE_FIELDS,
-    $INIT_ENABLE_FIELDS,    $INIT_FORM_ERR_MSG,     $INIT_REMOVE_FIELDS,
-    $KEY_ENTER_LABEL,       $KEY_F10_LABEL,         $KEY_F1_LABEL,
-    $KEY_F2_LABEL,          $KEY_F3_LABEL,          $KEY_F4_LABEL,
-    $KEY_F5_LABEL,          $KEY_F6_LABEL,          $KEY_F7_LABEL,
-    $KEY_F8_LABEL,          $KEY_F9_LABEL,          $KEY_FIND_LABEL,
-    $KEY_FNEXT_LABEL,       $KEY_INTR_LABEL,        $KEY_SELALL_LABEL,
-    $KEY_UNSELALL_LABEL,    $LANG_ID,               $LEGACY_DIR,
-    $LIBDIR,                $LIST_CMD_ERR_MSG,      $LIST_CMD_ERR_TITLE,
-    $LOAD_FORM_ERR_MSG,     $LOAD_MENU_ERR_MSG,     $LOGDIR,
-    $LOG_ACTION_CMD,        $LOG_ACTION_OUT,        $LOG_DATE,
-    $LOG_DEFAULT_CMD,       $LOG_FIELDS_VAL,        $LOG_INITFORM_OUT,
-    $LOG_LIST_CMD,          $LOG_MENU_CHOICE,       $LOG_NORMAL,
-    $LOG_REQUESTED,         $LOG_SCAN_PATHS,        $LOG_SYSCALL_ENV,
-    $LOG_WRITE_ERROR_MSG,   $LOG_WRITE_ERROR_TITLE, $LW_COLS,
-    $LW_FOOTER_ROWS,        $LW_PAD_COLS,           $LW_ROW0,
-    $MAIN_PATH,             $MARK_PRIV_SHCUTS,      $MENUEXT,
-    $MENU_ERR_TITLE,        $MIN_ITEMS_FOR_FIND,    $MOUSE_ON,
-    $MSGDIR,                $MSG_WIN_BMSG,          $MSG_WIN_ROWS,
-    $MSG_WIN_TITLE,         $MS_BOTTOM_ROWS,        $MS_HEADER_ROWS,
-    $MS_TOP_ROWS,           $NO,                    $NORMAL,
-    $NULLBOOLEAN,           $NULL_FACTION_MSG,      $NULL_FACTION_TITLE,
-    $NULL_LIST_MSG,         $NULL_LIST_TITLE,       $NUMERIC,
-    $OBJDIR,                $OFF,                   $ON,
-    $PERS_DIR,              $PERS_WRITE_ERROR_MSG,  $PERS_WRITE_ERROR_TITLE,
-    $PREFIX,                $PRIV_DIR,              $RB_FAILED_MSG,
-    $RB_LINES_MSG,          $RB_OK_MSG,             $RB_RUNNING_MSG,
-    $RB_TIME_MSG,           $RB_TITLE,              $REALNAME,
-    $RESTRICTED_MSG,        $RESTRICTED_TITLE,      $RS_BOTTOM_ROWS,
-    $RS_HEADER_ROWS,        $RS_INFO_ID,            $RS_STDERR_ID,
-    $RS_STDOUT_ID,          $RS_TOP_ROWS,           $SAVE_DETAILED,
-    $SAVE_DETAILED_DESCR,   $SAVE_ERROR_MSG,        $SAVE_ERROR_TITLE,
-    $SAVE_FIELDVAL_MSG,     $SAVE_FIELDVAL_TITLE,   $SAVE_FNAME_PROMPT,
-    $SAVE_FNAME_TITLE,      $SAVE_SCRIPT,           $SAVE_SCRIPT_DESCR,
-    $SAVE_SIMPLE,           $SAVE_SIMPLE_DESCR,     $SAVE_TYPE_TITLE,
-    $SEARCH_PTRN_PROMPT,    $SEARCH_PTRN_TITLE,     $SEPARATOR,
-    $SEP_LINE,              $SEP_LINE_DOUBLE,       $SEP_TEXT,
-    $SEP_TEXT_CENTER,       $SHOW_ACTION_TITLE,     $SIMPLE,
-    $SR_BUFF_SIZE,          $STRING,                $THEMEDIR,
-    $TRUE,                  $UCSTRING,              $USERNAME,
-    $USR_CFG,               $USR_OBJ,               $VERSION,
-    $VERSION_DATE,          $VERSION_YEAR,          $WAIT_MSG_MSG,
-    $WRKDIR,                $YES,                   $attrk,
-    $attrv,                 $called_form,           $ch,
-    $choice,                $cpid,                  $descr,
-    $es,                    $exec_hh,               $exec_mm,
-    $exec_ss,               $i,                     $id,
-    $lflags_size,           $mlmargin,              $mwin,
-    $mwinr,                 $opt,                   $out,
-    $ovl_mode,              $p,                     $pad_lines,
-    $path,                  $pid,                   $prev_wdir,
-    $res,                   $rflags_size,           $s,
-    $scan,                  $search_string,         $shcut_type,
-    $text,                  $tmpfh,                 $twin,
-    @CONFIRM_ITEMS,         @ERR_LITTLE_SCREEN,     @ERR_WRONG_FPATH,
-    @FORM_TOP_MSG,          @FSKeys,                @LW_DISPLAY_TOP_MSG,
-    @LW_MULTIVAL_TOP_MSG,   @LW_SINGLEVAL_TOP_MSG,  @MENU_TOP_MSG,
-    @MSKeys,                @RSKeys,                @cnf_path,
-    @es_str,                @flist,                 @fn_key_functions,
-    @lines,                 @mf_path,               %bool_vals,
-    %layout_vals,           %options,               %sep_type_vals,
-    %type_vals,
+    $ALL_FIELDS_IDS_TAG,     $ASKS_FIELD_PAD,       $ASKS_FIELD_SIZE,
+    $ASKS_WIN_COLS,          $ASKS_WIN_FTR_ROWS,    $ASKS_WIN_ROWS,
+    $BAD_SHELL_MSG,          $BAD_SHELL_TITLE,      $BFIELD_DEFAULT,
+    $BFIELD_NO,              $BFIELD_NO_DESCR,      $BFIELD_NULL,
+    $BFIELD_NULL_DESCR,      $BFIELD_YES,           $BFIELD_YES_DESCR,
+    $BIG_OUTPUT_MSG,         $BIG_OUTPUT_TITLE,     $BINDIR,
+    $BOOLEAN,                $BOOLEAN_FIELD_SIZE,   $CALLNAME,
+    $CALL_SHELL_MSG,         $CALL_SYS_ES_MSG,      $CALL_SYS_MSG,
+    $CONFIRM_DESCR_NO,       $CONFIRM_DESCR_YES,    $CONFIRM_TITLE,
+    $CURSES_ACTIVE,          $DEBUG,                $DESCR,
+    $DMENU_DEF_FNAME,        $EMPTY_LIST_MSG,       $EMPTY_LIST_TITLE,
+    $EXEC_NOTFOUND_MSG,      $EXEC_NOTFOUND_TITLE,  $ERR_EMPTY_FIELD_MSG,
+    $ERR_EMPTY_FIELD_TITLE,  $ERR_LOAD_INITIAL_OBJ, $ES_CANCEL,
+    $ES_EXIT,                $ES_FOPEN_ERR,         $ES_FOPEN_ERR_MSG,
+    $ES_NOT_FOUND,           $ES_NOT_FOUND_MSG,     $ES_NO_ERR,
+    $ES_NO_ERR_MSG,          $ES_NO_ITEMS,          $ES_NO_ITEMS_MSG,
+    $ES_SYNTAX_ERR,          $ES_SYNTAX_ERR_MSG,    $ES_USER_REQ,
+    $ETCDIR,                 $FALSE,                $FIELD_LMARGIN,
+    $FIELD_RMARGIN,          $FIELD_VALUE_GAP,      $FORMEXT,
+    $FORM_ARGV_ID,           $FORM_ERR_TITLE,       $FOUND_NONE_MSG,
+    $FOUND_NONE_TITLE,       $FSEP_ID_PRFX,         $FS_BOTTOM_ROWS,
+    $FS_HEADER_ROWS,         $FS_TOP_ROWS,          $HAS_COLOR,
+    $HOSTNAME,               $HTAB_COLS,            $INIT_DISABLE_FIELDS,
+    $INIT_ENABLE_FIELDS,     $INIT_FORM_ERR_MSG,    $INIT_REMOVE_FIELDS,
+    $KEY_ENTER_LABEL,        $KEY_F10_LABEL,        $KEY_F1_LABEL,
+    $KEY_F2_LABEL,           $KEY_F3_LABEL,         $KEY_F4_LABEL,
+    $KEY_F5_LABEL,           $KEY_F6_LABEL,         $KEY_F7_LABEL,
+    $KEY_F8_LABEL,           $KEY_F9_LABEL,         $KEY_FIND_LABEL,
+    $KEY_FNEXT_LABEL,        $KEY_INTR_LABEL,       $KEY_RELOAD_LABEL,
+    $KEY_SELALL_LABEL,       $KEY_UNSELALL_LABEL,   $LANG_ID,
+    $LEGACY_DIR,             $LIBDIR,               $LIST_CMD_ERR_MSG,
+    $LIST_CMD_ERR_TITLE,     $LOAD_FORM_ERR_MSG,    $LOAD_MENU_ERR_MSG,
+    $LOGDIR,                 $LOG_ACTION_CMD,       $LOG_ACTION_OUT,
+    $LOG_DATE,               $LOG_DEFAULT_CMD,      $LOG_FIELDS_VAL,
+    $LOG_INITFORM_OUT,       $LOG_LIST_CMD,         $LOG_MENU_CHOICE,
+    $LOG_NORMAL,             $LOG_REQUESTED,        $LOG_SCAN_PATHS,
+    $LOG_SYSCALL_ENV,        $LOG_WRITE_ERROR_MSG,  $LOG_WRITE_ERROR_TITLE,
+    $LW_COLS,                $LW_FOOTER_ROWS,       $LW_PAD_COLS,
+    $LW_ROW0,                $MAIN_PATH,            $MARK_PRIV_SHCUTS,
+    $MENUEXT,                $MENU_ERR_TITLE,       $MIN_ITEMS_FOR_FIND,
+    $MOUSE_ON,               $MSGDIR,               $MSG_WIN_BMSG,
+    $MSG_WIN_ROWS,           $MSG_WIN_TITLE,        $MS_BOTTOM_ROWS,
+    $MS_HEADER_ROWS,         $MS_TOP_ROWS,          $NO,
+    $NORMAL,                 $NULLBOOLEAN,          $NULL_FACTION_MSG,
+    $NULL_FACTION_TITLE,     $NULL_LIST_MSG,        $NULL_LIST_TITLE,
+    $NUMERIC,                $OBJDIR,               $OFF,
+    $ON,                     $PERS_DIR,             $PERS_WRITE_ERROR_MSG,
+    $PERS_WRITE_ERROR_TITLE, $PREFIX,               $PRIV_DIR,
+    $RB_FAILED_MSG,          $RB_LINES_MSG,         $RB_OK_MSG,
+    $RB_RUNNING_MSG,         $RB_TIME_MSG,          $RB_TITLE,
+    $REALNAME,               $RELOAD_MSG,           $RELOAD_TITLE,
+    $RESTRICTED_MSG,         $RESTRICTED_TITLE,     $RS_BOTTOM_ROWS,
+    $RS_HEADER_ROWS,         $RS_INFO_ID,           $RS_STDERR_ID,
+    $RS_STDOUT_ID,           $RS_TOP_ROWS,          $SAVE_DETAILED,
+    $SAVE_DETAILED_DESCR,    $SAVE_ERROR_MSG,       $SAVE_ERROR_TITLE,
+    $SAVE_FIELDVAL_MSG,      $SAVE_FIELDVAL_TITLE,  $SAVE_FNAME_PROMPT,
+    $SAVE_FNAME_TITLE,       $SAVE_SCRIPT,          $SAVE_SCRIPT_DESCR,
+    $SAVE_SIMPLE,            $SAVE_SIMPLE_DESCR,    $SAVE_TYPE_TITLE,
+    $SEARCH_PTRN_PROMPT,     $SEARCH_PTRN_TITLE,    $SEPARATOR,
+    $SEP_LINE,               $SEP_LINE_DOUBLE,      $SEP_TEXT,
+    $SEP_TEXT_CENTER,        $SHOW_ACTION_TITLE,    $SIMPLE,
+    $SR_BUFF_SIZE,           $STRING,               $THEMEDIR,
+    $TRUE,                   $UCSTRING,             $USERNAME,
+    $USR_CFG,                $USR_OBJ,              $VERSION,
+    $VERSION_DATE,           $VERSION_YEAR,         $WAIT_MSG_MSG,
+    $WRKDIR,                 $YES,                  $attrk,
+    $attrv,                  $called_form,          $ch,
+    $choice,                 $cpid,                 $descr,
+    $es,                     $exec_hh,              $exec_mm,
+    $exec_ss,                $i,                    $id,
+    $lflags_size,            $mlmargin,             $mwin,
+    $mwinr,                  $opt,                  $out,
+    $ovl_mode,               $p,                    $pad_lines,
+    $path,                   $pid,                  $prev_wdir,
+    $res,                    $rflags_size,          $s,
+    $scan,                   $search_string,        $shcut_type,
+    $text,                   $tmpfh,                $twin,
+    @CONFIRM_ITEMS,          @ERR_LITTLE_SCREEN,    @ERR_WRONG_FPATH,
+    @FORM_TOP_MSG,           @FSKeys,               @LW_DISPLAY_TOP_MSG,
+    @LW_MULTIVAL_TOP_MSG,    @LW_SINGLEVAL_TOP_MSG, @MENU_TOP_MSG,
+    @MSKeys,                 @RSKeys,               @cnf_path,
+    @cnf_path_base,          @es_str,               @flist,
+    @fn_key_functions,       @lines,                @mf_path,
+    @mf_path_base,           %bool_vals,            %layout_vals,
+    %options,                %sep_type_vals,        %type_vals,
 );
 ## END-OUR
 
@@ -355,7 +356,7 @@ if ( $CALLNAME ne $REALNAME ) {
 );
 
 @fn_key_functions =
-  qw( back exit help list redraw reset_field save sel_items shell_escape show_action );
+  qw( back exit help list redraw reload reset_field save sel_items shell_escape show_action );
 
 $ctx->{state}{SCREEN_DIR} = '';
 
@@ -692,6 +693,8 @@ sub load_msgs {
       LIST_CMD_ERR_TITLE
       RESTRICTED_MSG
       RESTRICTED_TITLE
+      RELOAD_MSG
+      RELOAD_TITLE
       NULL_FACTION_MSG
       NULL_FACTION_TITLE
       EXEC_NOTFOUND_MSG
@@ -731,6 +734,7 @@ sub load_msgs {
       KEY_INTR_LABEL
       KEY_FIND_LABEL
       KEY_FNEXT_LABEL
+      KEY_RELOAD_LABEL
       KEY_SELALL_LABEL
       KEY_UNSELALL_LABEL
       CALL_SHELL_MSG
@@ -2278,6 +2282,116 @@ sub load_config {
     return $res;
 }
 
+# Baseline configuration values, applied before load_config() reads the config
+# files.  Factored out of the startup sequence so reload_config() can reset to a
+# clean slate before re-reading -- otherwise accumulating settings (the
+# RESTRICTED_ALLOW list, on-demand colour pairs) would double up on every
+# reload.  Only the *configurable* $ctx->{cfg} keys are set here; the genuine
+# runtime-state globals ($MOUSE_ON, $HAS_COLOR, ...) are owned by the caller.
+sub set_cfg_defaults {
+    $ctx->{cfg}{HIDE_CURSOR}      = $YES;
+    $ctx->{cfg}{SHOW_SCREEN_NAME} = $YES;
+    $ctx->{cfg}{INITIAL_OVL_MODE} = $NO;
+
+    # Mouse is opt-in (config `mouse = YES`): grabbing mouse events stops the
+    # terminal's own click-to-select text, which keyboard-first users may want.
+    $ctx->{cfg}{ENABLE_MOUSE}     = $NO;
+    $ctx->{cfg}{FIELD_PAD}        = 95;
+    $ctx->{cfg}{HFIELD_PAD}       = 42;
+    $ctx->{cfg}{SHOW_CHGD_FIELDS} = $YES;
+    $ctx->{cfg}{SHOW_FIELD_FLAGS} = $YES;
+    $ctx->{cfg}{SHOW_DOTS}        = $YES;
+    $ctx->{cfg}{MARK_NOACT_ITEMS} = $NO;
+    $ctx->{cfg}{MAX_PAD_LINES}    = 5000;
+    $ctx->{cfg}{RS_INFO_ATTR}     = A_REVERSE;
+    $ctx->{cfg}{RS_STDERR_ATTR}   = A_BOLD;
+    $ctx->{cfg}{RS_STDOUT_ATTR}   = A_NORMAL;
+    $ctx->{cfg}{END_MARKER}       = '';
+    $ctx->{cfg}{OPEN3_SHELL}      = '/bin/sh';
+    $ctx->{cfg}{USER_SHELL}       = ( getpwuid($>) )[8];
+    $ctx->{cfg}{fval_delim}       = [ ' ', ' ' ];
+    $ctx->{cfg}{FIELD_VALUE_POS}  = -1;
+    $ctx->{cfg}{RESTRICTED}       = $NO;
+    $ctx->{cfg}{RESTRICTED_ALLOW} = [];
+    $ctx->{cfg}{vars}             = {};
+
+    # Menu/screen theme attributes.  Defaults preserve the historical
+    # monochrome look (overall screen normal, selected item reversed, bold
+    # title, reverse function-key highlight); a config (e.g. a SMIT-style
+    # instance) can set these to COLOR_PAIR(n) expressions for a colour UI.
+    # TITLE_ATTR colours the header and KEY_ATTR the control keys in the footer
+    # bar; they apply to every screen (menus, forms, the output browser), since
+    # the title/footer are shared.
+    $ctx->{cfg}{MENU_SCREEN_ATTR} = A_NORMAL;
+    $ctx->{cfg}{MENU_ITEM_ATTR}   = A_NORMAL;
+    $ctx->{cfg}{MENU_SEL_ATTR}    = A_REVERSE;
+    $ctx->{cfg}{TITLE_ATTR}       = A_BOLD;
+    $ctx->{cfg}{KEY_ATTR} = undef;  # undef = the original bkgd-relative h'light
+    return;
+}
+
+# Reset the configurable function-key bindings to "unbound" (code -1) so a
+# re-read of `key_fN = ...` lines re-derives them from scratch.  Without this a
+# binding removed from the config would linger after a reload.  Only the
+# @fn_key_functions are touched; the fixed keys (do/find/...) keep their codes.
+sub reset_key_codes {
+    for my $fn (@fn_key_functions) {
+        next unless ref $ctx->{cfg}{keys}{$fn} eq 'HASH';
+        $ctx->{cfg}{keys}{$fn}{code} = -1;
+        delete $ctx->{cfg}{keys}{$fn}{key};
+    }
+    return;
+}
+
+# Runtime configuration reload (FEATURE-REQUESTS A1).  Re-read the config files
+# and re-apply everything that can change without rebuilding the terminal:
+# colours / *_attr, key bindings, behaviour toggles and `variables {}`.  The
+# caller (a menu `reload:` action or a bound `reload` key) rebuilds the current
+# screen afterwards so the new attributes paint immediately.
+#
+# RESTRICTED mode is deliberately NOT changed by a reload: entering or leaving
+# the restricted sandbox is a session-level security decision (it prunes the
+# object search path and the escape keys at startup), so the startup state is
+# pinned across the re-read -- both while the files are read (the user-writable
+# skip honours it) and afterwards.  Toggling mouse or the screen layout, and
+# enabling colour that was off at launch, still require a restart.
+sub reload_config {
+    my $was_restricted = $ctx->{cfg}{RESTRICTED};
+
+    set_cfg_defaults();
+    reset_key_codes();
+    @mf_path  = @mf_path_base;
+    @cnf_path = @cnf_path_base;
+
+    # Pin restricted state before the read (so the user-writable-config skip in
+    # load_config behaves as it did at startup) ...
+    $ctx->{cfg}{RESTRICTED} = $was_restricted;
+    my $res = load_config();
+
+   # ... and after it, so a re-read cannot drop or raise the sandbox at runtime.
+    $ctx->{cfg}{RESTRICTED} = $was_restricted;
+
+    harden_child_env();
+
+    # Mirror the startup "force a Back key" fallback in case the re-read left
+    # none bound, so the user can always leave a screen.
+    if ( ( $ctx->{cfg}{keys}{back}{code} // -1 ) == -1 ) {
+        $ctx->{cfg}{keys}{back}{code}  = KEY_F(10);
+        $ctx->{cfg}{keys}{back}{key}   = 'F10';
+        $ctx->{cfg}{keys}{back}{label} = ':Back';
+    }
+
+    # Create any fg/bg colour pairs newly referenced by the re-read *_attr
+    # values.  init_pair() is callable at runtime, so a brand-new
+    # color_pair('fg','bg') DOES take effect on reload as long as colour was
+    # enabled at launch (a no-colour terminal still needs a restart).
+    CCFE::Theme::init_dynamic_pairs() if $HAS_COLOR;
+
+    $ASKS_FIELD_PAD = $ctx->{cfg}{FIELD_PAD};
+    trace('configuration reloaded at runtime');
+    return $res;
+}
+
 # Apply an action's options (confirm / log / wait_key), shared by do_menu and
 # do_form (TD-3 de-dup).  Sets the global $LOG_REQUESTED; `confirm` pops a
 # Yes/No list titled $title.  Returns ($wait_key, $aborted, $es): $aborted is
@@ -2380,6 +2494,15 @@ sub run_menu_action ( $action_str, $descr, $menuname, $menu_path, $win, $es ) {
     elsif ( $action eq 'run' ) {
         $es = run_browse( $descr, $args, $menuname, $menu_path );
         refresh($win);
+    }
+    elsif ( $action eq 'reload' ) {
+
+        # Re-read the configuration at runtime (FEATURE-REQUESTS A1).  Flag the
+        # reload so do_menu rebuilds the current menu with the new attributes
+        # once we return; the pop-up confirms and lists what needs a restart.
+        reload_config();
+        $ctx->{state}{cfg_reloaded} = $YES;
+        disp_msg( $win, $RELOAD_MSG, $RELOAD_TITLE );
     }
     elsif ( $action eq 'ABORTED' ) {
         trace("user not confirmed action!");
@@ -2495,6 +2618,23 @@ sub do_menu {
             post_menu($cmenu);
             refresh($win);
         };
+
+        # Tear down and rebuild the menu windows in place -- used on a terminal
+        # resize and after a runtime config reload (FEATURE-REQUESTS A1) so new
+        # colours/attrs paint.  Re-applies the menu fore/back attributes too,
+        # since those are set at menu creation (outside $draw_menu) and a reload
+        # may have changed them.
+        my $rebuild_menu = sub {
+            unpost_menu($cmenu);
+            set_menu_fore( $cmenu, $ctx->{cfg}{MENU_SEL_ATTR} );
+            set_menu_back( $cmenu, $ctx->{cfg}{MENU_ITEM_ATTR} );
+            del_panel($pan);
+            delwin($msub);
+            delwin($win);
+            $draw_menu->();
+            clearok( curscr, 1 );
+            refresh(curscr);
+        };
         $draw_menu->();
 
         $es = 0;
@@ -2566,17 +2706,20 @@ sub do_menu {
                 # only the new window, so without this the area the old (perhaps
                 # larger) window occupied keeps stale content until the next key
                 # -- the "last resize doesn't refresh" glitch.
-                unpost_menu($cmenu);
-                del_panel($pan);
-                delwin($msub);
-                delwin($win);
-                $draw_menu->();
-                clearok( curscr, 1 );
-                refresh(curscr);
+                $rebuild_menu->();
             }
             elsif ( $ch == $ctx->{cfg}{keys}{redraw}{code} ) {
                 clearok( curscr, 1 );
                 refresh(curscr);
+            }
+            elsif ( $ctx->{cfg}{keys}{reload}{code} != -1
+                and $ch == $ctx->{cfg}{keys}{reload}{code} )
+            {
+                # Bound `reload` key: re-read config, rebuild this menu with the
+                # new attributes, then confirm (FEATURE-REQUESTS A1).
+                reload_config();
+                $rebuild_menu->();
+                disp_msg( $win, $RELOAD_MSG, $RELOAD_TITLE );
             }
             elsif ( $ch == $ctx->{cfg}{keys}{back}{code} or ord($ch) == 27 ) {
                 $es = $ES_CANCEL;
@@ -2610,6 +2753,10 @@ sub do_menu {
                         $menuname, $menu{path}, $win, $es
                     );
                     last if ( $es // 0 ) == $ES_EXIT;
+
+                    # A `reload:` action re-read the config; rebuild this menu
+                    # so the new colours/attrs paint (FEATURE-REQUESTS A1).
+                    $rebuild_menu->() if delete $ctx->{state}{cfg_reloaded};
                     $LOG_REQUESTED = $NO;
                 }
                 else {
@@ -5501,6 +5648,10 @@ $ctx->{cfg}{keys} = {
         code  => -1,
         label => $KEY_F2_LABEL
     },
+    reload => {
+        code  => -1,
+        label => $KEY_RELOAD_LABEL
+    },
     back => {
         code  => -1,
         label => $KEY_F3_LABEL
@@ -5558,7 +5709,7 @@ $ctx->{cfg}{keys} = {
         label => $KEY_UNSELALL_LABEL
     }
 };
-@MSKeys = qw( help redraw back shell_escape exit do );
+@MSKeys = qw( help redraw reload back shell_escape exit do );
 @FSKeys =
   qw( help redraw back list reset_field show_action save shell_escape exit do );
 @RSKeys =
@@ -5622,50 +5773,22 @@ trace(
 chdir "$WRKDIR";
 trace( 'Changed CWD to ' . getcwd() );
 
-$ctx->{cfg}{HIDE_CURSOR}      = $YES;
-$ctx->{cfg}{SHOW_SCREEN_NAME} = $YES;
-$ctx->{cfg}{INITIAL_OVL_MODE} = $NO;
+# Baseline configuration; load_config() overrides from the config files.  The
+# defaults live in set_cfg_defaults() so reload_config() can reset to the same
+# clean slate before a runtime re-read (FEATURE-REQUESTS A1).
+set_cfg_defaults();
 
-# Mouse is opt-in (config `mouse = YES`): grabbing mouse events stops the
-# terminal's own click-to-select text, which keyboard-first users may want.
-$ctx->{cfg}{ENABLE_MOUSE}     = $NO;
-$MOUSE_ON                     = $NO;
-$ctx->{cfg}{FIELD_PAD}        = 95;
-$ctx->{cfg}{HFIELD_PAD}       = 42;
-$ctx->{cfg}{SHOW_CHGD_FIELDS} = $YES;
-$ctx->{cfg}{SHOW_FIELD_FLAGS} = $YES;
-$ctx->{cfg}{SHOW_DOTS}        = $YES;
-$ctx->{cfg}{MARK_NOACT_ITEMS} = $NO;
-$ctx->{cfg}{MAX_PAD_LINES}    = 5000;
-$ctx->{cfg}{RS_INFO_ATTR}     = A_REVERSE;
-$ctx->{cfg}{RS_STDERR_ATTR}   = A_BOLD;
-$ctx->{cfg}{RS_STDOUT_ATTR}   = A_NORMAL;
-$ctx->{cfg}{END_MARKER}       = '';
-$ctx->{cfg}{OPEN3_SHELL}      = '/bin/sh';
-$ctx->{cfg}{USER_SHELL}       = ( getpwuid($>) )[8];
-$ctx->{cfg}{fval_delim}       = [ ' ', ' ' ];
-$ctx->{cfg}{FIELD_VALUE_POS}  = -1;
+# Genuine runtime-state globals (not config the reload resets): the live mouse
+# state, the value-placement gap, and the colour-available flag.
+$MOUSE_ON        = $NO;
+$FIELD_VALUE_GAP = 4;
+$HAS_COLOR       = $NO;
 
-# Auto value placement (FIELD_VALUE_POS == -1, NORMAL layout): the value column
-# sits this many columns past the longest label on the page, instead of being
-# right-aligned to the screen edge.  This keeps the dot run short and the form
-# compact, so values stay on-screen on narrow terminals.
-$FIELD_VALUE_GAP              = 4;
-$ctx->{cfg}{RESTRICTED}       = $NO;
-$ctx->{cfg}{RESTRICTED_ALLOW} = [];
-$HAS_COLOR                    = $NO;
-
-# Menu/screen theme attributes.  Defaults preserve the historical monochrome
-# look (overall screen normal, selected item reversed, bold title, reverse
-# function-key highlight); a config (e.g. a SMIT-style instance) can set these
-# to COLOR_PAIR(n) expressions for a colour UI.  $ctx->{cfg}{TITLE_ATTR} colours the header
-# and $ctx->{cfg}{KEY_ATTR} the control keys in the footer bar; they apply to every screen
-# (menus, forms, the output browser), since the title/footer are shared.
-$ctx->{cfg}{MENU_SCREEN_ATTR} = A_NORMAL;
-$ctx->{cfg}{MENU_ITEM_ATTR}   = A_NORMAL;
-$ctx->{cfg}{MENU_SEL_ATTR}    = A_REVERSE;
-$ctx->{cfg}{TITLE_ATTR}       = A_BOLD;
-$ctx->{cfg}{KEY_ATTR} = undef;    # undef = the original bkgd-relative highlight
+# Snapshot the pristine object/config search paths before load_config() can
+# extend them (a `load_user_objects = yes` config pushes onto them); reload
+# restores from these so the paths don't grow on every re-read.
+@mf_path_base  = @mf_path;
+@cnf_path_base = @cnf_path;
 
 if ( $res = load_config ) {
     trace("$es_str[$res] loading configuration file");

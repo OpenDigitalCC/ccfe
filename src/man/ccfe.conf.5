@@ -349,6 +349,18 @@ Refresh the screen if it has been accidentally overwritten, for example, by a
 .BR write (1)
 command from another user.
 .TP
+.B reload
+Re-read the configuration files at runtime and re-apply the settings that do
+not need the terminal rebuilt: colours and the various \fI*_attr\fR values, the
+function-key bindings, the behaviour toggles (\fBhide_cursor\fR,
+\fBshow_screen_name\fR, \fBmark_noaction_items\fR, ...) and the
+\fBvariables\fR. This is the same action offered as
+.RB \(dq "Apply configuration now" \(dq
+on the built-in \fBconfig\fR menu, so a change made with the configuration
+wizard takes effect immediately. Switching the \fBmouse\fR or the screen
+\fBlayout\fR on or off, and \fBrestricted\fR mode, still require a restart, and
+the pop-up shown after a reload says so.
+.TP
 .B reset_field
 Resets the value of the actual field to the one at the form submission.
 .TP

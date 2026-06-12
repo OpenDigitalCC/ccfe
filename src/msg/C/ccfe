@@ -29,6 +29,11 @@ LIST_CMD_ERR_MSG   = "Sorry, the command building this list failed!"
 RESTRICTED_TITLE = "NOT PERMITTED"
 RESTRICTED_MSG   = "Sorry, that action is not permitted here."
 
+# Title and message string for the pop-up shown after the configuration is
+# re-read at runtime (the "reload" action / key):
+RELOAD_TITLE = "CONFIGURATION RELOADED"
+RELOAD_MSG   = "Configuration re-read.  Colours, key bindings, behaviour options and variables now apply.  Mouse, layout and restricted-mode changes still need a restart."
+
 # Title and message string for pop-up window displayed when
 # a form is without action{} block or with wrong select-item{} block:
 NULL_FACTION_TITLE = "ERROR"
@@ -142,6 +147,7 @@ KEY_ENTER_LABEL    = ""
 KEY_INTR_LABEL     = "Interrupt"
 KEY_FIND_LABEL     = "Find"
 KEY_FNEXT_LABEL    = "Find Next"
+KEY_RELOAD_LABEL   = "Reload"
 KEY_SELALL_LABEL   = "Select All"
 KEY_UNSELALL_LABEL = "Unselect All"
 

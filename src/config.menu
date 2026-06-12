@@ -36,6 +36,11 @@ item {
   action = run:"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" show-config
 }
 item {
+  id     = RELOAD
+  descr  = Apply configuration now (reload without restart)
+  action = reload:
+}
+item {
   id     = BUILD
   descr  = Build menus and forms (object builder)
   action = menu:builder
