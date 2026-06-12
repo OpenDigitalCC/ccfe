@@ -36,6 +36,11 @@ item {
   action = theme:
 }
 item {
+  id     = KEYMAP
+  descr  = Select key map (apply now)
+  action = keymap:
+}
+item {
   id     = SHOWCONF
   descr  = Show my configuration
   action = run:"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" show-config

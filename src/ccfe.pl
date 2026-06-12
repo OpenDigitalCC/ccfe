@@ -124,18 +124,20 @@ our (
     $RB_RUNNING_MSG,         $RB_TIME_MSG,          $RB_TITLE,
     $REALNAME,               $RELOAD_MSG,           $RELOAD_TITLE,
     $THEME_PICK_TITLE,       $THEME_SET_MSG,        $THEME_TITLE,
-    $NO_THEMES_MSG,          $RESTRICTED_MSG,       $RESTRICTED_TITLE,
-    $RS_BOTTOM_ROWS,         $RS_HEADER_ROWS,       $RS_INFO_ID,
-    $RS_STDERR_ID,           $RS_STDOUT_ID,         $RS_TOP_ROWS,
-    $SAVE_DETAILED,          $SAVE_DETAILED_DESCR,  $SAVE_ERROR_MSG,
-    $SAVE_ERROR_TITLE,       $SAVE_FIELDVAL_MSG,    $SAVE_FIELDVAL_TITLE,
-    $SAVE_FNAME_PROMPT,      $SAVE_FNAME_TITLE,     $SAVE_SCRIPT,
-    $SAVE_SCRIPT_DESCR,      $SAVE_SIMPLE,          $SAVE_SIMPLE_DESCR,
-    $SAVE_TYPE_TITLE,        $SEARCH_PTRN_PROMPT,   $SEARCH_PTRN_TITLE,
-    $SEPARATOR,              $SEP_LINE,             $SEP_LINE_DOUBLE,
-    $SEP_TEXT,               $SEP_TEXT_CENTER,      $SHOW_ACTION_TITLE,
-    $SIMPLE,                 $SR_BUFF_SIZE,         $STRING,
-    $THEMEDIR,               $TRUE,                 $UCSTRING,
+    $NO_THEMES_MSG,          $KEYMAP_PICK_TITLE,    $KEYMAP_SET_MSG,
+    $KEYMAP_TITLE,           $NO_KEYMAPS_MSG,       $RESTRICTED_MSG,
+    $RESTRICTED_TITLE,       $RS_BOTTOM_ROWS,       $RS_HEADER_ROWS,
+    $RS_INFO_ID,             $RS_STDERR_ID,         $RS_STDOUT_ID,
+    $RS_TOP_ROWS,            $SAVE_DETAILED,        $SAVE_DETAILED_DESCR,
+    $SAVE_ERROR_MSG,         $SAVE_ERROR_TITLE,     $SAVE_FIELDVAL_MSG,
+    $SAVE_FIELDVAL_TITLE,    $SAVE_FNAME_PROMPT,    $SAVE_FNAME_TITLE,
+    $SAVE_SCRIPT,            $SAVE_SCRIPT_DESCR,    $SAVE_SIMPLE,
+    $SAVE_SIMPLE_DESCR,      $SAVE_TYPE_TITLE,      $SEARCH_PTRN_PROMPT,
+    $SEARCH_PTRN_TITLE,      $SEPARATOR,            $SEP_LINE,
+    $SEP_LINE_DOUBLE,        $SEP_TEXT,             $SEP_TEXT_CENTER,
+    $SHOW_ACTION_TITLE,      $SIMPLE,               $SR_BUFF_SIZE,
+    $SYNTH_KEY_BASE,         $STRING,               $THEMEDIR,
+    $KEYMAPDIR,              $TRUE,                 $UCSTRING,
     $USERNAME,               $USR_CFG,              $USR_OBJ,
     $VERSION,                $VERSION_DATE,         $VERSION_YEAR,
     $WAIT_MSG_MSG,           $WRKDIR,               $YES,
@@ -156,9 +158,9 @@ our (
     @MENU_TOP_MSG,           @MSKeys,               @RSKeys,
     @cnf_path,               @cnf_path_base,        @es_str,
     @flist,                  @fn_key_functions,     @lines,
-    @mf_path,                @mf_path_base,         %bool_vals,
-    %layout_vals,            %options,              %sep_type_vals,
-    %type_vals,
+    @mf_path,                @mf_path_base,         %FN_LABEL,
+    %bool_vals,              %layout_vals,          %options,
+    %sep_type_vals,          %type_vals,
 );
 ## END-OUR
 
@@ -189,13 +191,14 @@ $VERSION_YEAR = '2009, 2026';
 # a split tree (e.g. CCFE_ETC_DIR=/etc/ccfe).
 $PREFIX = $ENV{CCFE_PREFIX} || dirname($FindBin::RealBin);
 
-$ETCDIR   = $ENV{CCFE_ETC_DIR} || "$PREFIX/etc";
-$BINDIR   = $ENV{CCFE_BIN_DIR} || "$PREFIX/bin";
-$LIBDIR   = "$PREFIX/lib";
-$LOGDIR   = $ENV{CCFE_LOG_DIR}   || "$PREFIX/log";
-$MSGDIR   = $ENV{CCFE_MSG_DIR}   || "$PREFIX/msg";
-$OBJDIR   = $ENV{CCFE_OBJ_DIR}   || "$PREFIX/share/ccfe/objects";
-$THEMEDIR = $ENV{CCFE_THEME_DIR} || "$PREFIX/share/ccfe/themes";
+$ETCDIR    = $ENV{CCFE_ETC_DIR} || "$PREFIX/etc";
+$BINDIR    = $ENV{CCFE_BIN_DIR} || "$PREFIX/bin";
+$LIBDIR    = "$PREFIX/lib";
+$LOGDIR    = $ENV{CCFE_LOG_DIR}    || "$PREFIX/log";
+$MSGDIR    = $ENV{CCFE_MSG_DIR}    || "$PREFIX/msg";
+$OBJDIR    = $ENV{CCFE_OBJ_DIR}    || "$PREFIX/share/ccfe/objects";
+$THEMEDIR  = $ENV{CCFE_THEME_DIR}  || "$PREFIX/share/ccfe/themes";
+$KEYMAPDIR = $ENV{CCFE_KEYMAP_DIR} || "$PREFIX/share/ccfe/keymaps";
 
 $REALNAME        = 'ccfe';
 $DESCR           = 'The Curses Command Front-end';
@@ -325,6 +328,12 @@ $RS_STDOUT_ID = 'O';
 $RS_STDERR_ID = 'E';
 
 $SR_BUFF_SIZE = 512;
+
+# Base for synthetic key codes assigned to functions bound only to Meta/Ctrl/
+# plain keys (no F-key), so the `$ch == {code}` dispatch still matches once
+# read_key() has translated the chord (FEATURE-REQUESTS A3).  Well above every
+# real ncurses keycode (KEY_MAX is ~0777) so it can never collide.
+$SYNTH_KEY_BASE = 0x10000000;
 
 # Menus/forms: system objects dir, then the user's XDG data dir, then the
 # legacy ~/.ccfe.  Config: system etc, then XDG config, then legacy.
@@ -701,6 +710,10 @@ sub load_msgs {
       THEME_SET_MSG
       THEME_TITLE
       NO_THEMES_MSG
+      KEYMAP_PICK_TITLE
+      KEYMAP_SET_MSG
+      KEYMAP_TITLE
+      NO_KEYMAPS_MSG
       NULL_FACTION_MSG
       NULL_FACTION_TITLE
       EXEC_NOTFOUND_MSG
@@ -1734,11 +1747,12 @@ sub load_config {
     my ( $key, $val, $text, $found, $res );
     my @lines;
 
-    # A `theme = NAME` global appends $THEMEDIR/<callname>.conf.NAME to the
-    # path so it is read like any other config file (FEATURE-REQUESTS A2); the
-    # index loop below picks up that append.  %theme_seen stops a theme that
-    # itself selects a theme from looping.
+    # A `theme = NAME` (A2) / `keymap = NAME` (A3) global appends a fragment
+    # file to the path so it is read like any other config file; the index loop
+    # below picks up that append.  The %*_seen guards stop a fragment that
+    # re-selects itself from looping.
     my %theme_seen;
+    my %keymap_seen;
 
     $found = $NO;
     for ( my $ci = 0; $ci < @cnf_path; $ci++ ) {
@@ -1905,6 +1919,48 @@ sub load_config {
                                         }
                                         last ASWITCH;
                                     }
+                                    elsif (/^KEYMAP$/) {
+
+                                     # Pull in a named keymap preset from
+                                     # KEYMAPDIR by appending its file to the
+                                     # path -- the keymap{} section it carries
+                                     # then redefines the bindings (A3).  Mirror
+                                     # of `theme`: the runtime switcher persists
+                                     # a choice by writing this line.
+                                        my $kname = $attrv;
+                                        $kname =~ s/^\s+//;
+                                        $kname =~ s/\s+$//;
+                                        if ( $kname eq ''
+                                            or lc $kname eq 'default' )
+                                        {
+                                            $ctx->{cfg}{KEYMAP} = '';
+                                        }
+                                        elsif ( $kname =~ /^[\w.+-]+$/ ) {
+                                            my $kfile =
+                                              "$KEYMAPDIR/$CALLNAME.keys.$kname";
+                                            if ( -f $kfile
+                                                and !$keymap_seen{$kname}++ )
+                                            {
+                                                $ctx->{cfg}{KEYMAP} = $kname;
+                                                push @cnf_path, $kfile;
+                                                trace(
+                                                    "keymap \"$kname\": queued $kfile"
+                                                );
+                                            }
+                                            elsif ( !-f $kfile ) {
+                                                trace(
+                                                    "keymap \"$kname\" not found at $kfile"
+                                                );
+                                            }
+                                        }
+                                        else {
+                                            trace(
+                                                "invalid keymap name \"$attrv\""
+                                            );
+                                            $res = $ES_SYNTAX_ERR;
+                                        }
+                                        last ASWITCH;
+                                    }
                                     elsif (/^LOG_LEVEL$/) {
                                         $ctx->{cfg}{LOG_LEVEL} = $attrv;
                                         $ctx->{cfg}{LOG_FNAME} = ''
@@ -1991,13 +2047,14 @@ sub load_config {
                                                 )
                                               )
                                             {
-                                                $ctx->{cfg}{keys}{ lc($attrv) }
-                                                  {code} = KEY_F($1);
-                                                $ctx->{cfg}{keys}{ lc($attrv) }
-                                                  {key} = "F$1";
-                                                $ctx->{cfg}{keys}{ lc($attrv) }
-                                                  {label} =
-                                                  eval "\$KEY_F$1_LABEL";
+
+                                            # Legacy `key_fN = function` binds
+                                            # F-key N to a function; route it
+                                            # through the keymap engine (append)
+                                            # so it coexists with keymap{} and
+                                            # Meta alternates (A3).
+                                                bind_function( lc($attrv),
+                                                    ["F$1"], 0 );
                                             }
                                             else {
                                                 trace(
@@ -2295,6 +2352,33 @@ sub load_config {
                             }
                             last SWITCH;
                         }
+                        elsif (/^KEYMAP$/) {
+
+                        # Explicit key bindings (FEATURE-REQUESTS A3):
+                        # `FUNCTION = SPEC[, SPEC ...]` lines, where each SPEC
+                        # is F1..F12, M-<char> (Meta/Alt), ^<A-Z> (Ctrl) or a
+                        # bare printable key.  The first spec is the primary
+                        # (shown in the footer); the rest are alternates.  Each
+                        # line REPLACES that function's bindings, so a preset is
+                        # a complete map.  A keymap preset is shipped as such a
+                        # section and pulled in with `keymap = NAME`.
+                            foreach my $line ( split /\s*\n\s*/, $val ) {
+                                next if $line =~ /^\s*$/;
+                                my ( $fn, $rhs ) = split /\s*=\s*/, $line, 2;
+                                next unless defined $fn and defined $rhs;
+                                $fn = lc $fn;
+                                $fn =~ s/^\s+//;
+                                $fn =~ s/\s+$//;
+                                if ( !in( $fn, @fn_key_functions ) ) {
+                                    trace("keymap: unknown function \"$fn\"");
+                                    $res = $ES_SYNTAX_ERR;
+                                    next;
+                                }
+                                my @specs = split /\s*,\s*/, $rhs;
+                                bind_function( $fn, \@specs, 1 );
+                            }
+                            last SWITCH;
+                        }
                         else {
                             trace("unknown configuration parameter \"$key\"");
                             $res = $ES_SYNTAX_ERR;
@@ -2374,6 +2458,8 @@ sub set_cfg_defaults {
     $ctx->{cfg}{RESTRICTED_ALLOW} = [];
     $ctx->{cfg}{vars}             = {};
     $ctx->{cfg}{THEME}            = '';
+    $ctx->{cfg}{KEYMAP}           = '';
+    $ctx->{cfg}{event2code}       = {};
 
     # Menu/screen theme attributes.  Defaults preserve the historical
     # monochrome look (overall screen normal, selected item reversed, bold
@@ -2399,8 +2485,142 @@ sub reset_key_codes {
         next unless ref $ctx->{cfg}{keys}{$fn} eq 'HASH';
         $ctx->{cfg}{keys}{$fn}{code} = -1;
         delete $ctx->{cfg}{keys}{$fn}{key};
+        delete $ctx->{cfg}{keys}{$fn}{events};
+    }
+    $ctx->{cfg}{event2code} = {};
+    return;
+}
+
+# --- keymap engine (FEATURE-REQUESTS A3) ---------------------------------
+#
+# Each bindable function carries a list of "event tokens" it answers to, in
+# addition to the historical single F-key.  A token is a small normalised
+# string: "F1".."F12", "M-x" (Meta/Alt + a character), "^X" (Ctrl + a letter)
+# or a bare printable character.  parse_key_spec() turns one written spec into
+# a token; key_spec_label() turns it back into the footer label.
+sub parse_key_spec ($spec) {
+    $spec =~ s/^\s+//;
+    $spec =~ s/\s+$//;
+    return undef if $spec eq '';
+    if ( $spec =~ /^[Ff]([0-9]{1,2})$/ and $1 >= 1 and $1 <= 12 ) {
+        return "F$1";
+    }
+    if ( $spec =~ /^[Mm]-(\S)$/ )    { return 'M-' . lc($1) }
+    if ( $spec =~ /^\^([A-Za-z])$/ ) { return '^' . uc($1) }
+    if ( length($spec) == 1 and $spec =~ /^[[:print:]]$/ ) { return $spec }
+    return undef;
+}
+
+# The footer/display label for a token ("F2", "M-l", "^G", or the bare char).
+sub key_spec_label ($tok) {
+    return $tok;    # tokens are already in their display form
+}
+
+# Bind a function to a list of key specs (FEATURE-REQUESTS A3).  $replace
+# rewrites the function's event list (a keymap{} line / preset); otherwise the
+# tokens are appended (a legacy `key_fN = fn` line).  The function's {code} is
+# its primary native keycode -- a real KEY_F(n) when an F-key is bound, else a
+# stable synthetic code so the existing `$ch == {code}` dispatch still matches a
+# Meta/Ctrl/char-only binding once read_key() has translated the event.  {key}
+# is the primary's display label.
+sub bind_function ( $fn, $specs, $replace ) {
+    return unless in( $fn, @fn_key_functions );
+    my $slot = ( $ctx->{cfg}{keys}{$fn} ||= {} );
+    my @toks = grep { defined } map { parse_key_spec($_) } @{$specs};
+    return unless @toks;
+
+    if ($replace) { $slot->{events} = [] }
+    push @{ $slot->{events} }, @toks;
+
+    # Primary = the first token of this binding; it sets the displayed key.
+    my $primary = $toks[0];
+    $slot->{key} = key_spec_label($primary);
+
+    # Label the function by what it DOES, not by which F-number triggers it, so
+    # a Meta/remapped binding still reads correctly in the footer.  (The legacy
+    # behaviour labelled by F-number, which mislabelled any non-default map.)
+    $slot->{label} = $FN_LABEL{$fn} if defined $FN_LABEL{$fn};
+
+    # Native code: prefer a real F-key (any bound), else a stable synthetic.
+    my ($fkey) = grep { /^F([0-9]+)$/ } @{ $slot->{events} };
+    if ( defined $fkey and $fkey =~ /^F([0-9]+)$/ ) {
+        $slot->{code} = KEY_F($1);
+    }
+    elsif ( ( $slot->{code} // -1 ) == -1 ) {
+        my ($idx) =
+          grep { $fn_key_functions[$_] eq $fn } 0 .. $#fn_key_functions;
+        $slot->{code} = $SYNTH_KEY_BASE + ( $idx // 0 );
     }
     return;
+}
+
+# Rebuild the flat event-token -> function-code map consulted by translate_key.
+# Call after the configuration is (re)loaded.
+sub build_keymap {
+    my %map;
+    for my $fn (@fn_key_functions) {
+        my $slot = $ctx->{cfg}{keys}{$fn} or next;
+        next unless ref $slot->{events} eq 'ARRAY';
+        my $code = $slot->{code} // -1;
+        next if $code == -1;
+        $map{$_} = $code for @{ $slot->{events} };
+    }
+    $ctx->{cfg}{event2code} = \%map;
+    return;
+}
+
+# Normalise a getch() result to an event token (or undef when it is not a
+# bindable key): a KEY_F(n) integer -> "Fn"; a Ctrl character -> "^X"; a Meta
+# token from read_key() passes through; a printable character is itself.  Arrows
+# and other navigation keycodes return undef so they are never remapped.
+sub event_token ($ch) {
+    return undef unless defined $ch;
+    if ( $ch =~ /^(?:M-.|\^[A-Z])$/ ) { return $ch }    # already a token
+    if ( $ch =~ /^-?\d+$/ ) {                           # an integer keycode
+        for my $n ( 1 .. 12 ) { return "F$n" if $ch == KEY_F($n) }
+        if ( $ch >= 1 and $ch <= 26 ) { return '^' . chr( $ch + 64 ) }
+        return undef;
+    }
+    if ( length($ch) == 1 ) {
+        my $o = ord $ch;
+        return '^' . chr( $o + 64 ) if $o >= 1 and $o <= 26;
+        return $ch                  if $ch =~ /^[[:print:]]$/;
+    }
+    return undef;
+}
+
+# Map a key event to a bound function's keycode if one is bound, else return it
+# unchanged (FEATURE-REQUESTS A3).  This lets a Meta/Ctrl/char binding reach the
+# same `$ch == {code}` arm an F-key would, so the per-loop dispatch is untouched.
+sub translate_key ($ch) {
+    my $tok = event_token($ch);
+    return $ch unless defined $tok;
+    my $code = $ctx->{cfg}{event2code}{$tok};
+    return defined $code ? $code : $ch;
+}
+
+# getch() wrapper adding ESC-disambiguation for Meta/Alt chords (A3).  ncurses
+# composes known escape sequences (arrows, F-keys) itself, so getch returns them
+# whole; a bare ESC (after the short $ESCDELAY) is either "cancel" or the start
+# of a Meta chord (ESC + char).  Peek non-blocking: a printable byte waiting
+# means Meta (return the "M-x" token), nothing means a lone ESC.  Either way the
+# result is passed through translate_key so a bound chord becomes its function
+# code.
+sub read_key ($win) {
+    my $ch = getch($win);
+    if ( defined $ch and "$ch" eq "\e" ) {
+        nodelay( $win, 1 );
+        my $n = getch($win);
+        nodelay( $win, 0 );
+        if (    defined $n
+            and "$n" ne '-1'
+            and length("$n") == 1
+            and "$n" =~ /^[[:print:]]$/ )
+        {
+            $ch = 'M-' . lc($n);
+        }
+    }
+    return translate_key($ch);
 }
 
 # Runtime configuration reload (FEATURE-REQUESTS A1).  Re-read the config files
@@ -2436,10 +2656,11 @@ sub reload_config {
     # Mirror the startup "force a Back key" fallback in case the re-read left
     # none bound, so the user can always leave a screen.
     if ( ( $ctx->{cfg}{keys}{back}{code} // -1 ) == -1 ) {
-        $ctx->{cfg}{keys}{back}{code}  = KEY_F(10);
-        $ctx->{cfg}{keys}{back}{key}   = 'F10';
-        $ctx->{cfg}{keys}{back}{label} = ':Back';
+        bind_function( 'back', ['F10'], 1 );
     }
+
+    # Flatten the (re-read) key bindings into the event->code dispatch map (A3).
+    build_keymap();
 
     # Create any fg/bg colour pairs newly referenced by the re-read *_attr
     # values.  init_pair() is callable at runtime, so a brand-new
@@ -2570,6 +2791,11 @@ sub run_menu_action ( $action_str, $descr, $menuname, $menu_path, $win, $es ) {
         # (FEATURE-REQUESTS A2).  Sets cfg_reloaded so do_menu repaints.
         run_theme_picker($win);
     }
+    elsif ( $action eq 'keymap' ) {
+
+        # Pick a keymap preset and apply it now (FEATURE-REQUESTS A3).
+        run_keymap_picker($win);
+    }
     elsif ( $action eq 'ABORTED' ) {
         trace("user not confirmed action!");
     }
@@ -2579,42 +2805,42 @@ sub run_menu_action ( $action_str, $descr, $menuname, $menu_path, $win, $es ) {
     return $es;
 }
 
-# Runtime colour-theme switcher (FEATURE-REQUESTS A2).  Enumerate the themes
-# installed in THEMEDIR (the <callname>.conf.<name> files), let the user pick
-# one from a pop-up list, persist the choice to the user config as a
-# `theme = NAME` global (via ccfe-build, which is block-aware) and apply it
-# immediately by reloading.  Picking "default" clears the choice.  Disabled
-# under RESTRICTED, where the user config is ignored anyway.
-sub run_theme_picker ($win) {
+# Generic runtime "named config fragment" switcher, shared by the colour-theme
+# (A2) and keymap-preset (A3) pickers.  Enumerate the fragment files in $dir
+# matching $name_re (capturing the name), let the user pick one from a pop-up,
+# persist the choice to the user config as a `$cfgkey = NAME` global (via
+# ccfe-build, the block-aware writer) and apply it immediately by reloading.
+# Picking "default" clears the choice.  Disabled under RESTRICTED, where the
+# user config is ignored anyway.  $msgs = { pick, set, none, title }.
+sub run_config_picker ( $win, $dir, $name_re, $cfgkey, $active, $msgs ) {
     if ( $ctx->{cfg}{RESTRICTED} ) {
         disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
         return;
     }
 
-    my @themes =
-      sort map { m{\Q$CALLNAME\E\.conf\.([\w.+-]+)$} ? $1 : () }
-      glob("$THEMEDIR/$CALLNAME.conf.*");
-    if ( !@themes ) {
-        disp_msg( $win, $NO_THEMES_MSG, $THEME_TITLE );
+    my @names =
+      sort map { $_ =~ $name_re ? $1 : () } glob("$dir/*");
+    if ( !@names ) {
+        disp_msg( $win, $msgs->{none}, $msgs->{title} );
         return;
     }
 
-    # The picker value is the first token (the theme name); the rest is a hint.
-    # "default" first, marking the currently active theme so the user sees it.
-    my $cur = $ctx->{cfg}{THEME} // '';
+    # The picker value is the first token (the name); the rest is a hint.
+    # "default" first, marking the active choice so the user sees it.
+    my $cur = $active // '';
     my @items =
       ( 'default ' . ( $cur eq '' ? '(active) base configuration' : '' ) );
-    push @items, map { "$_ " . ( $_ eq $cur ? '(active)' : '' ) } @themes;
+    push @items, map { "$_ " . ( $_ eq $cur ? '(active)' : '' ) } @names;
 
     my ( $es, $val ) =
-      do_list( $win, $THEME_PICK_TITLE, 'single-val', \@items, undef );
+      do_list( $win, $msgs->{pick}, 'single-val', \@items, undef );
     return if !defined $val;
     my ($name) = split ' ', $val;
     return if !defined $name or $name eq '';
 
     # Persist via ccfe-build (block-aware writer), capturing its confirmation
     # line through a pipe so it never paints over the curses screen.  List form
-    # of open => no shell; $name is one of the globbed theme names anyway.
+    # of open => no shell; $name is one of the globbed names anyway.
     my $build = "$BINDIR/ccfe-build";
     $build = 'ccfe-build' unless -x $build;
     my $rc = 1;
@@ -2623,22 +2849,57 @@ sub run_theme_picker ($win) {
     # close() can collect its exit status, so close() would always look failed.
     {
         local $SIG{CHLD} = 'DEFAULT';
-        if ( open( my $bh, '-|', $build, 'set-config', 'theme', $name ) ) {
+        if ( open( my $bh, '-|', $build, 'set-config', $cfgkey, $name ) ) {
             local $/;
             my $junk = <$bh>;
             $rc = close($bh) ? 0 : 1;
         }
     }
     if ($rc) {
-        trace("theme switch: ccfe-build set-config failed");
-        disp_msg( $win, $NO_THEMES_MSG, $THEME_TITLE );    # generic failure
+        trace("$cfgkey switch: ccfe-build set-config failed");
+        disp_msg( $win, $msgs->{none}, $msgs->{title} );    # generic failure
         return;
     }
 
     reload_config();
     $ctx->{state}{cfg_reloaded} = $YES;
-    disp_msg( $win, "$THEME_SET_MSG $name", $THEME_TITLE );
+    disp_msg( $win, "$msgs->{set} $name", $msgs->{title} );
     return;
+}
+
+# The colour-theme switcher (A2): themes are <callname>.conf.<name> in THEMEDIR.
+sub run_theme_picker ($win) {
+    return run_config_picker(
+        $win,
+        $THEMEDIR,
+        qr{\Q$CALLNAME\E\.conf\.([\w.+-]+)$},
+        'theme',
+        $ctx->{cfg}{THEME},
+        {
+            pick  => $THEME_PICK_TITLE,
+            set   => $THEME_SET_MSG,
+            none  => $NO_THEMES_MSG,
+            title => $THEME_TITLE,
+        }
+    );
+}
+
+# The keymap-preset switcher (A3): presets are <callname>.keys.<name> in
+# KEYMAPDIR.
+sub run_keymap_picker ($win) {
+    return run_config_picker(
+        $win,
+        $KEYMAPDIR,
+        qr{\Q$CALLNAME\E\.keys\.([\w.+-]+)$},
+        'keymap',
+        $ctx->{cfg}{KEYMAP},
+        {
+            pick  => $KEYMAP_PICK_TITLE,
+            set   => $KEYMAP_SET_MSG,
+            none  => $NO_KEYMAPS_MSG,
+            title => $KEYMAP_TITLE,
+        }
+    );
 }
 
 sub do_menu {
@@ -2770,7 +3031,7 @@ sub do_menu {
             disp_page( $win, item_index( current_item($cmenu) ) + 1,
                 item_count($cmenu), 'menu', $menuname );
 
-            $ch = getch($win);
+            $ch = read_key($win);
             if ( $MOUSE_ON and $ch == KEY_MOUSE ) {
 
                 # Point at a menu item: a left click moves the selection to the
@@ -3157,7 +3418,7 @@ sub do_list {
         addstr( $mwin, $title_y + 1, $LW_COLS - length($pos_msg) - 1,
             $pos_msg );
         move( $mwin, $saveY, $saveX );
-        my $ch = getch($mwin);
+        my $ch = read_key($mwin);
 
         if ( $ch == KEY_UP ) {
             menu_driver( $cmenu, REQ_UP_ITEM );
@@ -4613,7 +4874,7 @@ sub do_form {
                     0, $ctx->{cfg}{fval_delim}[1] );
             }
 
-            $ch = getch($win);
+            $ch = read_key($win);
 
             if ( $ch == KEY_UP or $ch == KEY_DOWN ) {
                 $set_field_attr->();
@@ -5265,7 +5526,7 @@ sub run_browse {
             0,  $RS_HEADER_ROWS + $RS_TOP_ROWS + $mwinr - 1,
             $COLS - 1
         );
-        $ch = getch($p);
+        $ch = read_key($p);
         if ( $ch == KEY_UP ) {
             $py-- if $py > 0;
         }
@@ -5760,6 +6021,26 @@ $es_str[$ES_FOPEN_ERR]  = $ES_FOPEN_ERR_MSG;
 $es_str[$ES_NOT_FOUND]  = $ES_NOT_FOUND_MSG;
 $es_str[$ES_NO_ITEMS]   = $ES_NO_ITEMS_MSG;
 
+# Canonical per-function key labels (FEATURE-REQUESTS A3): what each bindable
+# function is called in the footer, independent of which key triggers it.  The
+# values follow the conventional default keymap's F-key labels (so the default
+# footer is unchanged) but are now keyed by the function, so a Meta/remapped
+# binding shows the right word.  Populated after load_msgs so the localised
+# strings are available.
+%FN_LABEL = (
+    help         => $KEY_F1_LABEL,
+    list         => $KEY_F2_LABEL,
+    sel_items    => $KEY_F3_LABEL,
+    back         => $KEY_F4_LABEL,
+    show_action  => $KEY_F5_LABEL,
+    save         => $KEY_F6_LABEL,
+    shell_escape => $KEY_F7_LABEL,
+    redraw       => $KEY_F8_LABEL,
+    exit         => $KEY_F9_LABEL,
+    reset_field  => 'Reset',
+    reload       => $KEY_RELOAD_LABEL,
+);
+
 # `-k NAME`: parse-check a menu or form without starting the terminal.  Uses
 # the same headless parser the test suite does, so plugin authors and CI can
 # validate .menu/.form files.  Exits 0 on success, 1 on a parse error, 2 if
@@ -5847,6 +6128,12 @@ $ctx->{cfg}{keys} = {
 # (UTF-8) text by display column, in step with disp_width().  LC_CTYPE only --
 # this must not change LC_NUMERIC (decimal point) or imply `use locale`.
 POSIX::setlocale( POSIX::LC_CTYPE(), '' );
+
+# Keep the wait after a bare ESC short so "cancel" stays snappy while still
+# leaving room to detect an ESC-prefixed Meta/Alt chord (FEATURE-REQUESTS A3:
+# read_key peeks for the following byte).  ncurses reads $ESCDELAY at init; only
+# set a default so an explicit environment value still wins.
+$ENV{ESCDELAY} = '25' unless defined $ENV{ESCDELAY} and $ENV{ESCDELAY} ne '';
 
 initscr;
 $CURSES_ACTIVE = $YES;
@@ -5992,12 +6279,14 @@ if ( $ctx->{cfg}{ENABLE_MOUSE} ) {
 trace("Using \"$ctx->{cfg}{USER_SHELL}\" for user shell escape");
 trace("Using \"$ctx->{cfg}{OPEN3_SHELL}\" for commands execution");
 
-if ( $ctx->{cfg}{keys}{back}{code} == -1 ) {
-    $ctx->{cfg}{keys}{back}{code}  = KEY_F(10);
-    $ctx->{cfg}{keys}{back}{key}   = 'F10';
-    $ctx->{cfg}{keys}{back}{label} = ':Back';
+if ( ( $ctx->{cfg}{keys}{back}{code} // -1 ) == -1 ) {
+    bind_function( 'back', ['F10'], 1 );
     trace("\"Back\" fn key not defined - force F10=Back");
 }
+
+# Flatten the per-function event tokens into the event->code map the dispatch
+# consults via read_key/translate_key (FEATURE-REQUESTS A3).
+build_keymap();
 
 $ovl_mode       = $ctx->{cfg}{INITIAL_OVL_MODE};
 $ASKS_FIELD_PAD = $ctx->{cfg}{FIELD_PAD};

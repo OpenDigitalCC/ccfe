@@ -32,6 +32,7 @@ MANDIR="$PREFIX/man"
 DOCDIR="$PREFIX/doc"
 OBJDIR="$PREFIX/share/ccfe/objects"
 THEMEDIR="$PREFIX/share/ccfe/themes"
+KEYMAPDIR="$PREFIX/share/ccfe/keymaps"
 
 PREFIX_DESCR='Destination prefix'
 ETCDIR_DESCR='Configuration directory'
@@ -86,7 +87,7 @@ mk_manpage ()
   local s       # Manual section
 
   s=`echo $p | cut -c ${#p}`
-  cat man/$p | sed -e "s/ETC_DIR_PLACEHOLDER/$exp_etcdir/ ; s/BIN_DIR_PLACEHOLDER/$exp_bindir/ ; s/LIB_DIR_PLACEHOLDER/$exp_libdir/ ; s/LOG_DIR_PLACEHOLDER/$exp_logdir/ ; s/MSG_DIR_PLACEHOLDER/$exp_msgdir/ ; s/DOC_DIR_PLACEHOLDER/$exp_docdir/ ; s/THEME_DIR_PLACEHOLDER/$exp_themedir/" > $MANDIR/man${s}/$p
+  cat man/$p | sed -e "s/ETC_DIR_PLACEHOLDER/$exp_etcdir/ ; s/BIN_DIR_PLACEHOLDER/$exp_bindir/ ; s/LIB_DIR_PLACEHOLDER/$exp_libdir/ ; s/LOG_DIR_PLACEHOLDER/$exp_logdir/ ; s/MSG_DIR_PLACEHOLDER/$exp_msgdir/ ; s/DOC_DIR_PLACEHOLDER/$exp_docdir/ ; s/THEME_DIR_PLACEHOLDER/$exp_themedir/ ; s/KEYMAP_DIR_PLACEHOLDER/$exp_keymapdir/" > $MANDIR/man${s}/$p
 }
 
 
@@ -138,6 +139,7 @@ install ()
     mkdir -p $DOCDIR/samples
     mkdir -p $OBJDIR
     mkdir -p $THEMEDIR
+    mkdir -p $KEYMAPDIR
     chmod 1777 $LOGDIR
   fi
   
@@ -168,6 +170,10 @@ install ()
     # Shipped colour/style themes (program assets -- always refreshed):
     cp ccfe.conf.smit ccfe.conf.smit-color ccfe.conf.smit-panel \
        ccfe.conf.console $THEMEDIR/
+
+    # Shipped keymap presets (program assets -- always refreshed):
+    cp keymaps/ccfe.keys.classic keymaps/ccfe.keys.safe \
+       keymaps/ccfe.keys.nano keymaps/ccfe.keys.mc $KEYMAPDIR/
 
     cp msg/C/ccfe $MSGDIR/C/ccfe
 
@@ -245,6 +251,7 @@ while getopts p:c:l:e:o:m:d:a:u:hb a ; do
 	   DOCDIR="$PREFIX/doc"
 	   OBJDIR="$PREFIX/share/ccfe/objects"
 	   THEMEDIR="$PREFIX/share/ccfe/themes"
+	   KEYMAPDIR="$PREFIX/share/ccfe/keymaps"
            ;;
         c) ETCDIR=$OPTARG
            ;;
@@ -318,6 +325,7 @@ EOT
          DOCDIR="$PREFIX/doc"
          OBJDIR="$PREFIX/share/ccfe/objects"
          THEMEDIR="$PREFIX/share/ccfe/themes"
+         KEYMAPDIR="$PREFIX/share/ccfe/keymaps"
          ;;
       2) input "New $ETCDIR_DESCR" $ETCDIR
          ETCDIR="$keybuff"
@@ -379,5 +387,6 @@ then
   exp_msgdir=$(echo $MSGDIR | sed -e 's/\//\\\//g')
   exp_docdir=$(echo $DOCDIR | sed -e 's/\//\\\//g')
   exp_themedir=$(echo $THEMEDIR | sed -e 's/\//\\\//g')
+  exp_keymapdir=$(echo $KEYMAPDIR | sed -e 's/\//\\\//g')
   install
 fi

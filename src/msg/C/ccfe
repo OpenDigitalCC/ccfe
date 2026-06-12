@@ -40,6 +40,12 @@ THEME_PICK_TITLE = "Select a colour theme"
 THEME_SET_MSG    = "Theme saved to your configuration and applied:"
 NO_THEMES_MSG    = "No colour themes are installed."
 
+# Runtime keymap-preset switcher (the "keymap" menu action):
+KEYMAP_TITLE      = "KEY MAP"
+KEYMAP_PICK_TITLE = "Select a key map"
+KEYMAP_SET_MSG    = "Key map saved to your configuration and applied:"
+NO_KEYMAPS_MSG    = "No key maps are installed."
+
 # Title and message string for pop-up window displayed when
 # a form is without action{} block or with wrong select-item{} block:
 NULL_FACTION_TITLE = "ERROR"

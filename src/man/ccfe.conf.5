@@ -158,6 +158,43 @@ Values:
 .br
 Required: No
 
+.SS keymap
+.PP
+Pull in a named keymap preset \(em a complete set of key bindings shipped (or
+installed by the administrator) as
+\fIKEYMAP_DIR_PLACEHOLDER/ccfe.keys.NAME\fR. The presets are:
+.RS
+.TP
+.B classic
+The traditional F1\(enF9 SMIT layout (the default look).
+.TP
+.B safe
+Every function keeps its F-key but also gains a Meta/Alt alternate, so the UI
+stays usable on terminals that steal the function keys.
+.TP
+.B nano
+A GNU nano / Ctrl-key flavoured map (^G help, ^X quit, ^O save, ...).
+.TP
+.B mc
+A Midnight Commander flavoured layout.
+.RE
+.PP
+The preset's
+.B keymap
+section (see the KEYMAP CONFIGURATION SECTION below) redefines the bindings.
+The special value
+.B default
+(or empty) selects no preset. This is what the runtime
+.RB \(dq "Select key map" \(dq
+switcher on the \fBconfig\fR menu writes to your personal configuration and
+applies immediately. Ignored under \fBrestricted\fR mode, where a system-set
+keymap still applies.
+.PP
+Values:
+.I NAME
+.br
+Required: No
+
 .SS shell
 .PP
 The shell used for the execution of every command string specified in forms
@@ -428,6 +465,70 @@ Example:
 .fi
 .RS
 .B KEY_F10_LABEL = """Quit"""
+.RE
+.PP
+.br
+Required: No
+
+
+.SH KEYMAP CONFIGURATION SECTION
+The optional
+.B keymap {}
+block binds functions to keys with more freedom than the F-key-centric
+.B key_fN
+parameters: a function may answer to several keys, and to keys other than the
+function keys. Each line is
+.PP
+.RS
+.IR FUNCTION " = " "SPEC" "[, " SPEC " ...]"
+.RE
+.PP
+where
+.I FUNCTION
+is one of the names listed under
+.B key_f1..key_f12
+above and each
+.I SPEC
+is one of:
+.RS
+.TP
+.BR F1 .. F12
+a function key;
+.TP
+.BI M- x
+a Meta/Alt chord (Alt + the character
+.IR x );
+.TP
+.BI ^ X
+a Ctrl chord (Ctrl +
+.IR X ,
+a letter);
+.TP
+.I c
+a single printable key.
+.RE
+.PP
+The first spec is the
+.I primary
+(shown in the footer bar); the rest are alternates, all of which trigger the
+function. A
+.B keymap
+line replaces that function's bindings, so a preset (see the
+.B keymap
+global above) is a complete map. Meta chords arrive ESC-prefixed; a lone
+.B Esc
+is still \(lqcancel\(rq, disambiguated by a short timeout (the
+.B ESCDELAY
+environment variable, default 25\ ms). For example:
+.PP
+.RS
+.nf
+keymap {
+  list = F2, M-l
+  back = F4, M-b, ^B
+  exit = F9, M-q
+}
+.fi
 .RE
 .PP
 .br

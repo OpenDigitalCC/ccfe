@@ -1,0 +1,19 @@
+# CCFE keymap preset: "nano"
+#
+# A GNU nano / Ctrl-key flavoured map: the common functions answer to Ctrl
+# chords (^G help, ^X quit, ^O save, ...) with the conventional F-key kept as an
+# alternate.  Control keys reserved by the terminal or line discipline are
+# avoided (^C ^S ^Q ^Z and the Enter/Tab/Backspace/Esc controls).  See
+# ccfe.conf(5).
+
+keymap {
+  help         = ^G, F1
+  exit         = ^X, F9
+  save         = ^O, F6
+  list         = ^T, F2
+  show_action  = ^P, F5
+  back         = ^B, F4
+  redraw       = ^L, F8
+  sel_items    = ^K, F3
+  shell_escape = ^E, F7
+}

@@ -1,0 +1,18 @@
+# CCFE keymap preset: "classic"
+#
+# The traditional SMIT-style function-key layout (F1=Help ... F9=Quit), the
+# same map CCFE has always shipped, made explicit so it can be selected at
+# runtime with `keymap = classic` or the "Select key map" menu.  See
+# ccfe.conf(5) (the `keymap` section and the `keymap` global).
+
+keymap {
+  help         = F1
+  list         = F2
+  sel_items    = F3
+  back         = F4
+  show_action  = F5
+  save         = F6
+  shell_escape = F7
+  redraw       = F8
+  exit         = F9
+}

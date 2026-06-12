@@ -1,0 +1,19 @@
+# CCFE keymap preset: "safe"
+#
+# Every function keeps its conventional F-key BUT also gains a Meta/Alt
+# alternate, so the UI stays fully usable on terminals that steal the function
+# keys (F1 for help, F10 for the window menu, F11 for full-screen, and the
+# Ctrl/Shift+F variants many emulators intercept).  The Meta chords are typed as
+# Alt+letter; a lone Esc is still "cancel".  See ccfe.conf(5).
+
+keymap {
+  help         = M-h, F1
+  list         = M-l, F2
+  sel_items    = M-s, F3
+  back         = M-b, F4
+  show_action  = M-a, F5
+  save         = M-w, F6
+  shell_escape = M-x, F7
+  redraw       = M-r, F8
+  exit         = M-q, F9
+}
