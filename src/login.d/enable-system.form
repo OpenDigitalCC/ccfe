@@ -1,0 +1,27 @@
+title { Enable CCFE menu system-wide }
+top {
+  Installs /etc/profile.d/ccfe.sh so every user gets the CCFE menu on an
+  interactive login.  This needs root; if you lack the privilege the error is
+  shown.  Restricted kiosk mode locks each session down (ccfe -R); "log out when
+  leaving" ends the session on quitting the menu (recommended for a kiosk).
+}
+field {
+  id      = RESTRICTED
+  label   = Restricted kiosk mode
+  type    = BOOLEAN
+  default = const:NO
+}
+field {
+  id      = LOGOUT
+  label   = Log out when leaving the menu
+  type    = BOOLEAN
+  default = const:NO
+  htab    = 1
+}
+action { run:
+  cl="${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-login"
+  args=""
+  [ "$CCFE_FIELD_RESTRICTED" = YES ] && args="$args -r"
+  [ "$CCFE_FIELD_LOGOUT" = YES ] && args="$args -x"
+  "$cl" install-system $args
+}

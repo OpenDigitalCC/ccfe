@@ -1,0 +1,184 @@
+#!/bin/sh
+#
+# ccfe-login -- set CCFE up to launch automatically at login / over SSH
+# (FEATURE-REQUESTS: "CCFE as shell on system login").
+#
+# It manages a small, marker-delimited block in a shell startup file that runs
+# the CCFE menu on an INTERACTIVE login shell only -- so file transfers (scp,
+# sftp, rsync) and non-interactive `ssh host cmd` are left untouched.  With the
+# restricted option the menu launches as a locked-down kiosk (`ccfe -R`) and
+# leaving it logs the session out (the block `exec`s ccfe); otherwise leaving
+# the menu drops to the normal shell.
+#
+# Usage:
+#   ccfe-login status                       # what is currently enabled
+#   ccfe-login install-user   [-r] [-x|-X]  # this user's profile (~/.bash_profile|~/.profile)
+#   ccfe-login uninstall-user               # remove from this user's profile
+#   ccfe-login install-system [-r] [-x|-X]  # all users (/etc/profile.d/ccfe.sh, needs root)
+#   ccfe-login uninstall-system             # remove the system-wide hook
+# Flags:
+#   -r / --restricted   launch the kiosk (ccfe -R); implies -x unless -X given
+#   -x / --logout       leave-the-menu logs out (exec ccfe)
+#   -X / --no-logout    leave-the-menu drops to the shell
+#
+#  Copyright (C) 2026 CCFE contributors.  GPL-2.0-or-later.
+
+set -eu
+
+BEGIN='# >>> CCFE login (managed by ccfe-login) >>>'
+END='# <<< CCFE login <<<'
+SYS_FILE=/etc/profile.d/ccfe.sh
+
+die() { echo "ccfe-login: $*" >&2; exit 1; }
+
+# Resolve an absolute path to the ccfe binary (login runs with a minimal PATH).
+ccfe="${CCFE_BIN_DIR:-}/ccfe"
+if [ ! -x "$ccfe" ]; then
+  ccfe=$(command -v ccfe 2>/dev/null || true)
+fi
+[ -n "$ccfe" ] && [ -x "$ccfe" ] || die "cannot find the ccfe binary (set CCFE_BIN_DIR or PATH)"
+case "$ccfe" in
+  /*) ;;
+  *)  ccfe="$(cd "$(dirname "$ccfe")" && pwd)/$(basename "$ccfe")" ;;
+esac
+
+# remove_block FILE -- strip any existing CCFE block (no-op if absent/missing).
+remove_block() {
+  file=$1
+  [ -f "$file" ] || return 0
+  tmp="$file.ccfe.$$"
+  awk -v b="$BEGIN" -v e="$END" '
+    $0==b { skip=1; next }
+    $0==e { skip=0; next }
+    !skip { print }
+  ' "$file" > "$tmp"
+  mv "$tmp" "$file"
+}
+
+# emit_block RESTRICTED EXEC -- print the managed block to stdout.
+emit_block() {
+  _r=$1; _x=$2
+  _flag=''; [ "$_r" = 1 ] && _flag=' -R'
+  _run="\"$ccfe\"$_flag"
+  [ "$_x" = 1 ] && _run="exec $_run"
+  cat <<EOF
+$BEGIN
+# Remove this block (or run 'ccfe-login uninstall-...') to disable.  Runs the
+# CCFE menu on an interactive login shell only, so scp/sftp/rsync and
+# 'ssh host cmd' are unaffected.
+if [ -z "\${CCFE_LOGIN_ACTIVE:-}" ]; then
+  case \$- in
+    *i*)
+      CCFE_LOGIN_ACTIVE=1; export CCFE_LOGIN_ACTIVE
+      $_run
+      ;;
+  esac
+fi
+$END
+EOF
+}
+
+# parse_flags -- sets $restricted/$do_exec from the leading -r/-x/-X options.
+restricted=0
+do_exec=auto
+parse_flags() {
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -r|--restricted) restricted=1 ;;
+      -x|--logout)     do_exec=1 ;;
+      -X|--no-logout)  do_exec=0 ;;
+      --) shift; break ;;
+      -*) die "unknown option \"$1\"" ;;
+      *)  break ;;
+    esac
+    shift
+  done
+  # A kiosk logs out on exit by default; a convenience menu drops to the shell.
+  [ "$do_exec" = auto ] && do_exec=$restricted
+}
+
+cmd=${1:-}
+[ -n "$cmd" ] || die "no command (try: status, install-user, uninstall-user, install-system, uninstall-system)"
+shift
+
+# A restricted (kiosk) CCFE session must not be able to reconfigure the login
+# setup it depends on; only read-only `status` is allowed there.
+case "$cmd" in
+  status) ;;
+  *) [ "${CCFE_RESTRICTED:-}" = 1 ] && die "not permitted in restricted mode" ;;
+esac
+
+case "$cmd" in
+  status)
+    echo "ccfe binary : $ccfe"
+    any=0
+    for f in "$HOME/.bash_profile" "$HOME/.bash_login" "$HOME/.profile"; do
+      if [ -f "$f" ] && grep -qF "$BEGIN" "$f" 2>/dev/null; then
+        echo "user login  : ENABLED in $f"; any=1
+      fi
+    done
+    if [ -f "$SYS_FILE" ] && grep -qF "$BEGIN" "$SYS_FILE" 2>/dev/null; then
+      echo "system login: ENABLED in $SYS_FILE"; any=1
+    fi
+    [ "$any" = 1 ] || echo "user login  : not enabled"
+    if command -v getent >/dev/null 2>&1; then
+      sh=$(getent passwd "$(id -un)" | cut -d: -f7)
+      echo "login shell : $sh"
+    fi
+    ;;
+
+  install-user)
+    parse_flags "$@"
+    # Pick an existing profile, else create ~/.profile.
+    target=''
+    for f in "$HOME/.bash_profile" "$HOME/.bash_login" "$HOME/.profile"; do
+      [ -f "$f" ] && { target=$f; break; }
+    done
+    [ -n "$target" ] || target="$HOME/.profile"
+    remove_block "$target"
+    emit_block "$restricted" "$do_exec" >> "$target"
+    echo "Enabled the CCFE login menu in $target"
+    [ "$restricted" = 1 ] && echo "  (restricted kiosk; leaving the menu logs out)"
+    echo "Takes effect on your next login.  Undo with: ccfe-login uninstall-user"
+    ;;
+
+  uninstall-user)
+    done_any=0
+    for f in "$HOME/.bash_profile" "$HOME/.bash_login" "$HOME/.profile"; do
+      if [ -f "$f" ] && grep -qF "$BEGIN" "$f" 2>/dev/null; then
+        remove_block "$f"
+        echo "Removed the CCFE login menu from $f"
+        done_any=1
+      fi
+    done
+    [ "$done_any" = 1 ] || echo "Nothing to remove (not enabled for this user)."
+    ;;
+
+  install-system)
+    parse_flags "$@"
+    dir=$(dirname "$SYS_FILE")
+    [ -d "$dir" ] || die "no $dir on this system"
+    # Check up front so the non-root case fails with one clean message rather
+    # than the shell's redirection error.
+    [ -w "$dir" ] || die "cannot write $dir (need root?)"
+    emit_block "$restricted" "$do_exec" > "$SYS_FILE"
+    chmod 0644 "$SYS_FILE"
+    echo "Enabled the CCFE login menu system-wide in $SYS_FILE"
+    echo "Takes effect on each user's next login."
+    ;;
+
+  uninstall-system)
+    if [ -f "$SYS_FILE" ]; then
+      dir=$(dirname "$SYS_FILE")
+      [ -w "$dir" ] || die "cannot remove $SYS_FILE (need root?)"
+      rm -f "$SYS_FILE"
+      echo "Removed $SYS_FILE"
+    else
+      echo "Nothing to remove ($SYS_FILE is not present)."
+    fi
+    ;;
+
+  *)
+    die "unknown command: $cmd"
+    ;;
+esac

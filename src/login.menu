@@ -1,0 +1,33 @@
+title {
+  CCFE login / shell setup
+}
+top {
+  Make CCFE start automatically when you log in (including over SSH).  It hooks
+  your shell profile and runs only on an interactive login, so scp/sftp/rsync
+  and "ssh host command" keep working.  Restricted mode makes it a locked kiosk.
+}
+item {
+  id     = STATUS
+  descr  = Show the current login setup
+  action = run:"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-login" status
+}
+item {
+  id     = ENABLEME
+  descr  = Enable the CCFE menu at my login
+  action = form:login.d/enable-user
+}
+item {
+  id     = DISABLEME
+  descr  = Disable the CCFE menu at my login
+  action = run(confirm):"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-login" uninstall-user
+}
+item {
+  id     = ENABLESYS
+  descr  = Enable system-wide for all users (needs root)
+  action = form:login.d/enable-system
+}
+item {
+  id     = DISABLESYS
+  descr  = Disable the system-wide hook (needs root)
+  action = run(confirm):"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-login" uninstall-system
+}

@@ -151,6 +151,8 @@ install ()
   chmod 755 $BINDIR/ccfe
   cp tools/ccfe-build $BINDIR/ccfe-build
   chmod 755 $BINDIR/ccfe-build
+  cp tools/ccfe-login $BINDIR/ccfe-login
+  chmod 755 $BINDIR/ccfe-login
 
   # CCFE's own Perl modules; ccfe finds them at bin/../lib/perl5 (see the
   # `use lib` in ccfe.pl).  Refreshed on update too, like the program itself.
@@ -193,6 +195,9 @@ install ()
     # Configuration wizard (the "ccfe config" menu, also via ccfe-build):
     cp config.menu $OBJDIR/ccfe
     cp -r config.d $OBJDIR/ccfe
+    # Login / shell setup (the "ccfe config" -> Login menu, drives ccfe-login):
+    cp login.menu $OBJDIR/ccfe
+    cp -r login.d $OBJDIR/ccfe
     PATH=$BINDIR:$PATH
     export PATH
     cd ccfe-plugin-sysmon

@@ -41,6 +41,11 @@ item {
   action = keymap:
 }
 item {
+  id     = LOGIN
+  descr  = Login / shell setup (start CCFE at login)
+  action = menu:login
+}
+item {
   id     = SEARCH
   descr  = Search menus and forms
   action = search:

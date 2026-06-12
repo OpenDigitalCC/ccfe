@@ -78,6 +78,19 @@ Please see also the explanation of the \fBCCFE_LIB_DIR\fP environment variable.
 List the installed \fBccfe\fP plugins found on the object search path, with their
 name and version, then exit.
 .TP
+\fB-R\fP, \fB--restricted\fP
+Force restricted (kiosk) mode for this run, regardless of configuration: the
+shell escape and save-to-script are disabled and \fBsystem:\fP/\fBexec:\fP
+actions run shell-free and limited to the configured allow-list (see
+\fBrestricted\fP in
+.BR ccfe.conf (5)).
+It can only tighten \(em there is no option to turn restricted off \(em and it
+also makes the object search ignore user-writable directories. Intended for a
+login launcher; the
+.RB \(dq "Login / shell setup" \(dq
+config menu (the \fBccfe-login\fP helper) writes it into the login hook it
+installs.
+.TP
 \fB-s\fP
 Print ordered list of available shortcuts to forms or menus and exit.
 A tilde character ("\fB~\fP") after shortcut name means that menu or form is user private and located

@@ -507,6 +507,7 @@ $DESCR.
     -k NAME   : checK that menu/form NAME parses, then exit (no terminal needed)
     -l PATH   : set forms and menus Library directory to PATH
     -P        : list installed Plugins (--plugins) and exit
+    -R        : force Restricted (kiosk) mode for this run (--restricted)
     -s        : print available Shortcuts and exit
     -v        : print Version informations and exit
 
@@ -6178,10 +6179,16 @@ $Getopt::Std::STANDARD_HELP_VERSION = $TRUE;
 $Getopt::Std::OUTPUT_HELP_VERSION   = '';
 %options                            = ();
 
-# Accept the long forms `--dump NAME` / `--plugins` as aliases for `-D NAME` /
-# `-P` (Getopt::Std itself only does single-letter options).
-@ARGV = map { $_ eq '--dump' ? '-D' : $_ eq '--plugins' ? '-P' : $_ } @ARGV;
-getopts( "vhsdcPD:k:l:", \%options ) or usage();
+# Accept the long forms `--dump NAME` / `--plugins` / `--restricted` as aliases
+# for `-D NAME` / `-P` / `-R` (Getopt::Std itself only does single-letter
+# options).
+@ARGV = map {
+        $_ eq '--dump'       ? '-D'
+      : $_ eq '--plugins'    ? '-P'
+      : $_ eq '--restricted' ? '-R'
+      : $_
+} @ARGV;
+getopts( "vhsdcPRD:k:l:", \%options ) or usage();
 if ( defined $options{v} ) {
     my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
     my ( $dd, $mm, $yy ) = split /\//, $VERSION_DATE;
@@ -6407,11 +6414,22 @@ $HAS_COLOR       = $NO;
 @mf_path_base  = @mf_path;
 @cnf_path_base = @cnf_path;
 
+# `-R`/`--restricted`: force the kiosk sandbox for this run.  Set BEFORE
+# load_config so the user-writable-config skip (TD-1a) also applies -- a launcher
+# (e.g. the login-shell setup) can lock a session down without a system config.
+# It can only tighten: there is no flag to turn restricted off.
+$ctx->{cfg}{RESTRICTED} = $YES if defined $options{R};
+
 if ( $res = load_config ) {
     trace("$es_str[$res] loading configuration file");
 }
 harden_child_env();
 if ( $ctx->{cfg}{RESTRICTED} ) {
+
+    # Tell child helpers (ccfe-login, ...) the session is a restricted kiosk, so
+    # they refuse privileged reconfiguration (e.g. changing the login setup the
+    # kiosk depends on) that the locked-down user could otherwise drive.
+    $ENV{CCFE_RESTRICTED} = 1;
 
     # Hide the now-inert escape keys from the on-screen key bars; the key
     # handlers also enforce the policy, so this is defence in depth + UX.

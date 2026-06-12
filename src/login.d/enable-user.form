@@ -1,0 +1,27 @@
+title { Enable CCFE menu at my login }
+top {
+  Adds a small managed block to your shell profile (~/.bash_profile or
+  ~/.profile) that starts the CCFE menu on an interactive login.  Restricted
+  kiosk mode locks the session down (ccfe -R); "log out when leaving" replaces
+  the shell so quitting the menu ends the session (recommended for a kiosk).
+}
+field {
+  id      = RESTRICTED
+  label   = Restricted kiosk mode
+  type    = BOOLEAN
+  default = const:NO
+}
+field {
+  id      = LOGOUT
+  label   = Log out when leaving the menu
+  type    = BOOLEAN
+  default = const:NO
+  htab    = 1
+}
+action { run:
+  cl="${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-login"
+  args=""
+  [ "$CCFE_FIELD_RESTRICTED" = YES ] && args="$args -r"
+  [ "$CCFE_FIELD_LOGOUT" = YES ] && args="$args -x"
+  "$cl" install-user $args
+}
