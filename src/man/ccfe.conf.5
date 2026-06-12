@@ -158,6 +158,24 @@ Values:
 .br
 Required: No
 
+.SS notify_file
+.PP
+Path of a file polled for notifications (FEATURE-REQUESTS D1). Whenever a menu
+screen is entered, if the file exists and is non-empty its contents are shown as
+a pop-up banner. Each distinct write is shown once \(em the file is identified
+by its modification time and size, so rewriting it (or appending) re-notifies,
+and emptying it arms the next write. The file is
+.B not
+consumed, so the producer owns clearing it. A leading
+.B ~
+is expanded to the home directory; an empty value disables the feature. This is
+the minimal file-poll version; a socket/inotify listener may be added later.
+.PP
+Values:
+.I PATH
+.br
+Required: No
+
 .SS keymap
 .PP
 Pull in a named keymap preset \(em a complete set of key bindings shipped (or

@@ -51,6 +51,9 @@ SEARCH_OBJ_TITLE     = "SEARCH MENUS & FORMS"
 SEARCH_OBJ_PROMPT    = "Search for:"
 SEARCH_RESULTS_TITLE = "Search results -- pick one to open"
 
+# Title of the pop-up shown for a pending notification (the notify_file poll):
+NOTIFY_TITLE = "NOTIFICATION"
+
 # Title and message string for pop-up window displayed when
 # a form is without action{} block or with wrong select-item{} block:
 NULL_FACTION_TITLE = "ERROR"

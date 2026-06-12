@@ -127,41 +127,42 @@ our (
     $NO_THEMES_MSG,          $KEYMAP_PICK_TITLE,    $KEYMAP_SET_MSG,
     $KEYMAP_TITLE,           $NO_KEYMAPS_MSG,       $KEY_SEARCH_LABEL,
     $SEARCH_OBJ_TITLE,       $SEARCH_OBJ_PROMPT,    $SEARCH_RESULTS_TITLE,
-    $RESTRICTED_MSG,         $RESTRICTED_TITLE,     $RS_BOTTOM_ROWS,
-    $RS_HEADER_ROWS,         $RS_INFO_ID,           $RS_STDERR_ID,
-    $RS_STDOUT_ID,           $RS_TOP_ROWS,          $SAVE_DETAILED,
-    $SAVE_DETAILED_DESCR,    $SAVE_ERROR_MSG,       $SAVE_ERROR_TITLE,
-    $SAVE_FIELDVAL_MSG,      $SAVE_FIELDVAL_TITLE,  $SAVE_FNAME_PROMPT,
-    $SAVE_FNAME_TITLE,       $SAVE_SCRIPT,          $SAVE_SCRIPT_DESCR,
-    $SAVE_SIMPLE,            $SAVE_SIMPLE_DESCR,    $SAVE_TYPE_TITLE,
-    $SEARCH_PTRN_PROMPT,     $SEARCH_PTRN_TITLE,    $SEPARATOR,
-    $SEP_LINE,               $SEP_LINE_DOUBLE,      $SEP_TEXT,
-    $SEP_TEXT_CENTER,        $SHOW_ACTION_TITLE,    $SIMPLE,
-    $SR_BUFF_SIZE,           $SYNTH_KEY_BASE,       $STRING,
-    $THEMEDIR,               $KEYMAPDIR,            $TRUE,
-    $UCSTRING,               $USERNAME,             $USR_CFG,
-    $USR_OBJ,                $VERSION,              $VERSION_DATE,
-    $VERSION_YEAR,           $WAIT_MSG_MSG,         $WRKDIR,
-    $YES,                    $attrk,                $attrv,
-    $called_form,            $ch,                   $choice,
-    $cpid,                   $descr,                $es,
-    $exec_hh,                $exec_mm,              $exec_ss,
-    $i,                      $id,                   $lflags_size,
-    $mlmargin,               $mwin,                 $mwinr,
-    $opt,                    $out,                  $ovl_mode,
-    $p,                      $pad_lines,            $path,
-    $pid,                    $prev_wdir,            $res,
-    $rflags_size,            $s,                    $scan,
-    $search_string,          $shcut_type,           $text,
-    $tmpfh,                  $twin,                 @CONFIRM_ITEMS,
-    @ERR_LITTLE_SCREEN,      @ERR_WRONG_FPATH,      @FORM_TOP_MSG,
-    @FSKeys,                 @LW_DISPLAY_TOP_MSG,   @LW_MULTIVAL_TOP_MSG,
-    @LW_SINGLEVAL_TOP_MSG,   @MENU_TOP_MSG,         @MSKeys,
-    @RSKeys,                 @cnf_path,             @cnf_path_base,
-    @es_str,                 @flist,                @fn_key_functions,
-    @lines,                  @mf_path,              @mf_path_base,
-    %FN_LABEL,               %bool_vals,            %layout_vals,
-    %options,                %sep_type_vals,        %type_vals,
+    $NOTIFY_TITLE,           $RESTRICTED_MSG,       $RESTRICTED_TITLE,
+    $RS_BOTTOM_ROWS,         $RS_HEADER_ROWS,       $RS_INFO_ID,
+    $RS_STDERR_ID,           $RS_STDOUT_ID,         $RS_TOP_ROWS,
+    $SAVE_DETAILED,          $SAVE_DETAILED_DESCR,  $SAVE_ERROR_MSG,
+    $SAVE_ERROR_TITLE,       $SAVE_FIELDVAL_MSG,    $SAVE_FIELDVAL_TITLE,
+    $SAVE_FNAME_PROMPT,      $SAVE_FNAME_TITLE,     $SAVE_SCRIPT,
+    $SAVE_SCRIPT_DESCR,      $SAVE_SIMPLE,          $SAVE_SIMPLE_DESCR,
+    $SAVE_TYPE_TITLE,        $SEARCH_PTRN_PROMPT,   $SEARCH_PTRN_TITLE,
+    $SEPARATOR,              $SEP_LINE,             $SEP_LINE_DOUBLE,
+    $SEP_TEXT,               $SEP_TEXT_CENTER,      $SHOW_ACTION_TITLE,
+    $SIMPLE,                 $SR_BUFF_SIZE,         $SYNTH_KEY_BASE,
+    $STRING,                 $THEMEDIR,             $KEYMAPDIR,
+    $TRUE,                   $UCSTRING,             $USERNAME,
+    $USR_CFG,                $USR_OBJ,              $VERSION,
+    $VERSION_DATE,           $VERSION_YEAR,         $WAIT_MSG_MSG,
+    $WRKDIR,                 $YES,                  $attrk,
+    $attrv,                  $called_form,          $ch,
+    $choice,                 $cpid,                 $descr,
+    $es,                     $exec_hh,              $exec_mm,
+    $exec_ss,                $i,                    $id,
+    $lflags_size,            $mlmargin,             $mwin,
+    $mwinr,                  $opt,                  $out,
+    $ovl_mode,               $p,                    $pad_lines,
+    $path,                   $pid,                  $prev_wdir,
+    $res,                    $rflags_size,          $s,
+    $scan,                   $search_string,        $shcut_type,
+    $text,                   $tmpfh,                $twin,
+    @CONFIRM_ITEMS,          @ERR_LITTLE_SCREEN,    @ERR_WRONG_FPATH,
+    @FORM_TOP_MSG,           @FSKeys,               @LW_DISPLAY_TOP_MSG,
+    @LW_MULTIVAL_TOP_MSG,    @LW_SINGLEVAL_TOP_MSG, @MENU_TOP_MSG,
+    @MSKeys,                 @RSKeys,               @cnf_path,
+    @cnf_path_base,          @es_str,               @flist,
+    @fn_key_functions,       @lines,                @mf_path,
+    @mf_path_base,           %FN_LABEL,             %bool_vals,
+    %layout_vals,            %options,              %sep_type_vals,
+    %type_vals,
 );
 ## END-OUR
 
@@ -719,6 +720,7 @@ sub load_msgs {
       SEARCH_OBJ_TITLE
       SEARCH_OBJ_PROMPT
       SEARCH_RESULTS_TITLE
+      NOTIFY_TITLE
       NULL_FACTION_MSG
       NULL_FACTION_TITLE
       EXEC_NOTFOUND_MSG
@@ -1878,6 +1880,18 @@ sub load_config {
                                         $ctx->{cfg}{PATH} = $attrv;
                                         last ASWITCH;
                                     }
+                                    elsif (/^NOTIFY_FILE$/) {
+
+                                      # File polled for notifications to surface
+                                      # in the TUI (FEATURE-REQUESTS D1).  A
+                                      # leading ~ is expanded; empty disables.
+                                        my $nf = $attrv;
+                                        $nf =~ s/^\s+//;
+                                        $nf =~ s/\s+$//;
+                                        $nf =~ s{^~(/|$)}{$ENV{HOME}$1};
+                                        $ctx->{cfg}{NOTIFY_FILE} = $nf;
+                                        last ASWITCH;
+                                    }
                                     elsif (/^THEME$/) {
 
                                     # Pull in a named colour/style theme from
@@ -2465,6 +2479,7 @@ sub set_cfg_defaults {
     $ctx->{cfg}{THEME}            = '';
     $ctx->{cfg}{KEYMAP}           = '';
     $ctx->{cfg}{event2code}       = {};
+    $ctx->{cfg}{NOTIFY_FILE}      = '';
 
     # Menu/screen theme attributes.  Defaults preserve the historical
     # monochrome look (overall screen normal, selected item reversed, bold
@@ -3036,6 +3051,43 @@ sub run_menu_search ($win) {
     return;
 }
 
+# Notifications display (FEATURE-REQUESTS D1, minimal file-poll version).  If a
+# `notify_file` is configured and is non-empty, surface its contents as a pop-up
+# banner -- checked each time a menu screen is entered.  A per-(mtime,size)
+# signature means each notification is shown once: a fresh write (new mtime)
+# re-notifies; emptying the file arms the next write.  Non-destructive (the file
+# is not consumed), so the producer owns clearing it.  A richer socket/inotify
+# listener can layer on later.
+sub check_notify ($win) {
+    my $nf = $ctx->{cfg}{NOTIFY_FILE};
+    return unless defined $nf and $nf ne '';
+
+    my @st = stat $nf;
+    if ( !@st or $st[7] == 0 ) {
+        delete $ctx->{state}{notify_sig};    # gone/empty: re-arm for next write
+        return;
+    }
+    my $sig = "$st[9]:$st[7]";               # mtime:size
+    return if ( $ctx->{state}{notify_sig} // '' ) eq $sig;
+    $ctx->{state}{notify_sig} = $sig;
+
+    my $body = '';
+    if ( open( my $fh, '<', $nf ) ) {
+        local $/;
+        $body = <$fh> // '';
+        close($fh);
+    }
+
+    # disp_msg shows one centred line; collapse the file to a single line (it
+    # truncates to the screen width itself).
+    $body =~ s/\s+/ /g;
+    $body =~ s/^\s+//;
+    $body =~ s/\s+$//;
+    return if $body eq '';
+    disp_msg( $win, $body, $NOTIFY_TITLE );
+    return;
+}
+
 sub do_menu {
     my ( $menuname, $title ) = @_;
 
@@ -3159,6 +3211,9 @@ sub do_menu {
             refresh(curscr);
         };
         $draw_menu->();
+
+        # Surface any pending notification on entering this menu (D1).
+        check_notify($win);
 
         $es = 0;
         while ( !defined( $ctx->{state}{exec_args} ) ) {
