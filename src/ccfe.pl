@@ -3690,6 +3690,14 @@ sub form_value_list {
                     $val =~ s/^\s+//;
                     $val =~ s/\s+$//;
                 }
+
+                # Expose every field value to the list_cmd as an environment
+                # variable too, so a command: list_cmd can reference another
+                # field safely ("$CCFE_FIELD_MENUNAME") instead of interpolating
+                # %{ID} into the shell string -- the same safe channel
+                # prepare_action gives action commands (REFACTOR.md section 2).
+                $ENV{"CCFE_FIELD_$id"} = $val
+                  if defined $id and $id ne '';
                 $args =~ s/%\{$id\}/$val/g;
             }
             trace( "list_cmd after field(s) value substitution: \"$args\"",

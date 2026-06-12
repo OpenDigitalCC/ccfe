@@ -11,6 +11,7 @@
 # Usage:
 #   ccfe-build new-menu   NAME TITLE
 #   ccfe-build add-item   MENU ID DESCR ACTION
+#   ccfe-build edit-item  MENU ID DESCR    # change an existing item's description
 #   ccfe-build new-form   NAME TITLE
 #   ccfe-build add-field  FORM ID LABEL [TYPE]
 #   ccfe-build set-action FORM ACTION
@@ -73,6 +74,40 @@ case "$cmd" in
     validate "$name"
     ;;
 
+  edit-item)
+    name=${1:-}; id=${2:-}; descr=${3:-}
+    if [ -z "$id" ] || [ -z "$descr" ]; then
+      die "edit-item needs MENU ID DESCR"
+    fi
+    f="$objdir/$name.menu"
+    [ -f "$f" ] || die "no such menu: $f"
+    tmp="$f.tmp.$$"
+    # Replace the descr line of the item block whose id matches; awk exits 1
+    # (no output kept) if the id is not found.
+    if awk -v target="$id" -v newdescr="$descr" '
+        /^[[:space:]]*item[[:space:]]*\{/ { inblock=1; curid="" }
+        inblock && /^[[:space:]]*id[[:space:]]*=/ {
+          v=$0; sub(/^[[:space:]]*id[[:space:]]*=[[:space:]]*/,"",v)
+          sub(/[[:space:]]+$/,"",v); curid=v
+        }
+        inblock && curid==target && /^[[:space:]]*descr[[:space:]]*=/ {
+          print "  descr  = " newdescr; matched=1; inblock=0; next
+        }
+        /^[[:space:]]*\}/ { inblock=0 }
+        { print }
+        END { exit (matched ? 0 : 1) }
+      ' "$f" > "$tmp"
+    then
+      mv "$tmp" "$f"
+      chmod 0644 "$f"
+      echo "Updated description of item \"$id\" in menu \"$name\""
+      validate "$name"
+    else
+      rm -f "$tmp"
+      die "item id \"$id\" not found in menu \"$name\""
+    fi
+    ;;
+
   new-form)
     name=${1:-}; title=${2:-}
     valid_name "$name" || die "invalid form name \"$name\""
@@ -133,6 +168,15 @@ case "$cmd" in
       [ -e "$f" ] || continue
       b=${f##*/}; echo "${b%.menu}"
     done
+    ;;
+
+  list-items)   # one item id per line for MENU (for a form's list_cmd)
+    name=${1:-}
+    f="$objdir/$name.menu"
+    [ -f "$f" ] || exit 0
+    awk '/^[[:space:]]*id[[:space:]]*=/ {
+      v=$0; sub(/^[[:space:]]*id[[:space:]]*=[[:space:]]*/,"",v)
+      sub(/[[:space:]]+$/,"",v); print v }' "$f"
     ;;
 
   list-forms)

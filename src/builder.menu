@@ -16,6 +16,11 @@ item {
   action = form:builder.d/additem
 }
 item {
+  id     = EDITITEM
+  descr  = Edit a menu item's description
+  action = form:builder.d/edititem
+}
+item {
   id     = NEWFORM
   descr  = Create a new form
   action = form:builder.d/newform

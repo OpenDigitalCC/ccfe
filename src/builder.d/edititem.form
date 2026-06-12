@@ -1,0 +1,33 @@
+title { Edit a menu item's description }
+top {
+  Pick a menu, then an item, then type the new description.
+}
+field {
+  id       = MENUNAME
+  len      = 24
+  type     = STRING
+  required = YES
+  list_cmd = command:single-val:"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" list-menus
+  label    = Menu name (F2 for a list)
+}
+field {
+  id       = ITEMID
+  len      = 16
+  type     = UCSTRING
+  htab     = 1
+  required = YES
+  list_cmd = command:single-val:"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" list-items "$CCFE_FIELD_MENUNAME"
+  label    = Item id to edit (F2 for a list)
+}
+field {
+  id       = DESCR
+  len      = 40
+  type     = STRING
+  hscroll  = YES
+  required = YES
+  label    = New description (shown in the menu)
+}
+action { run:
+  "${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" edit-item "$CCFE_FIELD_MENUNAME" \
+      "$CCFE_FIELD_ITEMID" "$CCFE_FIELD_DESCR"
+}
