@@ -1,0 +1,48 @@
+Format: 1.8
+Date: Fri, 12 Jun 2026 20:00:00 +0000
+Source: ccfe
+Binary: ccfe
+Architecture: all
+Version: 2.4
+Distribution: unstable
+Urgency: medium
+Maintainer: CCFE maintainers <ccfedevel@gmail.com>
+Changed-By: CCFE maintainers <ccfedevel@gmail.com>
+Description:
+ ccfe       - Curses Command Front-end
+Changes:
+ ccfe (2.4) unstable; urgency=medium
+ .
+   * Runtime configuration reload: a "reload" action/key re-reads the config and
+     re-applies colours, key bindings, behaviour toggles and variables without a
+     restart (mouse/layout/restricted still need one).
+   * Colour-theme switching from the menu: "Select colour theme" lists the
+     installed themes, persists the choice (a `theme = NAME` global) and applies
+     it at once; smit-panel and console themes are advertised alongside smit.
+   * Key maps: a `keymap { }` config section and a runtime "Select key map"
+     switcher with shipped presets (classic, safe, nano, mc). Bindings now accept
+     Meta/Alt (M-x) and Ctrl (^X) chords and plain keys, primary plus alternates,
+     not only the function keys; a small ESC-disambiguating input layer (ESCDELAY)
+     drives the Meta chords. The footer labels follow the function, not the key.
+   * Menu/form search: a "search" action/key scans every object on the path
+     (titles, top/bottom text, item descriptions, field labels) and jumps to a
+     match.
+   * Notifications: a `notify_file` global is polled and shown as a banner on
+     menu entry (each distinct write once).
+   * Ownership management: ccfe-build gains chown / list-users / list-groups /
+     list-objects and a builder form, to change the owner of your own objects.
+   * Run CCFE at login: a new `-R`/`--restricted` flag forces the kiosk sandbox
+     for a run, and the ccfe-login helper (+ a "Login / shell setup" config menu)
+     hooks a shell profile to start CCFE on an interactive login/SSH, system-wide
+     or per-user, optionally as a locked kiosk.
+   * No change to the menu/form/config file formats or to default behaviour. Full
+     detail is in the git history.
+Checksums-Sha1:
+ f16678b8ffa524da28a8ea7697cb40133ebc1c0b 119180 ccfe_2.4_all.deb
+ e3b9ca54423165240088f9b9ffff5f75562561c4 4576 ccfe_2.4_amd64.buildinfo
+Checksums-Sha256:
+ decafde90be3720475d6e0206ec0787f2a94280b9fa121e8b0beca7374f532ca 119180 ccfe_2.4_all.deb
+ 11068e259935013b88209873be2c049fe3baee30fbe9b6551165931d71562a91 4576 ccfe_2.4_amd64.buildinfo
+Files:
+ 0ca07fb34650154f33ddb092e8daea90 119180 admin optional ccfe_2.4_all.deb
+ 381cefab14d89a2f66ee82e527a428d1 4576 admin optional ccfe_2.4_amd64.buildinfo
