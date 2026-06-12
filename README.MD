@@ -22,6 +22,12 @@ modular, more functional structure — is described in
 **standard packages only** (Perl core plus `libcurses-perl`); see the git
 history for the detail of past fixes.
 
+Recent work added things you drive **from inside the running UI**: a guided
+config wizard, runtime config reload, colour-theme and key-map switching
+(including Meta/Alt and Ctrl bindings), menu/form search, file-based
+notifications, object-ownership management, and a one-step "run CCFE at login"
+kiosk setup. These are covered below and in `man ccfe.conf`.
+
 **v2.0 reorganises the install layout** (menus/forms moved out of `lib/` into
 `share/ccfe/objects/`; per-user files follow the XDG base directories). See
 [`MIGRATION.md`](MIGRATION.md) if you are upgrading from a 1.x install.
@@ -131,6 +137,33 @@ setup). Defence in depth — OS-level confinement (a restricted shell, a
 container, seccomp/AppArmor) — is still worthwhile for a true kiosk. See
 `M8-AUDIT.md` and `TECH-DEBT.md` for the analysis and history.
 
+`ccfe -R` (`--restricted`) forces restricted mode for a single run regardless of
+config — it can only *tighten* (there is no flag to turn it off) and it also
+makes the object search ignore user-writable directories. It's the primitive the
+login-shell setup uses.
+
+### Launching CCFE at login
+
+**Configure CCFE → Login / shell setup** (the `ccfe-login` helper) makes CCFE
+start automatically on an interactive login or SSH session — for the current
+user, or **system-wide** via `/etc/profile.d` (which needs root). It hooks the
+shell profile and fires on **interactive logins only**, so `scp`, `sftp`,
+`rsync` and `ssh host command` are unaffected.
+
+Tick **restricted kiosk mode** and the hook launches `ccfe -R` and replaces the
+login shell with it, so the session is sandboxed and quitting the menu logs out:
+
+```sh
+ccfe-login install-user   -r      # kiosk menu for me on next login
+ccfe-login install-system -r      # kiosk for every user (needs root)
+ccfe-login status                 # what is enabled
+ccfe-login uninstall-user         # undo
+```
+
+The block it writes is marker-delimited and idempotent, so it is safe to
+re-apply or remove. A restricted CCFE session refuses these reconfiguration
+commands, so a kiosk user can't unhook the login they're confined to.
+
 ## Colour and styles
 
 CCFE is monochrome by default. When the terminal supports colour (and
@@ -158,13 +191,60 @@ browser_global {
 `title_attr` (the header) and `key_attr` (the function-key bar) apply to every
 screen — menus, forms and the output browser.
 
-CCFE was modelled on AIX's SMIT, and two ready-made themes ship under
+CCFE was modelled on AIX's SMIT, and ready-made themes ship under
 `<prefix>/share/ccfe/themes/`: **`ccfe.conf.smit`** (the classic monochrome
-original) and
-**`ccfe.conf.smit-color`** (the colour version, including the header and
-control keys). Drop one in as your `ccfe.conf`, or use it as an instance
-config: symlink the binary to `smit` and save it as `smit.conf`, so `smit`
-gets its own scheme and menu tree (see *One binary, many menu trees* above).
+original), **`ccfe.conf.smit-color`** (the colour version, including the header
+and control keys), **`ccfe.conf.smit-panel`** (a panelled white-on-blue look)
+and **`ccfe.conf.console`** (a Linux-console scheme). Drop one in as your
+`ccfe.conf`, or use it as an instance config: symlink the binary to `smit` and
+save it as `smit.conf`, so `smit` gets its own scheme and menu tree (see *One
+binary, many menu trees* above).
+
+You don't have to copy a theme by hand, though — **Configure CCFE → Select
+colour theme** lists the installed themes and applies the chosen one at runtime
+(next section).
+
+## Configuring CCFE from the menu
+
+Run **`ccfe config`** (or pick *Configure CCFE* from the default menu) for a
+guided wizard that writes your personal `~/.config/ccfe/ccfe.conf` — screen
+layout, behaviour toggles, shell/restricted mode, config variables — without an
+editor. Several settings can then be changed **while CCFE is running** and take
+effect immediately, no restart:
+
+- **Reload** — *Apply configuration now* re-reads the config and re-applies
+  colours, key bindings, behaviour toggles and variables. (Switching the mouse
+  or the screen layout, and restricted mode, still need a restart; the
+  confirmation says so.) Bind it to a key with `keymap { reload = ... }` for
+  instant feedback while you tune a config.
+- **Colour themes** — *Select colour theme* lists the themes installed under
+  `share/ccfe/themes/`, saves your choice and applies it at once — the same as a
+  `theme = NAME` line in the config.
+- **Key maps** — *Select key map* switches between shipped presets:
+  **classic** (the F1–F9 SMIT layout), **safe** (every function *also* on an
+  Alt-letter, for terminals that grab the function keys), **nano** (Ctrl chords)
+  and **mc**. Or spell your own out with a `keymap { }` section — each function
+  can take an F-key, a Meta chord (`M-l`), a Ctrl chord (`^G`) or a plain key,
+  primary plus alternates:
+
+  ```
+  keymap {
+    list = F2, M-l
+    back = F4, M-b, ^B
+    exit = F9, M-q
+  }
+  ```
+
+  (A lone `Esc` is still "cancel"; Meta chords are disambiguated by a short
+  timeout — the `ESCDELAY` environment variable, default 25 ms.)
+- **Search** — *Search menus and forms* (also on the main menu, or bind the
+  `search` function to a key) scans every menu and form on the path — titles,
+  top/bottom text, item descriptions and form field labels — and jumps to the
+  match you pick.
+
+**Notifications.** Point `notify_file` at a file and CCFE shows its contents as
+a banner whenever a menu screen is entered (each distinct write once) — a simple
+way for a producer to reach a logged-in operator.
 
 ## Docker
 
@@ -262,6 +342,12 @@ validating each with `ccfe -k`. It is plain CCFE content driving the
 "Disk usage" "run:df -h"`). Field values reach the helper through
 `$CCFE_FIELD_*`, so nothing you type is shell-interpolated.
 
+The builder also manages **ownership** of your objects — *Change object
+ownership* (`ccfe-build chown <name> <user>[:<group>]`) lists the local users
+and groups to pick from and changes the owner of one of your own menus/forms.
+Changing to another user usually needs root; if you lack the privilege the
+error is shown plainly.
+
 Validate a menu or form without opening the UI (useful for authors and CI):
 
 ```sh
@@ -305,12 +391,14 @@ cd src
 prove t/
 ```
 
-The suite covers: that the program compiles; that the `.menu` / `.form` /
-`.item` plugin file formats still parse against the demo and `sysmon`
-fixtures; a source-level regression guard for the historical form crash; and
-an end-to-end terminal smoke test that batch-installs CCFE into a temp prefix
-and drives the menus and a form on a real pseudo-terminal. The parser tests
+The suite (400+ tests) covers: that the program compiles; that the `.menu` /
+`.form` / `.item` plugin file formats still parse against the demo and `sysmon`
+fixtures; a source-level regression guard for the historical form crash; the
+pure `CCFE::*` parser/layout/theme modules; and end-to-end terminal tests that
+batch-install CCFE into a temp prefix and drive it on a real pseudo-terminal —
+including the runtime reload, theme/key-map switching (and Meta-key bindings),
+menu search, notifications, ownership and login-shell setup. The parser tests
 load the program headlessly (via the `CCFE_TESTING` guard) so no terminal is
-required; the tty test brings its own pty (pure core Perl, see
-`t/lib/CCFE/Test/Pty.pm`) and skips itself where no Linux pty / `Curses` is
+required; the tty tests bring their own pty (pure core Perl, see
+`t/lib/CCFE/Test/Pty.pm`) and skip themselves where no Linux pty / `Curses` is
 available.
