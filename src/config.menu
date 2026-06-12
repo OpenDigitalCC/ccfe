@@ -41,6 +41,11 @@ item {
   action = keymap:
 }
 item {
+  id     = SEARCH
+  descr  = Search menus and forms
+  action = search:
+}
+item {
   id     = SHOWCONF
   descr  = Show my configuration
   action = run:"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" show-config

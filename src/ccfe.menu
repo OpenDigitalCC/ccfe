@@ -20,6 +20,11 @@ item {
   action = menu:builder
 }
 item {
+  id     = SEARCH
+  descr  = Search menus and forms
+  action = search:
+}
+item {
   id     = TEST
   descr  = Installation test (it works!)
   action = run:cat it_works.txt

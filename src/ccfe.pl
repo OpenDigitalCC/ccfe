@@ -125,42 +125,43 @@ our (
     $REALNAME,               $RELOAD_MSG,           $RELOAD_TITLE,
     $THEME_PICK_TITLE,       $THEME_SET_MSG,        $THEME_TITLE,
     $NO_THEMES_MSG,          $KEYMAP_PICK_TITLE,    $KEYMAP_SET_MSG,
-    $KEYMAP_TITLE,           $NO_KEYMAPS_MSG,       $RESTRICTED_MSG,
-    $RESTRICTED_TITLE,       $RS_BOTTOM_ROWS,       $RS_HEADER_ROWS,
-    $RS_INFO_ID,             $RS_STDERR_ID,         $RS_STDOUT_ID,
-    $RS_TOP_ROWS,            $SAVE_DETAILED,        $SAVE_DETAILED_DESCR,
-    $SAVE_ERROR_MSG,         $SAVE_ERROR_TITLE,     $SAVE_FIELDVAL_MSG,
-    $SAVE_FIELDVAL_TITLE,    $SAVE_FNAME_PROMPT,    $SAVE_FNAME_TITLE,
-    $SAVE_SCRIPT,            $SAVE_SCRIPT_DESCR,    $SAVE_SIMPLE,
-    $SAVE_SIMPLE_DESCR,      $SAVE_TYPE_TITLE,      $SEARCH_PTRN_PROMPT,
-    $SEARCH_PTRN_TITLE,      $SEPARATOR,            $SEP_LINE,
-    $SEP_LINE_DOUBLE,        $SEP_TEXT,             $SEP_TEXT_CENTER,
-    $SHOW_ACTION_TITLE,      $SIMPLE,               $SR_BUFF_SIZE,
-    $SYNTH_KEY_BASE,         $STRING,               $THEMEDIR,
-    $KEYMAPDIR,              $TRUE,                 $UCSTRING,
-    $USERNAME,               $USR_CFG,              $USR_OBJ,
-    $VERSION,                $VERSION_DATE,         $VERSION_YEAR,
-    $WAIT_MSG_MSG,           $WRKDIR,               $YES,
-    $attrk,                  $attrv,                $called_form,
-    $ch,                     $choice,               $cpid,
-    $descr,                  $es,                   $exec_hh,
-    $exec_mm,                $exec_ss,              $i,
-    $id,                     $lflags_size,          $mlmargin,
-    $mwin,                   $mwinr,                $opt,
-    $out,                    $ovl_mode,             $p,
-    $pad_lines,              $path,                 $pid,
-    $prev_wdir,              $res,                  $rflags_size,
-    $s,                      $scan,                 $search_string,
-    $shcut_type,             $text,                 $tmpfh,
-    $twin,                   @CONFIRM_ITEMS,        @ERR_LITTLE_SCREEN,
-    @ERR_WRONG_FPATH,        @FORM_TOP_MSG,         @FSKeys,
-    @LW_DISPLAY_TOP_MSG,     @LW_MULTIVAL_TOP_MSG,  @LW_SINGLEVAL_TOP_MSG,
-    @MENU_TOP_MSG,           @MSKeys,               @RSKeys,
-    @cnf_path,               @cnf_path_base,        @es_str,
-    @flist,                  @fn_key_functions,     @lines,
-    @mf_path,                @mf_path_base,         %FN_LABEL,
-    %bool_vals,              %layout_vals,          %options,
-    %sep_type_vals,          %type_vals,
+    $KEYMAP_TITLE,           $NO_KEYMAPS_MSG,       $KEY_SEARCH_LABEL,
+    $SEARCH_OBJ_TITLE,       $SEARCH_OBJ_PROMPT,    $SEARCH_RESULTS_TITLE,
+    $RESTRICTED_MSG,         $RESTRICTED_TITLE,     $RS_BOTTOM_ROWS,
+    $RS_HEADER_ROWS,         $RS_INFO_ID,           $RS_STDERR_ID,
+    $RS_STDOUT_ID,           $RS_TOP_ROWS,          $SAVE_DETAILED,
+    $SAVE_DETAILED_DESCR,    $SAVE_ERROR_MSG,       $SAVE_ERROR_TITLE,
+    $SAVE_FIELDVAL_MSG,      $SAVE_FIELDVAL_TITLE,  $SAVE_FNAME_PROMPT,
+    $SAVE_FNAME_TITLE,       $SAVE_SCRIPT,          $SAVE_SCRIPT_DESCR,
+    $SAVE_SIMPLE,            $SAVE_SIMPLE_DESCR,    $SAVE_TYPE_TITLE,
+    $SEARCH_PTRN_PROMPT,     $SEARCH_PTRN_TITLE,    $SEPARATOR,
+    $SEP_LINE,               $SEP_LINE_DOUBLE,      $SEP_TEXT,
+    $SEP_TEXT_CENTER,        $SHOW_ACTION_TITLE,    $SIMPLE,
+    $SR_BUFF_SIZE,           $SYNTH_KEY_BASE,       $STRING,
+    $THEMEDIR,               $KEYMAPDIR,            $TRUE,
+    $UCSTRING,               $USERNAME,             $USR_CFG,
+    $USR_OBJ,                $VERSION,              $VERSION_DATE,
+    $VERSION_YEAR,           $WAIT_MSG_MSG,         $WRKDIR,
+    $YES,                    $attrk,                $attrv,
+    $called_form,            $ch,                   $choice,
+    $cpid,                   $descr,                $es,
+    $exec_hh,                $exec_mm,              $exec_ss,
+    $i,                      $id,                   $lflags_size,
+    $mlmargin,               $mwin,                 $mwinr,
+    $opt,                    $out,                  $ovl_mode,
+    $p,                      $pad_lines,            $path,
+    $pid,                    $prev_wdir,            $res,
+    $rflags_size,            $s,                    $scan,
+    $search_string,          $shcut_type,           $text,
+    $tmpfh,                  $twin,                 @CONFIRM_ITEMS,
+    @ERR_LITTLE_SCREEN,      @ERR_WRONG_FPATH,      @FORM_TOP_MSG,
+    @FSKeys,                 @LW_DISPLAY_TOP_MSG,   @LW_MULTIVAL_TOP_MSG,
+    @LW_SINGLEVAL_TOP_MSG,   @MENU_TOP_MSG,         @MSKeys,
+    @RSKeys,                 @cnf_path,             @cnf_path_base,
+    @es_str,                 @flist,                @fn_key_functions,
+    @lines,                  @mf_path,              @mf_path_base,
+    %FN_LABEL,               %bool_vals,            %layout_vals,
+    %options,                %sep_type_vals,        %type_vals,
 );
 ## END-OUR
 
@@ -367,7 +368,7 @@ if ( $CALLNAME ne $REALNAME ) {
 );
 
 @fn_key_functions =
-  qw( back exit help list redraw reload reset_field save sel_items shell_escape show_action );
+  qw( back exit help list redraw reload reset_field save search sel_items shell_escape show_action );
 
 $ctx->{state}{SCREEN_DIR} = '';
 
@@ -714,6 +715,10 @@ sub load_msgs {
       KEYMAP_SET_MSG
       KEYMAP_TITLE
       NO_KEYMAPS_MSG
+      KEY_SEARCH_LABEL
+      SEARCH_OBJ_TITLE
+      SEARCH_OBJ_PROMPT
+      SEARCH_RESULTS_TITLE
       NULL_FACTION_MSG
       NULL_FACTION_TITLE
       EXEC_NOTFOUND_MSG
@@ -2796,6 +2801,11 @@ sub run_menu_action ( $action_str, $descr, $menuname, $menu_path, $win, $es ) {
         # Pick a keymap preset and apply it now (FEATURE-REQUESTS A3).
         run_keymap_picker($win);
     }
+    elsif ( $action eq 'search' ) {
+
+        # Search every menu/form on the path and jump to a match (A3 -> B1).
+        run_menu_search($win);
+    }
     elsif ( $action eq 'ABORTED' ) {
         trace("user not confirmed action!");
     }
@@ -2900,6 +2910,130 @@ sub run_keymap_picker ($win) {
             title => $KEYMAP_TITLE,
         }
     );
+}
+
+# --- object search (FEATURE-REQUESTS B1) ---------------------------------
+#
+# Walk the menu/form search path and return the distinct objects on it as
+# { name, type } records (type 'menu' or 'form'; a *.menu directory is a dynamic
+# menu).  A name found as both a menu and a form resolves to the menu, matching
+# how a shortcut is opened.  The first occurrence on the path wins (system before
+# user), so a name is listed once.
+sub build_object_index {
+    my %seen;    # name -> type (menu wins; first dir on the path wins)
+    for my $dir (@mf_path) {
+        opendir( my $dh, $dir ) or next;
+        for my $f ( sort readdir $dh ) {
+            next if $f =~ /^\./;
+            my ( $name, $type );
+            if ( $f =~ /\Q$MENUEXT\E$/ ) {
+                ( $name = $f ) =~ s/\Q$MENUEXT\E$//;
+                $type = 'menu';
+            }
+            elsif ( $f =~ /\Q$FORMEXT\E$/ ) {
+                ( $name = $f ) =~ s/\Q$FORMEXT\E$//;
+                $type = 'form';
+            }
+            else { next }
+            next if $name eq '';
+
+            # menu wins over a same-named form; otherwise keep the first seen.
+            if ( !exists $seen{$name} or $type eq 'menu' ) {
+                $seen{$name} = $type;
+            }
+        }
+        closedir($dh);
+    }
+    return map { { name => $_, type => $seen{$_} } } sort keys %seen;
+}
+
+# Parse one object and return { title, haystack } where haystack is the
+# searchable text (title, top/bottom text, item descriptions / field labels and
+# ids) joined with newlines -- NOT the action commands, so a search matches what
+# the user sees, not the shell behind it.  Returns undef if the object will not
+# parse.  Uses the same pure parsers (load_menu/load_form) the UI does.
+sub object_info ( $name, $type ) {
+    my @parts;
+    my $title = '';
+    if ( $type eq 'menu' ) {
+        my %m;
+        return undef if load_menu( $name, \%m );
+        $title = $m{title} // '';
+        push @parts, $title, @{ $m{top} || [] }, @{ $m{bottom} || [] };
+        for my $it ( @{ $m{items} || [] } ) {
+            push @parts, $it->{id} // '', $it->{descr} // '';
+        }
+    }
+    else {
+        my ( %f, $dir );
+        return undef if load_form( $name, \$dir, \%f );
+        $title = $f{title} // '';
+        push @parts, $title, @{ $f{top} || [] }, @{ $f{bottom} || [] };
+        for my $fl ( @{ $f{fields} || [] } ) {
+            push @parts, $fl->{id} // '', $fl->{label} // '';
+        }
+    }
+    return {
+        title    => $title,
+        haystack => join( "\n", grep { defined } @parts )
+    };
+}
+
+# Object search (FEATURE-REQUESTS B1).  Prompt for a pattern, scan every object
+# on the search path -- titles, top/bottom text, item descriptions and form
+# field labels -- and offer the matches in a pop-up; opening one jumps straight
+# to that menu/form.  The pattern is matched literally and case-insensitively
+# (no regex injection).  Distinct from the output browser's in-pane `/`, which
+# searches one command's output.
+sub run_menu_search ($win) {
+    my ( $es, $pat ) = ask_string( $SEARCH_OBJ_TITLE, $SEARCH_OBJ_PROMPT );
+    return if ( $es // 0 ) == $ES_EXIT;
+    $pat //= '';
+    $pat =~ s/^\s+//;
+    $pat =~ s/\s+$//;
+    return if $pat eq '';
+
+    my @matches;
+    my %type_of;
+    for my $obj ( build_object_index() ) {
+        my $info = object_info( $obj->{name}, $obj->{type} ) or next;
+        next unless index( lc $info->{haystack}, lc $pat ) >= 0;
+        $type_of{ $obj->{name} } = $obj->{type};
+        push @matches,
+          {
+            name  => $obj->{name},
+            type  => $obj->{type},
+            title => $info->{title},
+          };
+    }
+
+    if ( !@matches ) {
+        disp_msg( $win, $FOUND_NONE_MSG, $FOUND_NONE_TITLE );
+        return;
+    }
+
+    # Result rows: "name  [type] title" -- do_list's value is the first token,
+    # i.e. the object name, which we then open.
+    my @items = map {
+        sprintf '%s  [%s] %s', $_->{name}, $_->{type}, ( $_->{title} // '' )
+    } @matches;
+
+    ( $es, my $sel ) =
+      do_list( $win, $SEARCH_RESULTS_TITLE, 'single-val', \@items, undef );
+    return if !defined $sel;
+    my ($name) = split ' ', $sel;
+    return unless defined $name and exists $type_of{$name};
+
+    if ( $type_of{$name} eq 'menu' ) {
+        do_menu($name);
+    }
+    else {
+        curs_set($ON) if $ctx->{cfg}{HIDE_CURSOR};
+        do_form($name);
+        curs_set($OFF) if $ctx->{cfg}{HIDE_CURSOR};
+    }
+    refresh($win);
+    return;
 }
 
 sub do_menu {
@@ -3109,6 +3243,14 @@ sub do_menu {
                 reload_config();
                 $rebuild_menu->();
                 disp_msg( $win, $RELOAD_MSG, $RELOAD_TITLE );
+            }
+            elsif ( $ctx->{cfg}{keys}{search}{code} != -1
+                and $ch == $ctx->{cfg}{keys}{search}{code} )
+            {
+                # Bound `search` key: search the object path and jump to a match
+                # (FEATURE-REQUESTS B1).
+                run_menu_search($win);
+                refresh($win);
             }
             elsif ( $ch == $ctx->{cfg}{keys}{back}{code} or ord($ch) == 27 ) {
                 $es = $ES_CANCEL;
@@ -6039,6 +6181,7 @@ $es_str[$ES_NO_ITEMS]   = $ES_NO_ITEMS_MSG;
     exit         => $KEY_F9_LABEL,
     reset_field  => 'Reset',
     reload       => $KEY_RELOAD_LABEL,
+    search       => $KEY_SEARCH_LABEL,
 );
 
 # `-k NAME`: parse-check a menu or form without starting the terminal.  Uses
@@ -6060,6 +6203,10 @@ $ctx->{cfg}{keys} = {
     reload => {
         code  => -1,
         label => $KEY_RELOAD_LABEL
+    },
+    search => {
+        code  => -1,
+        label => $KEY_SEARCH_LABEL
     },
     back => {
         code  => -1,
