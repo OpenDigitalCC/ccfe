@@ -820,8 +820,25 @@ sub load_msgs {
     close(INF);
 }
 
+# Substitute $NAME / ${NAME} references to config `variables {}` in a command or
+# action string with their resolved values.  Only names defined in the section
+# are replaced; any other $... is left untouched for the shell.  The variables
+# are system-config-owned (and config-locked under RESTRICTED), so this is a DRY
+# convenience for menu/form authors, not an untrusted-input path.  Applied at
+# the command choke points (exec_command / call_system / run_browse / the final
+# exec).  (FEATURE-REQUESTS item 3.)
+sub expand_vars {
+    my ($str) = @_;
+    return $str unless defined $str;
+    my $vars = $ctx->{cfg}{vars} or return $str;
+    $str =~ s/\$\{(\w+)\}/ exists $vars->{$1} ? $vars->{$1} : "\${$1}" /ge;
+    $str =~ s/\$(\w+)/ exists $vars->{$1} ? $vars->{$1} : "\$$1" /ge;
+    return $str;
+}
+
 sub exec_command {
     my ( $cmd, $extra_path, $stdout_ref, $stderr_ref ) = @_;
+    $cmd = expand_vars($cmd);
 
     my ( $prev_path, $prev_wdir );
 
@@ -1015,6 +1032,7 @@ sub call_shell {
 
 sub call_system {
     my ( $wait_key, $cmd ) = @_;
+    $cmd = expand_vars($cmd);
 
     my ($res);
     def_prog_mode();
@@ -2167,6 +2185,27 @@ sub load_config {
                             }
                             last SWITCH;
                         }
+                        elsif (/^VARIABLES$/) {
+
+                           # User-defined config variables (FEATURE-REQUESTS
+                           # item 3): `NAME = value` lines, collected raw here
+                           # and resolved (cross-references expanded) once after
+                           # all config files are read.  Names are kept
+                           # case-sensitively (they are referenced as $NAME in
+                           # actions); a value may be optionally quoted.
+                            foreach my $line ( split /\s*\n\s*/, $val ) {
+                                next if $line =~ /^\s*$/;
+                                my ( $vn, $vv ) = split /\s*=\s*/, $line, 2;
+                                next
+                                  unless defined $vn and $vn =~ /^\w+$/;
+                                $vv //= '';
+                                $vv =~ s/^\s+//;
+                                $vv =~ s/\s+$//;
+                                $vv =~ s/^(['"])(.*)\1$/$2/;
+                                $ctx->{cfg}{vars}{$vn} = $vv;
+                            }
+                            last SWITCH;
+                        }
                         else {
                             trace("unknown configuration parameter \"$key\"");
                             $res = $ES_SYNTAX_ERR;
@@ -2185,6 +2224,31 @@ sub load_config {
             $res = $ES_NOT_FOUND;
         }
     }
+
+    # All config files read: resolve cross-references between user variables
+    # ($NAME / ${NAME}) with a few fixpoint passes, so each variable's stored
+    # value is fully expanded before actions reference it.  A reference to an
+    # undefined name is left verbatim; a circular reference stops at the pass
+    # cap (and simply stays unresolved rather than looping).  (FEATURE-REQUESTS
+    # item 3.)
+    if ( my $vars = $ctx->{cfg}{vars} ) {
+        for ( 1 .. 10 ) {
+            my $changed = 0;
+            for my $k ( keys %{$vars} ) {
+                my $new = $vars->{$k};
+                $new =~
+                  s/\$\{(\w+)\}/ exists $vars->{$1} ? $vars->{$1} : "\${$1}" /ge;
+                $new =~
+                  s/\$(\w+)/ exists $vars->{$1} ? $vars->{$1} : "\$$1" /ge;
+                $changed = 1 if $new ne $vars->{$k};
+                $vars->{$k} = $new;
+            }
+            last unless $changed;
+        }
+        trace( "config variable $_ = \"$vars->{$_}\"", $LOG_NORMAL )
+          for sort keys %{$vars};
+    }
+
     return $res;
 }
 
@@ -4726,6 +4790,7 @@ sub capture_output ( $cmd, $mwin ) {
 
 sub run_browse {
     my ( $title, $cmd, $save_fname, $extra_path ) = @_;
+    $cmd = expand_vars($cmd);
 
     local ($search_string);
     my ( $out_lines,  $err_lines );
@@ -5677,11 +5742,12 @@ if ( $shcut_type = get_shortcut($shcut) ) {
     endwin();
     system("clear") if $es == $ES_NO_ERR or $es >= $ES_USER_REQ;
     if ( defined( $ctx->{state}{exec_args} ) ) {
+        my $exec_args = expand_vars( $ctx->{state}{exec_args} );
         chdir "$ctx->{state}{SCREEN_DIR}";
         trace( "Changed CWD from $prev_wdir to " . getcwd() );
-        trace("exec \"$ctx->{state}{exec_args}\"");
+        trace("exec \"$exec_args\"");
         if ( $ctx->{cfg}{RESTRICTED} ) {
-            my @argv = shellwords( $ctx->{state}{exec_args} );    # TD-1c
+            my @argv = shellwords($exec_args);    # TD-1c
             exec { $argv[0] } @argv if @argv;
         }
 
@@ -5690,9 +5756,9 @@ if ( $shcut_type = get_shortcut($shcut) ) {
         # explanation (FEATURE-REQUESTS item 6; the pre-flight modal catches the
         # common case while the TUI is still up).  The `or do` keeps the failure
         # path in the same statement (no "unreachable code after exec" warning).
-        exec( $ctx->{state}{exec_args} ) or do {
+        exec($exec_args) or do {
             my $err = $!;
-            my ($prog) = shellwords( $ctx->{state}{exec_args} );
+            my ($prog) = shellwords($exec_args);
             print STDERR "$CALLNAME: cannot execute \"$prog\": $err\n";
             exit 127;
         };

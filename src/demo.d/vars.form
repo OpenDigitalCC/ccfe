@@ -1,0 +1,23 @@
+#
+#  CCFE demo: static interpolating config variables.
+#  The list_cmd and the action below reference variables defined in the
+#  variables {} section of ccfe.conf ($DEMO_HELLO, $LIST_DIR).  %{FILE} is the
+#  usual form-field substitution; $... names a config variable.
+#
+title {
+  Config variables demo
+}
+top {
+  Press <F2> on the field to list files (the list_cmd uses $LIST_DIR),
+  pick one, then <Enter> -- the action greets you using $DEMO_HELLO.
+}
+field {
+  id       = FILE
+  label    = A file from the configured directory (F2 lists it)
+  len      = 36
+  list_cmd = command:single-val:ls $LIST_DIR
+}
+action { run:
+  echo "$DEMO_HELLO"
+  echo "You picked: %{FILE}"
+}

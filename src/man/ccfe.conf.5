@@ -396,6 +396,57 @@ Example:
 Required: No
 
 
+.SH VARIABLES CONFIGURATION SECTION
+The optional
+.B variables {}
+block defines named values that menu and form authors can reference, to avoid
+repeating the same path or command fragment across many objects.  Each line is a
+.B NAME = value
+pair; the value may be optionally quoted and may reference other variables with
+.BR $NAME " or " ${NAME} \fR.
+Inter-variable references are resolved once, when the configuration is loaded
+(so order does not matter), and a reference to an undefined name is left
+verbatim.
+.PP
+In a menu or form
+.BR action " and in a field's " list_cmd
+command, every
+.BR $NAME / ${NAME}
+that names a defined variable is replaced with its value before the command
+runs; any other
+.B $...
+(for example
+.BR $HOME )
+is left untouched for the shell.  Variable names are case-sensitive and consist
+of letters, digits and underscores.
+.PP
+Example:
+.PP
+.nf
+\fC  variables {
+    DOCKER_DIR = /srv/docker
+    COMPOSE    = cd $DOCKER_DIR && docker compose
+  }\fP
+.fi
+.PP
+A menu item could then use
+.BR "action = run:$COMPOSE up -d" \fR,
+which runs
+.BR "cd /srv/docker && docker compose up -d" \fR.
+.PP
+.B Security note:
+the substitution writes the variable's value into the command string, so the
+variables are as trusted as the menus and forms themselves.  Under
+.B restricted
+mode the configuration is locked to system-owned files, so unprivileged users
+cannot define or change them; and the restricted command allow-list is still
+checked against the command as written, so a bare
+.B $VAR
+program name is refused unless allow-listed.
+.PP
+Required: No
+
+
 .SH FORM CONFIGURATION SECTION
 The
 .B form_global {}

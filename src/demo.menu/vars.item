@@ -1,0 +1,5 @@
+item {
+  id     = VARS
+  descr  = Config variables demo (uses ccfe.conf variables {})
+  action = form:demo.d/vars
+}
