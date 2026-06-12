@@ -1,0 +1,29 @@
+Format: 1.8
+Date: Fri, 12 Jun 2026 18:00:00 +0000
+Source: ccfe
+Binary: ccfe
+Architecture: all
+Version: 2.3.1
+Distribution: unstable
+Urgency: medium
+Maintainer: CCFE maintainers <ccfedevel@gmail.com>
+Changed-By: CCFE maintainers <ccfedevel@gmail.com>
+Description:
+ ccfe       - Curses Command Front-end
+Changes:
+ ccfe (2.3.1) unstable; urgency=medium
+ .
+   * Fix a menu rendering bug: a long top{} description no longer collides with
+     the menu. The top-message area is now sized to the wrapped message height
+     (word-wrapped to the screen width) and the menu is drawn below it, instead
+     of the menu overdrawing the last line(s) of the description. The mouse
+     click-to-item mapping was updated to match the dynamic top area.
+Checksums-Sha1:
+ b953437605b083b00bae85becddb6a7f86350e7f 105036 ccfe_2.3.1_all.deb
+ 75e436c7788d8360357859ba3854a17aa8b74e6e 4584 ccfe_2.3.1_amd64.buildinfo
+Checksums-Sha256:
+ 93886ba3773ab40f5f3de2c658197df68f589864740c2729a732d193f6ec25db 105036 ccfe_2.3.1_all.deb
+ 830abf97cbd4341afc4e0fbbb20a2db1d2af41ec9d4f216d1afaa38ee5a7b5ae 4584 ccfe_2.3.1_amd64.buildinfo
+Files:
+ faab9cd60d5167306ade53ceec155b8c 105036 admin optional ccfe_2.3.1_all.deb
+ cad0117b42bba990a47bc826ddd617cf 4584 admin optional ccfe_2.3.1_amd64.buildinfo
