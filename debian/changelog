@@ -1,3 +1,25 @@
+ccfe (2.3) unstable; urgency=medium
+
+  * Config variables: a new `variables {}` config section defines $NAME values
+    (cross-referencing each other) that are substituted into menu/form actions
+    and field list_cmds -- to cut duplication across objects. See ccfe.conf(5).
+  * Guided configuration wizard (`ccfe config`): forms that walk through screen
+    layout, behaviour toggles, shell/restricted mode and defining a variable,
+    writing the user's personal ccfe.conf via ccfe-build.
+  * Builder: edit an existing menu item's description (`ccfe builder`).
+  * A docker-compose "remembered commands" shell (a curated admin/debug menu).
+  * Output browser fills its whole pane with the panel background under a theme
+    (no more "themed text, black gaps"); a missing `exec:` command now shows a
+    clear pop-up instead of an opaque exit; the bundled sysmon demo gained
+    core-tool tasks (df/du/ps/ss/free/uptime/who) that need no sysstat package.
+  * Internal: the oversized ccfe.pl subs (do_form, load_config, run_browse,
+    do_menu, do_list, load_form) were broken up behind a strengthened pty test
+    net, and ccfe.pl is now perltidy-clean and under the CI lint gate.
+  * No change to the menu/form/config file formats or to normal interactive
+    behaviour. Full detail is in the git history.
+
+ -- CCFE maintainers <ccfedevel@gmail.com>  Fri, 12 Jun 2026 12:00:00 +0000
+
 ccfe (2.2) unstable; urgency=medium
 
   * Completes the M7 de-globalisation: the .menu/.form/.conf parsers, the
