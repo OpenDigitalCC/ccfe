@@ -30,11 +30,16 @@ my %menu;
 # ---- static menu file --------------------------------------------------
 is( main::load_menu( 'ccfe', \%menu ), $main::ES_NO_ERR,
     'load static ccfe.menu' );
-like( $menu{title}, qr/CCFE Installation Test/, '  title parsed' );
-is( $menu{items}[0]{id}, 'TEST', '  first item id' );
-is( $menu{items}[0]{action}, 'run:cat it_works.txt',
-    '  first item run: action' );
-is( $menu{items}[1]{action}, 'menu:demo', '  second item chains a menu' );
+# Structural assertions (ccfe.menu is live default-menu content, so don't pin
+# exact item text): the parser yields a title, items with ids, and recognises
+# the run: and menu: action verbs.
+like( $menu{title}, qr/CCFE/, '  title parsed' );
+ok( ( grep { length( $_->{id} // '' ) } @{ $menu{items} } ),
+    '  items have ids' );
+ok( ( grep { ( $_->{action} // '' ) =~ /^run:/ } @{ $menu{items} } ),
+    '  a run: action is parsed' );
+ok( ( grep { ( $_->{action} // '' ) =~ /^menu:/ } @{ $menu{items} } ),
+    '  a menu: chain is parsed' );
 
 # ---- dynamic (directory) menu: definition + *.item ---------------------
 is( main::load_menu( 'demo', \%menu ), $main::ES_NO_ERR,
