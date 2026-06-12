@@ -84,11 +84,11 @@ sub run_screen {
     like( $screen, qr/CCFE demo menu/, '  demo menu actually painted' );
 }
 
-# --- the install-test menu (2 items) ------------------------------------
+# --- the default ccfe menu (Demo / Configure / Build / install-test) -----
 {
     my ( $screen, undef, $sig ) = run_screen('ccfe');
-    isnt( $sig, SIGSEGV, 'ccfe install menu does not crash' );
-    like( $screen, qr/Installation Test/, '  ccfe menu painted' );
+    isnt( $sig, SIGSEGV, 'ccfe default menu does not crash' );
+    like( $screen, qr/Configure CCFE/, '  ccfe menu painted' );
 }
 
 # --- the sample plugin menu (6 items) -- the path that always "worked" ---
