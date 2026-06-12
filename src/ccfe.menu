@@ -1,13 +1,26 @@
 title {
-  CCFE Installation Test
+  CCFE
 }
-item {
-  id     = TEST
-  descr  = SELECT ME!!!
-  action = run:cat it_works.txt
+top {
+  Move the cursor to an item and press Enter.
 }
 item {
   id     = DEMO
-  descr  = CCFE demo menu
+  descr  = Demo menu (sample menus and forms)
   action = menu:demo
+}
+item {
+  id     = CONFIG
+  descr  = Configure CCFE (settings, variables)
+  action = menu:config
+}
+item {
+  id     = BUILD
+  descr  = Build menus and forms
+  action = menu:builder
+}
+item {
+  id     = TEST
+  descr  = Installation test (it works!)
+  action = run:cat it_works.txt
 }
