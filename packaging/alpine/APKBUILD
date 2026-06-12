@@ -5,9 +5,13 @@
 # tree under /usr/lib/ccfe staged by the upstream installer, with a PATH
 # symlink. Paths resolve at runtime, so nothing is templated.
 #
-# Build (needs alpine-sdk / abuild):  abuild -r
+# Build on an Alpine host with alpine-sdk / abuild:
+#   git archive --format=tar.gz --prefix=ccfe-2.4/ -o ccfe-2.4.tar.gz HEAD
+#   abuild checksum          # fills sha512sums for the local tarball
+#   abuild -r                # builds the .apk under ~/packages/
 #
-# NOTE: not built/tested in this environment (no abuild available here).
+# NOTE: the .apk is not built here (no abuild in this environment); the recipe
+# is kept in step with the .deb/.rpm so it is ready to build on Alpine.
 pkgname=ccfe
 pkgver=2.4
 pkgrel=0
