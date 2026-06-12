@@ -1,0 +1,38 @@
+# CCFE as a throwaway "remembered commands" shell.
+#
+# A curated menu of the admin/debug commands people always forget, run inside a
+# disposable container.  The menu objects live in ./docker/objects and are
+# bind-mounted in (read-only), so you can edit them on the host without
+# rebuilding the image; `ccfe -l` points at that directory.
+#
+#   docker compose run --rm ccfe              # open the remembered-commands menu
+#   docker compose run --rm ccfe demo         # or jump to the bundled demo
+#   docker compose run --rm ccfe sysmon       # ... or the sysmon sample
+#
+# The Docker submenu items (docker ps / images / logs) only work if you let the
+# container talk to the host's Docker daemon -- uncomment the docker.sock mount
+# below.  Everything else is self-contained.
+
+services:
+  ccfe:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ccfe:latest
+    # An interactive curses TUI needs a real TTY and an open stdin.
+    stdin_open: true
+    tty: true
+    environment:
+      # 256-colour by default so themed installs look right; override with
+      # `TERM=... docker compose run ...` to match your terminal.
+      TERM: ${TERM:-xterm-256color}
+    volumes:
+      # The curated "remember" objects, editable on the host (read-only in the
+      # container).  `command:` points ccfe here with -l.
+      - ./docker/objects:/opt/ccfe-remember:ro
+      # Uncomment to administer the host's Docker from inside the shell
+      # (enables the "Docker" items in the remember menu):
+      # - /var/run/docker.sock:/var/run/docker.sock
+    # ENTRYPOINT is `ccfe`; these are its arguments.  -l overrides the object
+    # search path, so the container opens the curated set, not the demo.
+    command: ["-l", "/opt/ccfe-remember", "remember"]

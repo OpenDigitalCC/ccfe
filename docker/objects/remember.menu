@@ -1,0 +1,93 @@
+#
+#  CCFE "remembered commands" -- a curated menu of admin/debug commands people
+#  forget.  Used by the docker-compose "ccfe" service (ccfe -l ... remember).
+#  Standard tools only (coreutils / procps / iproute2); the Docker items need
+#  the host docker.sock mounted (see docker-compose.yml).
+#
+title {
+  Remembered commands
+}
+top {
+  Common admin / debug commands -- move the cursor and press Enter.
+  A few open a small form for arguments; the rest run straight away.
+}
+item {
+  id     = DISK
+  descr  = Disk free space (df -h)
+  action = run:df -h
+}
+item {
+  id     = DIRSIZE
+  descr  = Biggest directories here (du, sorted)
+  action = run:du -hx --max-depth=1 . 2>/dev/null | sort -h
+}
+item {
+  id     = MEM
+  descr  = Memory and swap (free -h)
+  action = run:free -h
+}
+item {
+  id     = CPU
+  descr  = CPU information (lscpu)
+  action = run:lscpu
+}
+item {
+  id     = BLOCK
+  descr  = Block devices and mounts (lsblk)
+  action = run:lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT
+}
+item {
+  id     = UPTIME
+  descr  = Uptime and load average (uptime)
+  action = run:uptime
+}
+item {
+  id     = PSTOP
+  descr  = Busiest processes, by CPU (ps)
+  action = run:ps aux --sort=-%cpu | head -n 15
+}
+item {
+  id     = WHO
+  descr  = Who is logged in (who)
+  action = run:who -H
+}
+item {
+  id     = IPADDR
+  descr  = IP addresses (ip -br a)
+  action = run:ip -br a
+}
+item {
+  id     = LISTEN
+  descr  = Listening sockets (ss -tulpn)
+  action = run:ss -tulpn
+}
+item {
+  id     = ROUTE
+  descr  = Routing table (ip route)
+  action = run:ip route
+}
+item {
+  id     = FIND
+  descr  = Find files by name ...
+  action = form:remember.d/find
+}
+item {
+  id     = TAIL
+  descr  = Tail / follow a log file ...
+  action = form:remember.d/tail
+}
+item {
+  id     = DPS
+  descr  = Docker: running containers (needs docker.sock)
+  action = run:docker ps
+}
+item {
+  id     = DIMAGES
+  descr  = Docker: images (needs docker.sock)
+  action = run:docker images
+}
+item {
+  id     = DLOGS
+  descr  = Docker: a container's logs ... (needs docker.sock)
+  action = form:remember.d/dlogs
+}

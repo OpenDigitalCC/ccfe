@@ -1,0 +1,32 @@
+title { Docker container logs }
+top {
+  Needs the host docker.sock mounted (see docker-compose.yml).
+  Press F2 on the container field for a list of running containers.
+}
+field {
+  id       = CONTAINER
+  label    = Container (F2 for a list)
+  type     = STRING
+  len      = 32
+  required = YES
+  list_cmd = command:single-val:docker ps --format '{{.Names}}'
+}
+field {
+  id      = TAILN
+  label   = Recent lines (--tail)
+  type    = NUMERIC
+  len     = 5
+  default = const:100
+  option  = --tail=
+  vtab    = 1
+}
+field {
+  id     = FOLLOW
+  label  = Follow (-f)
+  type   = BOOLEAN
+  option = -f
+  htab   = 1
+}
+action { run:
+  docker logs%{TAILN}%{FOLLOW} "$CCFE_FIELD_CONTAINER"
+}

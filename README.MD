@@ -176,6 +176,22 @@ docker run -it ccfe          # opens the demo menu
 docker run -it ccfe sysmon   # jump straight to a menu/form
 ```
 
+### "Remembered commands" shell (compose)
+
+`docker-compose.yml` turns CCFE into a throwaway shell of the admin/debug
+commands you always forget — disk/memory/CPU, processes, networking, plus
+parameterised *find* and *tail* forms and a Docker submenu:
+
+```sh
+docker compose run --rm ccfe          # open the remembered-commands menu
+docker compose run --rm ccfe demo     # or jump to the bundled demo / sysmon
+```
+
+The curated objects live in `docker/objects/` and are bind-mounted read-only, so
+you can edit the menu on the host without rebuilding (`ccfe -l` points at them).
+The Docker items (`docker ps` / `images` / `logs`) need the host daemon — un-comment
+the `docker.sock` mount in the compose file to enable them.
+
 ## Plugins
 
 CCFE is extended purely by dropping declarative files onto its **search

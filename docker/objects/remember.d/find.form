@@ -1,0 +1,29 @@
+title { Find files by name }
+top { Search a directory tree for names matching a glob pattern. }
+field {
+  id      = DIR
+  label   = Directory to search
+  type    = STRING
+  len     = 40
+  default = const:.
+}
+field {
+  id       = NAME
+  label    = Name contains (glob, e.g. *.log)
+  type     = STRING
+  len      = 30
+  hscroll  = YES
+  required = YES
+  vtab     = 1
+}
+field {
+  id      = IGNCASE
+  label   = Ignore case
+  type    = BOOLEAN
+  default = const:YES
+  option  = -iname,-name
+  htab    = 1
+}
+action { run:
+  find "$CCFE_FIELD_DIR"%{IGNCASE} "*$CCFE_FIELD_NAME*" 2>/dev/null
+}

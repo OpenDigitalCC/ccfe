@@ -1,0 +1,29 @@
+title { Tail a log file }
+top { Show the end of a file; optionally follow it (Ctrl-C to stop following). }
+field {
+  id       = FILE
+  label    = File
+  type     = STRING
+  len      = 44
+  hscroll  = YES
+  required = YES
+}
+field {
+  id      = LINES
+  label   = Lines to show
+  type    = NUMERIC
+  len     = 4
+  default = const:50
+  option  = -n
+  vtab    = 1
+}
+field {
+  id     = FOLLOW
+  label  = Follow (-f)
+  type   = BOOLEAN
+  option = -f
+  htab   = 1
+}
+action { run:
+  tail%{LINES}%{FOLLOW} "$CCFE_FIELD_FILE"
+}
