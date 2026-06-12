@@ -8,6 +8,7 @@
 #   make check       test + critic + tidy-check (what CI runs)
 #   make deb         build the .deb and store it (with .buildinfo/.changes)
 #                    under dist/, which is tracked in git
+#   make rpm         build the .rpm (needs rpmbuild) and store it under dist/
 
 SRC = src
 
@@ -17,7 +18,7 @@ TIDY_FILES = $(SRC)/lib/CCFE/*.pm $(SRC)/ccfe.pl
 # Package version, read from debian/changelog.
 VERSION = $(shell dpkg-parsechangelog -SVersion 2>/dev/null)
 
-.PHONY: test critic tidy tidy-check check deb
+.PHONY: test critic tidy tidy-check check deb rpm
 
 test:
 	cd $(SRC) && prove -lr t/
@@ -50,3 +51,19 @@ deb:
 	rm -rf debian/ccfe debian/.debhelper debian/debhelper-build-stamp \
 	       debian/files debian/*.substvars debian/*.debhelper.log
 	@echo "Packages in dist/:" && ls dist/ccfe_$(VERSION)_*
+
+# Build the .rpm from the committed tree via the bundled spec and collect it in
+# dist/.  Needs rpmbuild (the Debian 'rpm' package).  The version comes from
+# debian/changelog, matching the spec's Version:, so the two stay in step.
+rpm:
+	@command -v rpmbuild >/dev/null 2>&1 || \
+	  { echo "rpmbuild not found -- install the 'rpm' package"; exit 1; }
+	rm -rf rpmbuild
+	mkdir -p rpmbuild/SOURCES
+	git archive --format=tar.gz --prefix=ccfe-$(VERSION)/ \
+	  -o rpmbuild/SOURCES/ccfe-$(VERSION).tar.gz HEAD
+	rpmbuild --define "_topdir $(CURDIR)/rpmbuild" -ba packaging/rpm/ccfe.spec
+	mkdir -p dist
+	cp rpmbuild/RPMS/noarch/ccfe-$(VERSION)-*.rpm dist/
+	rm -rf rpmbuild
+	@echo "Packages in dist/:" && ls dist/ccfe-$(VERSION)-*.rpm

@@ -9,7 +9,7 @@
 #
 # NOTE: not built/tested in this environment (no abuild available here).
 pkgname=ccfe
-pkgver=2.3.1
+pkgver=2.4
 pkgrel=0
 pkgdesc="Curses Command Front-end"
 url="https://github.com/OpusVL/perl-ccfe"

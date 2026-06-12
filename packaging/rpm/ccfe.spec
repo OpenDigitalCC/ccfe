@@ -10,7 +10,7 @@
 # NOTE: not built/tested in this environment (no rpmbuild available here).
 
 Name:           ccfe
-Version:        2.3.1
+Version:        2.4
 Release:        1%{?dist}
 Summary:        Curses Command Front-end
 License:        GPLv2+
@@ -46,6 +46,14 @@ ln -sf ../lib/ccfe/bin/ccfe %{buildroot}%{_bindir}/ccfe
 %doc README.MD
 
 %changelog
+* Thu Jun 12 2026 CCFE maintainers <ccfedevel@gmail.com> - 2.4-1
+- CCFE 2.4: runtime config reload; colour-theme and key-map switching from the
+  menu (shipped keymap presets classic/safe/nano/mc; bindings now accept
+  Meta/Alt and Ctrl chords, not only function keys); menu/form search;
+  file-polled notifications (notify_file); object-ownership management via
+  ccfe-build; and a "run CCFE at login" kiosk setup (the -R/--restricted flag
+  plus the ccfe-login helper and its config menu).  No file-format changes.
+
 * Wed Jun 11 2026 CCFE maintainers <ccfedevel@gmail.com> - 2.2-1
 - CCFE 2.2: completes the de-globalisation onto pure CCFE::* modules and an
   explicit $ctx (ccfe.pl now runs under use v5.36, requires Perl >= 5.36);

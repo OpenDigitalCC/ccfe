@@ -11,6 +11,9 @@ debian/*.debhelper.log
 /*.buildinfo
 /*.changes
 
+# RPM build tree (transient; `make rpm` cleans it, dist/ keeps the .rpm)
+/rpmbuild/
+
 # Local-only working notes (feeds the ROADMAP)
 FEATURE-REQUESTS.md
 
