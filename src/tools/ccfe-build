@@ -17,8 +17,11 @@
 #   ccfe-build set-action FORM ACTION
 #   ccfe-build set-config KEY VALUE        # global { } setting in the user conf
 #   ccfe-build set-var    NAME VALUE       # variables { } entry in the user conf
-#   ccfe-build show-config                 # print the user conf
+#   ccfe-build show-config                 # global { } print the user conf
 #   ccfe-build list                        # list the user's objects
+#   ccfe-build chown      NAME USER[:GROUP] # change ownership of one of my objects
+#   ccfe-build list-objects                # object names (for a list_cmd)
+#   ccfe-build list-users / list-groups    # local users / groups (for a list_cmd)
 #
 #  Copyright (C) 2026 CCFE contributors.  GPL-2.0-or-later.
 
@@ -222,6 +225,52 @@ case "$cmd" in
       [ -e "$f" ] || continue
       b=${f##*/}; echo "${b%.form}"
     done
+    ;;
+
+  list-objects)   # every menu/form name, deduped (for a form's list_cmd)
+    for f in "$objdir"/*.menu "$objdir"/*.form; do
+      [ -e "$f" ] || continue
+      b=${f##*/}; echo "${b%.*}"
+    done | sort -u
+    ;;
+
+  list-users)     # local login names, for the ownership picker
+    if command -v getent >/dev/null 2>&1; then
+      getent passwd | cut -d: -f1
+    else
+      cut -d: -f1 /etc/passwd
+    fi | sort -u
+    ;;
+
+  list-groups)    # local group names, for the ownership picker
+    if command -v getent >/dev/null 2>&1; then
+      getent group | cut -d: -f1
+    else
+      cut -d: -f1 /etc/group
+    fi | sort -u
+    ;;
+
+  chown)          # change ownership of one of MY objects (FEATURE-REQUESTS C1)
+    name=${1:-}; owner=${2:-}
+    valid_name "$name" || die "invalid object name \"$name\""
+    # USER, USER:GROUP or :GROUP, restricted characters (no shell metachars,
+    # no path separators) so the value cannot escape into the chown arguments.
+    case "$owner" in
+      '' | *[!A-Za-z0-9_.:-]* ) die "invalid owner \"$owner\" (USER[:GROUP])" ;;
+    esac
+    # Only ever touch objects under MY objdir; valid_name already forbids '/'
+    # and a leading dot, so $name cannot traverse out of it -- a system-owned
+    # object (which restricted mode locks) is never reachable here.
+    found=0
+    for suffix in .menu .form .d; do
+      t="$objdir/$name$suffix"
+      [ -e "$t" ] || continue
+      found=1
+      chown -R -- "$owner" "$t" \
+        || die "could not change owner of $t to $owner (need more privilege?)"
+      echo "Changed owner of $t to $owner"
+    done
+    [ "$found" = 1 ] || die "no object named \"$name\" under $objdir"
     ;;
 
   *)

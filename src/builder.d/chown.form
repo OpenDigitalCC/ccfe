@@ -1,0 +1,28 @@
+title { Change object ownership }
+top {
+  Change who owns one of your menus or forms.  Pick an object, then an owner
+  (USER or USER:GROUP).  Changing to another user usually needs root; if you
+  lack the privilege the error is shown.  Only your own objects are touched --
+  system objects (locked by restricted mode) are never reachable here.
+}
+field {
+  id       = OBJECT
+  len      = 24
+  type     = STRING
+  required = YES
+  list_cmd = command:single-val:"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" list-objects
+  label    = Object (F2 for a list)
+}
+field {
+  id       = OWNER
+  len      = 24
+  type     = STRING
+  htab     = 1
+  required = YES
+  list_cmd = command:single-val:"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" list-users
+  label    = New owner -- USER or USER:GROUP (F2 for users)
+}
+action { run:
+  "${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" chown \
+      "$CCFE_FIELD_OBJECT" "$CCFE_FIELD_OWNER"
+}
