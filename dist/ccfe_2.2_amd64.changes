@@ -1,0 +1,40 @@
+Format: 1.8
+Date: Wed, 11 Jun 2026 12:00:00 +0000
+Source: ccfe
+Binary: ccfe
+Architecture: all
+Version: 2.2
+Distribution: unstable
+Urgency: medium
+Maintainer: CCFE maintainers <ccfedevel@gmail.com>
+Changed-By: CCFE maintainers <ccfedevel@gmail.com>
+Description:
+ ccfe       - Curses Command Front-end
+Changes:
+ ccfe (2.2) unstable; urgency=medium
+ .
+   * Completes the M7 de-globalisation: the .menu/.form/.conf parsers, the
+     action-string parser and the form value-column/page geometry are now pure,
+     unit-tested CCFE::* modules, and ccfe.pl's package globals and `local`
+     dynamic scope are replaced by lexicals and an explicit $ctx run-state
+     object. ccfe.pl now runs under `use v5.36` (strict + warnings); this raises
+     the requirement to Perl >= 5.36 (already declared).
+   * While the screen is in curses mode, Perl warnings are routed to the log
+     instead of being printed over the display, so a stray warning on an edge
+     path can no longer corrupt the TUI.
+   * Non-functional close-out audit (ROADMAP M8, see M8-AUDIT.md): assorted
+     small correctness fixes (numeric comparisons, dead code, an eval-string
+     replaced by sprintf) and documentation/version-consistency fixes. Restricted
+     mode's true scope is now documented honestly in the README (it is a
+     guardrail, not a hardened security boundary).
+   * No change to the menu/form/config file formats or to normal interactive
+     behaviour.
+Checksums-Sha1:
+ 27add191f76c9b7597c954e69d13039bb703345e 89504 ccfe_2.2_all.deb
+ 4d63187a77fcf1755114a5df56af109215940c2d 4559 ccfe_2.2_amd64.buildinfo
+Checksums-Sha256:
+ c5068321b856f4e5c3a6c3a6953716f9a3098b62eb693e68fc189ef0498884c4 89504 ccfe_2.2_all.deb
+ cc3d761f152f92046d4cb03991151f5829a83060e254c779c2f4b13f58d2d772 4559 ccfe_2.2_amd64.buildinfo
+Files:
+ 5930ec9140be868da09ba95563523463 89504 admin optional ccfe_2.2_all.deb
+ 0888bb37cbbb1a6cd151b7cf3b313dde 4559 admin optional ccfe_2.2_amd64.buildinfo

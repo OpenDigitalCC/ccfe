@@ -14,12 +14,17 @@ Runtime dependencies are only **perl** and the **Curses** module
 Built and tested in this repo:
 
 ```sh
-dpkg-buildpackage -b -us -uc      # produces ../ccfe_2.2_all.deb
-sudo apt install ../ccfe_2.2_all.deb
+make deb                          # build + collect under dist/ (tracked in git)
+sudo apt install ./dist/ccfe_<version>_all.deb
 ```
 
+`make deb` runs `dpkg-buildpackage -b -us -uc` (which writes to the parent dir),
+moves the `.deb` / `.buildinfo` / `.changes` into `dist/`, and cleans the
+regenerated `debian/` build tree.  The built packages live in `dist/` so a
+release carries its artifact.
+
 (`build-essential` is not actually needed — CCFE compiles nothing — so add
-`-d` if `dpkg-checkbuilddeps` objects.)
+`-d` to the `dpkg-buildpackage` line if `dpkg-checkbuilddeps` objects.)
 
 ## RHEL / Fedora / clones  (`packaging/rpm/ccfe.spec`)
 

@@ -1,0 +1,33 @@
+Format: 1.8
+Date: Tue, 10 Jun 2026 00:00:00 +0000
+Source: ccfe
+Binary: ccfe
+Architecture: all
+Version: 2.0
+Distribution: unstable
+Urgency: medium
+Maintainer: CCFE maintainers <ccfedevel@gmail.com>
+Changed-By: CCFE maintainers <ccfedevel@gmail.com>
+Description:
+ ccfe       - Curses Command Front-end
+Changes:
+ ccfe (2.0) unstable; urgency=medium
+ .
+   * CCFE 2.0.
+   * Reorganised install layout: menus/forms under share/ccfe/objects, themes
+     under share/ccfe/themes; per-user files follow the XDG base directories.
+   * Paths resolved at runtime from the program location (relocatable; no
+     install-time templating).
+   * Restricted mode and command-execution hardening.
+   * Optional colour, including menu/header/control-key theming and the classic
+     and colour SMIT themes.
+   * "ccfe -k NAME" parse-check linter.
+Checksums-Sha1:
+ a3dd4cc32956ed2e2164508303fbb9a1e3e6e43c 68684 ccfe_2.0_all.deb
+ 09a1bd20caa82ccbd665cde246f7f499247d5243 4376 ccfe_2.0_amd64.buildinfo
+Checksums-Sha256:
+ 9c2b7118c7c3a4b8c904af3ea9692eed160356942110345016bc1aef74b13078 68684 ccfe_2.0_all.deb
+ f306db00b1ee55a82356b829227429da0e1e305bf767db12c05aa4a8da6b0e89 4376 ccfe_2.0_amd64.buildinfo
+Files:
+ 1001086e644a286e7c1141b51467ca44 68684 admin optional ccfe_2.0_all.deb
+ 2a7f9e2448a3e9f6bd85670815bb67c1 4376 admin optional ccfe_2.0_amd64.buildinfo

@@ -1,0 +1,33 @@
+Format: 1.8
+Date: Wed, 11 Jun 2026 09:00:00 +0000
+Source: ccfe
+Binary: ccfe
+Architecture: all
+Version: 2.1.1
+Distribution: unstable
+Urgency: medium
+Maintainer: CCFE maintainers <ccfedevel@gmail.com>
+Changed-By: CCFE maintainers <ccfedevel@gmail.com>
+Description:
+ ccfe       - Curses Command Front-end
+Changes:
+ ccfe (2.1.1) unstable; urgency=medium
+ .
+   * Internal modularisation (ROADMAP M7); no functional change. The menu, form
+     and config file parsers, the action-string parser and the form value-column
+     /page geometry are extracted into pure, terminal-free CCFE::* modules under
+     lib/perl5, each unit-tested directly (CCFE::MenuFile, CCFE::FormFile,
+     CCFE::Config, CCFE::Action, CCFE::Layout). The two duplicated copies of the
+     action parse and of the resize geometry are now single shared
+     implementations, so they can no longer drift apart.
+   * Test suite grown to 302 tests; behaviour verified unchanged by the existing
+     on-screen resize/layout/multipage and colour integration tests.
+Checksums-Sha1:
+ c1b8bcf920c8f6550795ec9ddac89dd0b46fc580 85804 ccfe_2.1.1_all.deb
+ 0a1c23eb7244e3db69fbcb529c735164748333d4 4567 ccfe_2.1.1_amd64.buildinfo
+Checksums-Sha256:
+ 6147d8d13ea5abff0ecb49e411da63bbee25b8ff6e7f263e172ea1beb6baa1c7 85804 ccfe_2.1.1_all.deb
+ 9851500674a98d18985b443fd3cf2b210bbfa1db2845d9493d846eda41b456b8 4567 ccfe_2.1.1_amd64.buildinfo
+Files:
+ 71e85edb2511645ab4e87884098465a1 85804 admin optional ccfe_2.1.1_all.deb
+ 8dc25da608fc6137f02c77bf4df32a57 4567 admin optional ccfe_2.1.1_amd64.buildinfo

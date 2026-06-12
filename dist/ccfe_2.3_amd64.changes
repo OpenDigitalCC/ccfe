@@ -1,0 +1,41 @@
+Format: 1.8
+Date: Fri, 12 Jun 2026 12:00:00 +0000
+Source: ccfe
+Binary: ccfe
+Architecture: all
+Version: 2.3
+Distribution: unstable
+Urgency: medium
+Maintainer: CCFE maintainers <ccfedevel@gmail.com>
+Changed-By: CCFE maintainers <ccfedevel@gmail.com>
+Description:
+ ccfe       - Curses Command Front-end
+Changes:
+ ccfe (2.3) unstable; urgency=medium
+ .
+   * Config variables: a new `variables {}` config section defines $NAME values
+     (cross-referencing each other) that are substituted into menu/form actions
+     and field list_cmds -- to cut duplication across objects. See ccfe.conf(5).
+   * Guided configuration wizard (`ccfe config`): forms that walk through screen
+     layout, behaviour toggles, shell/restricted mode and defining a variable,
+     writing the user's personal ccfe.conf via ccfe-build.
+   * Builder: edit an existing menu item's description (`ccfe builder`).
+   * A docker-compose "remembered commands" shell (a curated admin/debug menu).
+   * Output browser fills its whole pane with the panel background under a theme
+     (no more "themed text, black gaps"); a missing `exec:` command now shows a
+     clear pop-up instead of an opaque exit; the bundled sysmon demo gained
+     core-tool tasks (df/du/ps/ss/free/uptime/who) that need no sysstat package.
+   * Internal: the oversized ccfe.pl subs (do_form, load_config, run_browse,
+     do_menu, do_list, load_form) were broken up behind a strengthened pty test
+     net, and ccfe.pl is now perltidy-clean and under the CI lint gate.
+   * No change to the menu/form/config file formats or to normal interactive
+     behaviour. Full detail is in the git history.
+Checksums-Sha1:
+ dbcecd7f108c052e6888b3fbf19af2fcee6f4266 104320 ccfe_2.3_all.deb
+ c31f45ac9c4c3e516993251b8cf39a1d985584b2 4562 ccfe_2.3_amd64.buildinfo
+Checksums-Sha256:
+ 2d6cd9a5f37caf3d8ddf9ea261937f08c642a759d4d2b09fbbd1ff6de3f32dcb 104320 ccfe_2.3_all.deb
+ d707decc7f370e87600e053e98993ee7b4f673a7342b8429d05d4b8e47c5bf96 4562 ccfe_2.3_amd64.buildinfo
+Files:
+ 4a25a970462a10a48d1a0bfa740cad1f 104320 admin optional ccfe_2.3_all.deb
+ 5d894b7148b34bee8c467c948c8ec87c 4562 admin optional ccfe_2.3_amd64.buildinfo

@@ -1,0 +1,43 @@
+Format: 1.8
+Date: Wed, 11 Jun 2026 00:00:00 +0000
+Source: ccfe
+Binary: ccfe
+Architecture: all
+Version: 2.1
+Distribution: unstable
+Urgency: medium
+Maintainer: CCFE maintainers <ccfedevel@gmail.com>
+Changed-By: CCFE maintainers <ccfedevel@gmail.com>
+Description:
+ ccfe       - Curses Command Front-end
+Changes:
+ ccfe (2.1) unstable; urgency=medium
+ .
+   * Terminal-resize reflow: menus and forms re-paginate, re-right-align and
+     re-wrap to the new size; resizing no longer crashes or leaves values
+     off-screen; pop-up list / output browser re-centre and rebuild on resize.
+   * Forms lay out by display column, not byte count, so accented / wide-char
+     labels position correctly (optional libtext-charwidth-perl).
+   * Over-long labels wrap onto their own line(s) with the value below, rather
+     than being pushed off-screen.
+   * Full foreground/background colour palette: color_pair('fg','bg') in any
+     *_attr value gives a panelled SMIT look applied across menus, forms and the
+     output browser; new ccfe.conf.smit-panel theme.
+   * Field flag markers and the leader dots adopt the theme colour; show_dots
+     can switch the dot run off.
+   * F8 / redraw and resize now force a full repaint; uncaught errors restore
+     the terminal with a clean message.
+   * New `ccfe --dump NAME` (-D) prints a menu/form as JSON for scripting.
+   * Opt-in mouse (`mouse = YES`): click a menu item to select, double-click to
+     activate.
+   * New `ccfe --plugins` (-P) lists installed plugin manifests; plugins may
+     ship a `<name>.plugin` file (sample sysmon plugin does).
+Checksums-Sha1:
+ 98aa0ddc608687f5ba50d7258736ae7b2151754c 80856 ccfe_2.1_all.deb
+ b1fa49631652887df7da1f36eb8ad61f8bd1f335 4376 ccfe_2.1_amd64.buildinfo
+Checksums-Sha256:
+ 0b1e7164f3f5158d10b8b534e5f1e618ec09a240f33e3d79fea34edbaf2c6761 80856 ccfe_2.1_all.deb
+ 842e03ae640fe43a608d68ea089003f1983211f6d24fd106f3aeaddceca9d8ef 4376 ccfe_2.1_amd64.buildinfo
+Files:
+ 0c54be2fe99cff33738005d672712066 80856 admin optional ccfe_2.1_all.deb
+ 5f40fc910dd4b98e91fe69e8753760c8 4376 admin optional ccfe_2.1_amd64.buildinfo
