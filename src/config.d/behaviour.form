@@ -1,0 +1,28 @@
+title { Display and behaviour }
+top { Toggle common options.  Each is written to your ccfe.conf. }
+field {
+  id      = HIDECURSOR
+  label   = Hide the text cursor on menus
+  type    = BOOLEAN
+  default = const:YES
+}
+field {
+  id      = MOUSE
+  label   = Enable mouse support
+  type    = BOOLEAN
+  default = const:NO
+  htab    = 1
+}
+field {
+  id      = SCREENNAME
+  label   = Show the screen (object) name in the header
+  type    = BOOLEAN
+  default = const:NO
+  htab    = 1
+}
+action { run:
+  cb="${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build"
+  "$cb" set-config hide_cursor      "$CCFE_FIELD_HIDECURSOR"
+  "$cb" set-config mouse            "$CCFE_FIELD_MOUSE"
+  "$cb" set-config show_screen_name "$CCFE_FIELD_SCREENNAME"
+}

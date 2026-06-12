@@ -16,6 +16,8 @@
 #   ccfe-build add-field  FORM ID LABEL [TYPE]
 #   ccfe-build set-action FORM ACTION
 #   ccfe-build set-config KEY VALUE        # global { } setting in the user conf
+#   ccfe-build set-var    NAME VALUE       # variables { } entry in the user conf
+#   ccfe-build show-config                 # print the user conf
 #   ccfe-build list                        # list the user's objects
 #
 #  Copyright (C) 2026 CCFE contributors.  GPL-2.0-or-later.
@@ -43,6 +45,33 @@ valid_name() {
 validate() { "$ccfe" -k "$1"; }
 
 ensure_dirs() { mkdir -p "$objdir" "$cfgdir"; }
+
+# set_in_block BLOCK KEY VALUE -- set "KEY = VALUE" inside the named `BLOCK { }`
+# section of the user conf, creating the conf and/or the block if needed.  An
+# existing KEY in that block is replaced; otherwise the line is inserted before
+# the block's closing brace.  Block-aware so global{} and variables{} coexist.
+set_in_block() {
+  block=$1; key=$2; val=$3
+  ensure_dirs
+  [ -f "$conf" ] || : > "$conf"
+  if ! grep -qE "^[[:space:]]*${block}[[:space:]]*\{" "$conf"; then
+    printf '%s {\n}\n' "$block" >> "$conf"
+  fi
+  tmp="$conf.tmp.$$"
+  awk -v block="$block" -v key="$key" -v val="$val" '
+    $0 ~ ("^[[:space:]]*" block "[[:space:]]*\\{") { inblk=1 }
+    inblk && !done && $0 ~ ("^[[:space:]]*" key "[[:space:]]*=") {
+      print "  " key " = " val; done=1; next
+    }
+    inblk && /^[[:space:]]*}/ {
+      if (!done) print "  " key " = " val
+      inblk=0; done=1; print; next
+    }
+    { print }
+  ' "$conf" > "$tmp"
+  mv "$tmp" "$conf"
+  chmod 0644 "$conf"
+}
 
 cmd=${1:-}
 [ -n "$cmd" ] || die "no command (try: new-menu, add-item, new-form, add-field, set-action, set-config, list)"
@@ -142,19 +171,28 @@ case "$cmd" in
   set-config)
     key=${1:-}; val=${2:-}
     [ -n "$key" ] || die "set-config needs KEY VALUE"
-    ensure_dirs
-    [ -f "$conf" ] || printf 'global {\n}\n' > "$conf"
-    # Replace an existing key in global { }, or insert before its closing brace.
-    tmp="$conf.tmp.$$"
-    if grep -qE "^[[:space:]]*${key}[[:space:]]*=" "$conf"; then
-      sed "s|^[[:space:]]*${key}[[:space:]]*=.*|  ${key} = ${val}|" "$conf" > "$tmp"
+    set_in_block global "$key" "$val"
+    echo "Set $key = $val in the global { } block of $conf"
+    ;;
+
+  set-var)
+    name=${1:-}; val=${2:-}
+    [ -n "$name" ] || die "set-var needs NAME VALUE"
+    case "$name" in
+      *[!A-Za-z0-9_]* | '' ) die "invalid variable name \"$name\" (letters, digits, _)" ;;
+    esac
+    set_in_block variables "$name" "$val"
+    echo "Set variable $name in the variables { } block of $conf"
+    ;;
+
+  show-config)
+    if [ -f "$conf" ]; then
+      echo "# $conf"
+      cat "$conf"
     else
-      awk -v k="$key" -v v="$val" '
-        /^}/ && !done { print "  " k " = " v; done=1 } { print }' "$conf" > "$tmp"
+      echo "No personal config yet ($conf)."
+      echo "Use the \"Configure CCFE\" wizard or set-config to create one."
     fi
-    mv "$tmp" "$conf"
-    chmod 0644 "$conf"
-    echo "Set $key = $val in $conf"
     ;;
 
   list)

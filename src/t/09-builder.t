@@ -76,15 +76,39 @@ like( $conf, qr/restricted\s*=\s*yes/, '  setting written to the user config' );
 # the later end-to-end test must run unrestricted.
 build( 'set-config', 'restricted', 'no' );
 
+# ---- backend: edit-item (change an existing item's description) ---------
+build( 'add-item', 'mymenu', 'DISK', 'Old disk text', 'run:df -h' );
+build( 'add-item', 'mymenu', 'MEM',  'Memory',        'run:free -h' );
+( $o, $rc ) = build( 'edit-item', 'mymenu', 'DISK', 'New disk text' );
+is( $rc, 0, 'edit-item exits 0' );
+my $menu = do { local ( @ARGV, $/ ) = "$objs/mymenu.menu"; <> };
+like( $menu, qr/New disk text/,  '  the targeted item description is updated' );
+like( $menu, qr/descr\s*=\s*Memory/, '  a sibling item is left untouched' );
+( $o, $rc ) = build( 'edit-item', 'mymenu', 'NOPE', 'x' );
+isnt( $rc, 0, '  editing an unknown item id fails' );
+
+# ---- backend: set-var (variables { } block, coexisting with global { }) -
+( $o, $rc ) = build( 'set-var', 'DOCKER_DIR', '/srv/docker' );
+is( $rc, 0, 'set-var exits 0' );
+$conf = do { local ( @ARGV, $/ ) = "$cfg/ccfe/ccfe.conf"; <> };
+like( $conf, qr/variables\s*\{[^}]*DOCKER_DIR\s*=\s*\/srv\/docker/s,
+    '  variable written into a variables { } block' );
+like( $conf, qr/global\s*\{/,
+    '  the existing global { } block is preserved (block-aware write)' );
+
 # ---- backend: validation / safety --------------------------------------
 ( $o, $rc ) = build( 'new-menu', 'bad name!', 'x' );
 isnt( $rc, 0, 'an invalid object name is rejected' );
 
 # ---- shipped builder objects parse -------------------------------------
 for my $name (
-    'builder', 'builder.d/newmenu', 'builder.d/additem',
-    'builder.d/newform', 'builder.d/addfield', 'builder.d/finishform',
-    'builder.d/settings'
+    'builder',           'builder.d/newmenu',
+    'builder.d/additem', 'builder.d/edititem',
+    'builder.d/newform', 'builder.d/addfield',
+    'builder.d/finishform', 'builder.d/settings',
+    'config',               'config.d/layout',
+    'config.d/behaviour',   'config.d/shell',
+    'config.d/variable'
   )
 {
     my $out = `"$bin/ccfe" -k "$name" 2>&1`;

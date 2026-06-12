@@ -1,0 +1,14 @@
+title { Screen layout }
+top { Choose how screens are drawn.  Takes effect next time you start CCFE. }
+field {
+  id       = LAYOUT
+  len      = 8
+  type     = STRING
+  required = YES
+  default  = const:normal
+  list_cmd = const:single-val:"normal : boxed panels (classic)","simple : plain, no boxes"
+  label    = Screen layout (F2 for choices)
+}
+action { run:
+  "${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" set-config screen_layout "$CCFE_FIELD_LAYOUT"
+}

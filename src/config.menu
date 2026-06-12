@@ -1,0 +1,42 @@
+#
+#  CCFE configuration wizard -- a guided front-end over ccfe-build that writes
+#  the user's personal ccfe.conf.  Launched as "ccfe config".
+#
+title {
+  Configure CCFE
+}
+top {
+  Set CCFE up step by step.  Each item opens a small form; changes are written
+  to your personal ccfe.conf.  Use "Show my configuration" to review the result,
+  and "Build menus and forms" to create your own objects.
+}
+item {
+  id     = LAYOUT
+  descr  = Screen layout (normal / simple)
+  action = form:config.d/layout
+}
+item {
+  id     = BEHAVIOUR
+  descr  = Display and behaviour options
+  action = form:config.d/behaviour
+}
+item {
+  id     = SHELL
+  descr  = Shell and restricted mode
+  action = form:config.d/shell
+}
+item {
+  id     = VARIABLE
+  descr  = Define a config variable
+  action = form:config.d/variable
+}
+item {
+  id     = SHOWCONF
+  descr  = Show my configuration
+  action = run:"${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" show-config
+}
+item {
+  id     = BUILD
+  descr  = Build menus and forms (object builder)
+  action = menu:builder
+}

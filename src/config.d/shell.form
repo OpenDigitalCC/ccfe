@@ -1,0 +1,27 @@
+title { Shell and restricted mode }
+top {
+  Set the shell used for the temporary shell escape, and whether this instance
+  runs in restricted (kiosk) mode.  See ccfe.conf(5) for what restricted locks.
+}
+field {
+  id       = USERSHELL
+  label    = Shell for the F-key shell escape (F2 for /etc/shells)
+  type     = STRING
+  len      = 24
+  hscroll  = YES
+  required = YES
+  default  = const:/bin/bash
+  list_cmd = command:single-val:grep -v '^#' /etc/shells 2>/dev/null
+}
+field {
+  id      = RESTRICTED
+  label   = Restricted (kiosk) mode
+  type    = BOOLEAN
+  default = const:NO
+  vtab    = 1
+}
+action { run:
+  cb="${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build"
+  "$cb" set-config user_shell "$CCFE_FIELD_USERSHELL"
+  "$cb" set-config restricted "$CCFE_FIELD_RESTRICTED"
+}

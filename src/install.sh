@@ -184,6 +184,9 @@ install ()
     # Guided builders (the "ccfe builder" menu drives ccfe-build):
     cp builder.menu $OBJDIR/ccfe
     cp -r builder.d $OBJDIR/ccfe
+    # Configuration wizard (the "ccfe config" menu, also via ccfe-build):
+    cp config.menu $OBJDIR/ccfe
+    cp -r config.d $OBJDIR/ccfe
     PATH=$BINDIR:$PATH
     export PATH
     cd ccfe-plugin-sysmon

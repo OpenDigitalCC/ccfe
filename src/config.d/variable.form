@@ -1,0 +1,25 @@
+title { Define a config variable }
+top {
+  Define a value once and reference it as $NAME in menu/form actions and
+  list_cmds (see ccfe.conf(5) "VARIABLES").  A value may reference another
+  variable, e.g. NAME=COMPOSE VALUE=cd $DOCKER_DIR && docker compose.
+}
+field {
+  id       = NAME
+  label    = Variable name (letters, digits, _)
+  type     = STRING
+  len      = 24
+  required = YES
+}
+field {
+  id       = VALUE
+  label    = Value
+  type     = STRING
+  len      = 44
+  hscroll  = YES
+  required = YES
+  vtab     = 1
+}
+action { run:
+  "${CCFE_BIN_DIR:+$CCFE_BIN_DIR/}ccfe-build" set-var "$CCFE_FIELD_NAME" "$CCFE_FIELD_VALUE"
+}
