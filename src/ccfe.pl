@@ -123,40 +123,42 @@ our (
     $RB_FAILED_MSG,          $RB_LINES_MSG,         $RB_OK_MSG,
     $RB_RUNNING_MSG,         $RB_TIME_MSG,          $RB_TITLE,
     $REALNAME,               $RELOAD_MSG,           $RELOAD_TITLE,
-    $RESTRICTED_MSG,         $RESTRICTED_TITLE,     $RS_BOTTOM_ROWS,
-    $RS_HEADER_ROWS,         $RS_INFO_ID,           $RS_STDERR_ID,
-    $RS_STDOUT_ID,           $RS_TOP_ROWS,          $SAVE_DETAILED,
-    $SAVE_DETAILED_DESCR,    $SAVE_ERROR_MSG,       $SAVE_ERROR_TITLE,
-    $SAVE_FIELDVAL_MSG,      $SAVE_FIELDVAL_TITLE,  $SAVE_FNAME_PROMPT,
-    $SAVE_FNAME_TITLE,       $SAVE_SCRIPT,          $SAVE_SCRIPT_DESCR,
-    $SAVE_SIMPLE,            $SAVE_SIMPLE_DESCR,    $SAVE_TYPE_TITLE,
-    $SEARCH_PTRN_PROMPT,     $SEARCH_PTRN_TITLE,    $SEPARATOR,
-    $SEP_LINE,               $SEP_LINE_DOUBLE,      $SEP_TEXT,
-    $SEP_TEXT_CENTER,        $SHOW_ACTION_TITLE,    $SIMPLE,
-    $SR_BUFF_SIZE,           $STRING,               $THEMEDIR,
-    $TRUE,                   $UCSTRING,             $USERNAME,
-    $USR_CFG,                $USR_OBJ,              $VERSION,
-    $VERSION_DATE,           $VERSION_YEAR,         $WAIT_MSG_MSG,
-    $WRKDIR,                 $YES,                  $attrk,
-    $attrv,                  $called_form,          $ch,
-    $choice,                 $cpid,                 $descr,
-    $es,                     $exec_hh,              $exec_mm,
-    $exec_ss,                $i,                    $id,
-    $lflags_size,            $mlmargin,             $mwin,
-    $mwinr,                  $opt,                  $out,
-    $ovl_mode,               $p,                    $pad_lines,
-    $path,                   $pid,                  $prev_wdir,
-    $res,                    $rflags_size,          $s,
-    $scan,                   $search_string,        $shcut_type,
-    $text,                   $tmpfh,                $twin,
-    @CONFIRM_ITEMS,          @ERR_LITTLE_SCREEN,    @ERR_WRONG_FPATH,
-    @FORM_TOP_MSG,           @FSKeys,               @LW_DISPLAY_TOP_MSG,
-    @LW_MULTIVAL_TOP_MSG,    @LW_SINGLEVAL_TOP_MSG, @MENU_TOP_MSG,
-    @MSKeys,                 @RSKeys,               @cnf_path,
-    @cnf_path_base,          @es_str,               @flist,
-    @fn_key_functions,       @lines,                @mf_path,
-    @mf_path_base,           %bool_vals,            %layout_vals,
-    %options,                %sep_type_vals,        %type_vals,
+    $THEME_PICK_TITLE,       $THEME_SET_MSG,        $THEME_TITLE,
+    $NO_THEMES_MSG,          $RESTRICTED_MSG,       $RESTRICTED_TITLE,
+    $RS_BOTTOM_ROWS,         $RS_HEADER_ROWS,       $RS_INFO_ID,
+    $RS_STDERR_ID,           $RS_STDOUT_ID,         $RS_TOP_ROWS,
+    $SAVE_DETAILED,          $SAVE_DETAILED_DESCR,  $SAVE_ERROR_MSG,
+    $SAVE_ERROR_TITLE,       $SAVE_FIELDVAL_MSG,    $SAVE_FIELDVAL_TITLE,
+    $SAVE_FNAME_PROMPT,      $SAVE_FNAME_TITLE,     $SAVE_SCRIPT,
+    $SAVE_SCRIPT_DESCR,      $SAVE_SIMPLE,          $SAVE_SIMPLE_DESCR,
+    $SAVE_TYPE_TITLE,        $SEARCH_PTRN_PROMPT,   $SEARCH_PTRN_TITLE,
+    $SEPARATOR,              $SEP_LINE,             $SEP_LINE_DOUBLE,
+    $SEP_TEXT,               $SEP_TEXT_CENTER,      $SHOW_ACTION_TITLE,
+    $SIMPLE,                 $SR_BUFF_SIZE,         $STRING,
+    $THEMEDIR,               $TRUE,                 $UCSTRING,
+    $USERNAME,               $USR_CFG,              $USR_OBJ,
+    $VERSION,                $VERSION_DATE,         $VERSION_YEAR,
+    $WAIT_MSG_MSG,           $WRKDIR,               $YES,
+    $attrk,                  $attrv,                $called_form,
+    $ch,                     $choice,               $cpid,
+    $descr,                  $es,                   $exec_hh,
+    $exec_mm,                $exec_ss,              $i,
+    $id,                     $lflags_size,          $mlmargin,
+    $mwin,                   $mwinr,                $opt,
+    $out,                    $ovl_mode,             $p,
+    $pad_lines,              $path,                 $pid,
+    $prev_wdir,              $res,                  $rflags_size,
+    $s,                      $scan,                 $search_string,
+    $shcut_type,             $text,                 $tmpfh,
+    $twin,                   @CONFIRM_ITEMS,        @ERR_LITTLE_SCREEN,
+    @ERR_WRONG_FPATH,        @FORM_TOP_MSG,         @FSKeys,
+    @LW_DISPLAY_TOP_MSG,     @LW_MULTIVAL_TOP_MSG,  @LW_SINGLEVAL_TOP_MSG,
+    @MENU_TOP_MSG,           @MSKeys,               @RSKeys,
+    @cnf_path,               @cnf_path_base,        @es_str,
+    @flist,                  @fn_key_functions,     @lines,
+    @mf_path,                @mf_path_base,         %bool_vals,
+    %layout_vals,            %options,              %sep_type_vals,
+    %type_vals,
 );
 ## END-OUR
 
@@ -695,6 +697,10 @@ sub load_msgs {
       RESTRICTED_TITLE
       RELOAD_MSG
       RELOAD_TITLE
+      THEME_PICK_TITLE
+      THEME_SET_MSG
+      THEME_TITLE
+      NO_THEMES_MSG
       NULL_FACTION_MSG
       NULL_FACTION_TITLE
       EXEC_NOTFOUND_MSG
@@ -1725,11 +1731,18 @@ sub apply_attr_section ( $val, $map, $key, $res_ref ) {
 }
 
 sub load_config {
-    my ( $key, $val, $text, $found, $res, $fname );
+    my ( $key, $val, $text, $found, $res );
     my @lines;
 
+    # A `theme = NAME` global appends $THEMEDIR/<callname>.conf.NAME to the
+    # path so it is read like any other config file (FEATURE-REQUESTS A2); the
+    # index loop below picks up that append.  %theme_seen stops a theme that
+    # itself selects a theme from looping.
+    my %theme_seen;
+
     $found = $NO;
-    for $fname (@cnf_path) {
+    for ( my $ci = 0; $ci < @cnf_path; $ci++ ) {
+        my $fname = $cnf_path[$ci];
         trace( "looking for $fname", $LOG_SCAN_PATHS );
         if ( -f $fname ) {
 
@@ -1844,6 +1857,52 @@ sub load_config {
                                     }
                                     elsif (/^PATH$/) {
                                         $ctx->{cfg}{PATH} = $attrv;
+                                        last ASWITCH;
+                                    }
+                                    elsif (/^THEME$/) {
+
+                                    # Pull in a named colour/style theme from
+                                    # THEMEDIR by appending its config file to
+                                    # the path, so it is read like any other
+                                    # config (FEATURE-REQUESTS A2).  Read after
+                                    # the file that selected it, so the theme
+                                    # defines the look; the runtime switcher
+                                    # persists a choice by writing this line to
+                                    # the user config.  A system theme thus
+                                    # applies even under RESTRICTED (the user
+                                    # config that could override it is skipped).
+                                        my $tname = $attrv;
+                                        $tname =~ s/^\s+//;
+                                        $tname =~ s/\s+$//;
+                                        if ( $tname eq ''
+                                            or lc $tname eq 'default' )
+                                        {
+                                            $ctx->{cfg}{THEME} = '';
+                                        }
+                                        elsif ( $tname =~ /^[\w.+-]+$/ ) {
+                                            my $tfile =
+                                              "$THEMEDIR/$CALLNAME.conf.$tname";
+                                            if ( -f $tfile
+                                                and !$theme_seen{$tname}++ )
+                                            {
+                                                $ctx->{cfg}{THEME} = $tname;
+                                                push @cnf_path, $tfile;
+                                                trace(
+                                                    "theme \"$tname\": queued $tfile"
+                                                );
+                                            }
+                                            elsif ( !-f $tfile ) {
+                                                trace(
+                                                    "theme \"$tname\" not found at $tfile"
+                                                );
+                                            }
+                                        }
+                                        else {
+                                            trace(
+                                                "invalid theme name \"$attrv\""
+                                            );
+                                            $res = $ES_SYNTAX_ERR;
+                                        }
                                         last ASWITCH;
                                     }
                                     elsif (/^LOG_LEVEL$/) {
@@ -2314,6 +2373,7 @@ sub set_cfg_defaults {
     $ctx->{cfg}{RESTRICTED}       = $NO;
     $ctx->{cfg}{RESTRICTED_ALLOW} = [];
     $ctx->{cfg}{vars}             = {};
+    $ctx->{cfg}{THEME}            = '';
 
     # Menu/screen theme attributes.  Defaults preserve the historical
     # monochrome look (overall screen normal, selected item reversed, bold
@@ -2504,6 +2564,12 @@ sub run_menu_action ( $action_str, $descr, $menuname, $menu_path, $win, $es ) {
         $ctx->{state}{cfg_reloaded} = $YES;
         disp_msg( $win, $RELOAD_MSG, $RELOAD_TITLE );
     }
+    elsif ( $action eq 'theme' ) {
+
+        # Pick a colour theme, persist it to the user config and apply it now
+        # (FEATURE-REQUESTS A2).  Sets cfg_reloaded so do_menu repaints.
+        run_theme_picker($win);
+    }
     elsif ( $action eq 'ABORTED' ) {
         trace("user not confirmed action!");
     }
@@ -2511,6 +2577,68 @@ sub run_menu_action ( $action_str, $descr, $menuname, $menu_path, $win, $es ) {
         trace("unknown action \"$action\"");
     }
     return $es;
+}
+
+# Runtime colour-theme switcher (FEATURE-REQUESTS A2).  Enumerate the themes
+# installed in THEMEDIR (the <callname>.conf.<name> files), let the user pick
+# one from a pop-up list, persist the choice to the user config as a
+# `theme = NAME` global (via ccfe-build, which is block-aware) and apply it
+# immediately by reloading.  Picking "default" clears the choice.  Disabled
+# under RESTRICTED, where the user config is ignored anyway.
+sub run_theme_picker ($win) {
+    if ( $ctx->{cfg}{RESTRICTED} ) {
+        disp_msg( $win, $RESTRICTED_MSG, $RESTRICTED_TITLE );
+        return;
+    }
+
+    my @themes =
+      sort map { m{\Q$CALLNAME\E\.conf\.([\w.+-]+)$} ? $1 : () }
+      glob("$THEMEDIR/$CALLNAME.conf.*");
+    if ( !@themes ) {
+        disp_msg( $win, $NO_THEMES_MSG, $THEME_TITLE );
+        return;
+    }
+
+    # The picker value is the first token (the theme name); the rest is a hint.
+    # "default" first, marking the currently active theme so the user sees it.
+    my $cur = $ctx->{cfg}{THEME} // '';
+    my @items =
+      ( 'default ' . ( $cur eq '' ? '(active) base configuration' : '' ) );
+    push @items, map { "$_ " . ( $_ eq $cur ? '(active)' : '' ) } @themes;
+
+    my ( $es, $val ) =
+      do_list( $win, $THEME_PICK_TITLE, 'single-val', \@items, undef );
+    return if !defined $val;
+    my ($name) = split ' ', $val;
+    return if !defined $name or $name eq '';
+
+    # Persist via ccfe-build (block-aware writer), capturing its confirmation
+    # line through a pipe so it never paints over the curses screen.  List form
+    # of open => no shell; $name is one of the globbed theme names anyway.
+    my $build = "$BINDIR/ccfe-build";
+    $build = 'ccfe-build' unless -x $build;
+    my $rc = 1;
+
+    # Localise the SIGCHLD reaper: it would otherwise reap this child before
+    # close() can collect its exit status, so close() would always look failed.
+    {
+        local $SIG{CHLD} = 'DEFAULT';
+        if ( open( my $bh, '-|', $build, 'set-config', 'theme', $name ) ) {
+            local $/;
+            my $junk = <$bh>;
+            $rc = close($bh) ? 0 : 1;
+        }
+    }
+    if ($rc) {
+        trace("theme switch: ccfe-build set-config failed");
+        disp_msg( $win, $NO_THEMES_MSG, $THEME_TITLE );    # generic failure
+        return;
+    }
+
+    reload_config();
+    $ctx->{state}{cfg_reloaded} = $YES;
+    disp_msg( $win, "$THEME_SET_MSG $name", $THEME_TITLE );
+    return;
 }
 
 sub do_menu {

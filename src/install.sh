@@ -86,7 +86,7 @@ mk_manpage ()
   local s       # Manual section
 
   s=`echo $p | cut -c ${#p}`
-  cat man/$p | sed -e "s/ETC_DIR_PLACEHOLDER/$exp_etcdir/ ; s/BIN_DIR_PLACEHOLDER/$exp_bindir/ ; s/LIB_DIR_PLACEHOLDER/$exp_libdir/ ; s/LOG_DIR_PLACEHOLDER/$exp_logdir/ ; s/MSG_DIR_PLACEHOLDER/$exp_msgdir/ ; s/DOC_DIR_PLACEHOLDER/$exp_docdir/" > $MANDIR/man${s}/$p
+  cat man/$p | sed -e "s/ETC_DIR_PLACEHOLDER/$exp_etcdir/ ; s/BIN_DIR_PLACEHOLDER/$exp_bindir/ ; s/LIB_DIR_PLACEHOLDER/$exp_libdir/ ; s/LOG_DIR_PLACEHOLDER/$exp_logdir/ ; s/MSG_DIR_PLACEHOLDER/$exp_msgdir/ ; s/DOC_DIR_PLACEHOLDER/$exp_docdir/ ; s/THEME_DIR_PLACEHOLDER/$exp_themedir/" > $MANDIR/man${s}/$p
 }
 
 
@@ -378,5 +378,6 @@ then
   exp_logdir=$(echo $LOGDIR | sed -e 's/\//\\\//g')
   exp_msgdir=$(echo $MSGDIR | sed -e 's/\//\\\//g')
   exp_docdir=$(echo $DOCDIR | sed -e 's/\//\\\//g')
+  exp_themedir=$(echo $THEMEDIR | sed -e 's/\//\\\//g')
   install
 fi

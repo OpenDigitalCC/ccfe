@@ -34,6 +34,12 @@ RESTRICTED_MSG   = "Sorry, that action is not permitted here."
 RELOAD_TITLE = "CONFIGURATION RELOADED"
 RELOAD_MSG   = "Configuration re-read.  Colours, key bindings, behaviour options and variables now apply.  Mouse, layout and restricted-mode changes still need a restart."
 
+# Runtime colour-theme switcher (the "theme" menu action):
+THEME_TITLE      = "COLOUR THEME"
+THEME_PICK_TITLE = "Select a colour theme"
+THEME_SET_MSG    = "Theme saved to your configuration and applied:"
+NO_THEMES_MSG    = "No colour themes are installed."
+
 # Title and message string for pop-up window displayed when
 # a form is without action{} block or with wrong select-item{} block:
 NULL_FACTION_TITLE = "ERROR"

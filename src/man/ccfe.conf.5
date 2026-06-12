@@ -132,6 +132,32 @@ Values:
 .br
 Required: No
 
+.SS theme
+.PP
+Pull in a named colour/style theme. The value is the
+.I NAME
+of a theme shipped (or installed by the administrator) as
+\fITHEME_DIR_PLACEHOLDER/ccfe.conf.NAME\fR \(em for example
+.BR smit ", " smit-color ", " smit-panel " or " console \(em
+and its settings are read as if that file were appended to the configuration
+path, so they take effect on top of the current configuration. The special
+value
+.B default
+(or an empty value) selects no theme.
+.PP
+This is what the runtime theme switcher writes to your personal configuration:
+choosing
+.RB \(dq "Select colour theme" \(dq
+from the built-in \fBconfig\fR menu lists the installed themes, saves your
+choice as a \fBtheme\fR line and applies it immediately (see the \fBreload\fR
+key function). Because the switch is written to the user configuration, it is
+ignored under \fBrestricted\fR mode, where a system-set theme still applies.
+.PP
+Values:
+.I NAME
+.br
+Required: No
+
 .SS shell
 .PP
 The shell used for the execution of every command string specified in forms
