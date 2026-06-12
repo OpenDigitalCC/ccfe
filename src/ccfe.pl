@@ -903,6 +903,32 @@ sub init_title {
       if ( $ctx->{cfg}{LAYOUT} == $NORMAL );
 }
 
+# Normalise a menu/form top{} message into a flat list of display lines that fit
+# $width columns: flatten any embedded newlines, then word-wrap lines longer than
+# $width.  Used to size the top area dynamically so a long description forces
+# vertical space (the menu is placed below the full message) instead of being
+# overdrawn by it.
+sub wrap_top_lines {
+    my ( $lines, $width ) = @_;
+    $width = 1 if !$width || $width < 1;
+    my @out;
+    for my $line ( @{ $lines || [] } ) {
+        next unless defined $line;
+        for my $seg ( split /\n/, $line ) {
+            $seg =~ s/\s+$//;
+            if ( length($seg) <= $width ) { push @out, $seg; next; }
+            my $cur = '';
+            for my $word ( split /\s+/, $seg ) {
+                if    ( $cur eq '' )                     { $cur = $word }
+                elsif ( length("$cur $word") <= $width ) { $cur .= " $word" }
+                else { push @out, $cur; $cur = $word }
+            }
+            push @out, $cur if $cur ne '';
+        }
+    }
+    return @out;
+}
+
 sub init_top {
     my ( $win, $has_border, $winY0, $winRows, @tlines ) = @_;
     my ( $maxLen, $i, $tlmargin, $maxY, $maxX );
@@ -2424,10 +2450,27 @@ sub do_menu {
             # creation valid so a tiny terminal cannot crash us.
             my $eff_lines = $LINES < 24 ? 24 : $LINES;
             my $eff_cols  = $COLS < 80  ? 80 : $COLS;
+
+            # Size the top area to the actual (wrapped) message height so a long
+            # description forces vertical space below it, instead of the menu
+            # being drawn over it.  Never less than MS_TOP_ROWS; never so much
+            # that the menu has no room left.
+            my @top_lines = wrap_top_lines( $menu{top}, $eff_cols - 4 );
+            my $top_rows  = scalar @top_lines;
+            $top_rows = $MS_TOP_ROWS if $top_rows < $MS_TOP_ROWS;
+            my $top_max =
+              $eff_lines -
+              ( $MS_HEADER_ROWS +
+                  $MS_BOTTOM_ROWS +
+                  $ctx->{cfg}{MS_FOOTER_ROWS} +
+                  1 );
+            $top_rows = $top_max
+              if $top_max >= $MS_TOP_ROWS && $top_rows > $top_max;
+
             $mwinr =
               $eff_lines -
               ( $MS_HEADER_ROWS +
-                  $MS_TOP_ROWS +
+                  $top_rows +
                   $MS_BOTTOM_ROWS +
                   $ctx->{cfg}{MS_FOOTER_ROWS} );
             $win = newwin( $eff_lines, $eff_cols, 0, 0 );
@@ -2439,7 +2482,7 @@ sub do_menu {
             $mlmargin = 1 if ( $ctx->{cfg}{LAYOUT} == $SIMPLE );
             $mlmargin = 0 if $mlmargin < 0;
             $msub =
-              derwin( $win, $rows, $cols, $MS_HEADER_ROWS + $MS_TOP_ROWS,
+              derwin( $win, $rows, $cols, $MS_HEADER_ROWS + $top_rows,
                 $mlmargin );
             set_menu_win( $cmenu, $win );
             set_menu_sub( $cmenu, $msub );
@@ -2447,8 +2490,7 @@ sub do_menu {
             keypad( $win, $ON );
             clear($win);
             init_title( $win, $MS_HEADER_ROWS, $title );
-            init_top( $win, $NO, $MS_HEADER_ROWS, $MS_TOP_ROWS,
-                @{ $menu{top} } );
+            init_top( $win, $NO, $MS_HEADER_ROWS, $top_rows, @top_lines );
             init_footer( $win, $NO, $ctx->{cfg}{MS_FOOTER_ROWS}, @MSKeys );
             post_menu($cmenu);
             refresh($win);
@@ -2476,7 +2518,12 @@ sub do_menu {
                       length($mev) >= 24
                       ? unpack( 'x16 L!', $mev )
                       : unpack( 'x16 V',  $mev );
-                    my $row = $my - ( $MS_HEADER_ROWS + $MS_TOP_ROWS );
+
+                  # Map the click to a menu row using the menu sub-window's
+                  # actual top, since the top message area is sized dynamically.
+                    my ( $suby, $subx );
+                    getbegyx( $msub, $suby, $subx );
+                    my $row = $my - $suby;
                     my $t   = top_row($cmenu) + $row;
                     if (    $row >= 0
                         and $row < $rows
