@@ -1,3 +1,13 @@
+ccfe (2.3.1) unstable; urgency=medium
+
+  * Fix a menu rendering bug: a long top{} description no longer collides with
+    the menu. The top-message area is now sized to the wrapped message height
+    (word-wrapped to the screen width) and the menu is drawn below it, instead
+    of the menu overdrawing the last line(s) of the description. The mouse
+    click-to-item mapping was updated to match the dynamic top area.
+
+ -- CCFE maintainers <ccfedevel@gmail.com>  Fri, 12 Jun 2026 18:00:00 +0000
+
 ccfe (2.3) unstable; urgency=medium
 
   * Config variables: a new `variables {}` config section defines $NAME values

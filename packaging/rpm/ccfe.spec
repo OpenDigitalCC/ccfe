@@ -10,7 +10,7 @@
 # NOTE: not built/tested in this environment (no rpmbuild available here).
 
 Name:           ccfe
-Version:        2.3
+Version:        2.3.1
 Release:        1%{?dist}
 Summary:        Curses Command Front-end
 License:        GPLv2+
