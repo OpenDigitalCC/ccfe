@@ -13,3 +13,6 @@ debian/*.debhelper.log
 
 # Local-only working notes (feeds the ROADMAP)
 FEATURE-REQUESTS.md
+
+# Local scratch (commit messages, one-off diagnostics)
+tmp/
